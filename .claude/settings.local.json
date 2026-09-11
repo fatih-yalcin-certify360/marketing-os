@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/Users/fatihyalcin/Desktop/AI Marketing\" && ls -la)",
+      "Read(//Users/fatihyalcin/Desktop/AI Marketing/**)",
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(psql --version)",
+      "Bash(mkdir -p /private/tmp/claude-502/-Users-fatihyalcin-Desktop-AI-Marketing-app/33efde52-c512-42d7-949d-fabde1ba94cd/scratchpad)",
+      "Bash(npm ping *)",
+      "Bash(npm view *)",
+      "Read(//Applications/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(brew list *)",
+      "Bash(python3 -c ' *)",
+      "Bash(/private/tmp/claude-502/-Users-fatihyalcin-Desktop-AI-Marketing-app/33efde52-c512-42d7-949d-fabde1ba94cd/scratchpad/pg/node_modules/@embedded-postgres/darwin-arm64/native/bin/initdb -D /private/tmp/claude-502/-Users-fatihyalcin-Desktop-AI-Marketing-app/33efde52-c512-42d7-949d-fabde1ba94cd/scratchpad/pg/data -U c360 --pwfile=/private/tmp/claude-502/-Users-fatihyalcin-Desktop-AI-Marketing-app/33efde52-c512-42d7-949d-fabde1ba94cd/scratchpad/pg/pw.txt -A md5 --encoding=UTF8 --locale=C)"
+    ]
+  }
+}

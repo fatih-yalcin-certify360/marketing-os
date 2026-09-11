@@ -1,0 +1,22 @@
+{
+  "name": "@c360/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Certify360 design tokens and UI primitives. Browser-safe only: no server code, no database, no secrets.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./primitives.css": "./src/primitives.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "react": "^19.2.8"
+  }
+}

@@ -1,0 +1,14 @@
+.visibility-page {display:grid;gap:1.25rem;max-width:1200px;margin:auto}
+.visibility-page section:not([hidden]) {display:grid;gap:1rem}
+.visibility-page form {display:grid;gap:.85rem;max-width:760px;margin-block:1rem}
+.visibility-page label {display:grid;gap:.3rem;margin-block:.4rem}
+.visibility-page label:has(input[type=checkbox]) {display:flex;align-items:flex-start;gap:.65rem}
+.visibility-page input:not([type=checkbox]),.visibility-page select,.visibility-page textarea {font:inherit;padding:.6rem;border:1px solid #9ba6ac;border-radius:6px;max-width:100%;width:100%;box-sizing:border-box;background:white;color:#17333f}
+.visibility-page input[type=checkbox] {width:1.1rem;height:1.1rem;flex-shrink:0}
+.visibility-page pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#f5f7f7;padding:1rem;max-height:32rem;overflow:auto}
+.visibility-page details,.visibility-prompts article {border-top:1px solid #dce3e3;padding-block:1rem}
+.visibility-page summary {cursor:pointer;font-weight:600}
+.visibility-page small {display:block;overflow-wrap:anywhere;color:#465b65}
+.visibility-metrics {display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem}
+.visibility-metrics dd {font-size:1.8rem;margin:.3rem 0;font-weight:700}
+.visibility-page a {overflow-wrap:anywhere}

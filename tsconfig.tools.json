@@ -1,0 +1,14 @@
+{
+  "$comment": "Project for root-level tooling files (vitest/eslint config). They belong to no app or package, but still need strict type information so type-aware lint rules work on them.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  },
+  "include": ["vitest.config.ts", "eslint.config.js"]
+}

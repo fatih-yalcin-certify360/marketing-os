@@ -1,0 +1,37 @@
+# Keep the build context small and, more importantly, keep secrets and local
+# state out of it entirely — anything copied into a layer is recoverable from
+# the image even if a later stage deletes it.
+
+node_modules
+**/node_modules
+dist
+**/dist
+dist-types
+**/dist-types
+coverage
+**/coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# secrets & local data
+.env
+.env.*
+!.env.example
+var/
+**/var/
+pgdata/
+storage/
+
+# tooling & VCS
+.git
+.github
+.vscode
+.idea
+.DS_Store
+playwright-report
+test-results
+
+# docs are not needed to build an image
+docs
+*.md
+!README.md

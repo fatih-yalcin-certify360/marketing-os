@@ -1,0 +1,76 @@
+import {afterAll,beforeAll,afterEach,describe,it,expect,vi} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {geoAnalysis,type GeoReport,type GeoSetup,type JobSummary} from '@c360/contracts';
+import {BrightDataCapture} from '../../src/modules/ai-visibility/bright-data.js';
+import {GeoService,verifyGeoAnalysis} from '../../src/modules/ai-visibility/geo-service.js';
+import {createTestHarness,labelIdBySlug,type TestHarness} from '../../src/testing/harness.js';
+import type {FetchResult} from '../../src/core/net/index.js';
+let h:TestHarness;let labelId:string;let courseId:string;let base:string;
+beforeAll(async()=>{h=await createTestHarness();labelId=labelIdBySlug(h.seed,'lindenhaeghe');courseId=h.seed.pilot.courseVersionId!;base=`/api/v1/labels/${labelId}/ai-visibility/geo`;});
+afterEach(()=>vi.restoreAllMocks());afterAll(async()=>{await h.close();});
+const url='https://example.org/course';const question='Welke vaardigheden leer je tijdens deze opleiding?';
+const text='Deze cursus helpt professionals om praktijksituaties te bespreken en verschillende mogelijkheden te vergelijken. Bekijk de cursusinformatie en bespreek je leerdoelen vooraf met de opleider.';
+const analysis=geoAnalysis.parse({summary:'Een onderbouwde verbetermogelijkheid.',items:[{question,relevance:'relevant',evidence:[{url,quote:'Deze cursus helpt professionals om praktijksituaties te bespreken'}],finding:'De pagina beschrijft praktijksituaties.',pageChange:{placement:'Onder de introductie',reason:'Maak de koppeling met de lezersvraag expliciet.',proposedText:'Bespreek vooraf welke praktijksituatie je beter wilt kunnen aanpakken.'},blog:{title:'Je leerdoel concreet maken',body:'Beschrijf een herkenbare werksituatie en benoem wat je anders wilt kunnen doen. Vergelijk daarna de cursusinhoud met je eigen vraag.',internalLinkText:'Bekijk de cursus'},limitations:'Geen effect op zichtbaarheid gemeten.'}]});
+describe('automatic GEO research',()=>{
+ it('uses the active label without manual entity setup and guards search capability',async()=>{
+ const setup=await h.app.inject({method:'GET',url:`${base}/setup/${courseId}`});expect(setup.statusCode).toBe(200);expect(setup.json<GeoSetup>().labelName).toBeTruthy();expect(setup.json<GeoSetup>().questions).toHaveLength(3);
+ expect((await h.app.inject({method:'POST',url:`${base}/start`,payload:{courseVersionId:courseId,courseUrl:url,questions:[question],approved:true,requestKey:randomUUID()}})).statusCode).toBe(501);
+ });
+ it('requires consent, refuses private URLs, persists URL, queues idempotently and saves retrievable sourced drafts',async()=>{
+ const generation=h.appContext.services.generation;vi.spyOn(generation,'supportsWebSearch','get').mockReturnValue(true);
+ const payload={courseVersionId:courseId,courseUrl:url,questions:[question],approved:true,requestKey:randomUUID()};
+ const start=(body:unknown)=>h.app.inject({method:'POST',url:`${base}/start`,payload:body as Record<string,unknown>});
+ expect((await start({...payload,approved:false})).statusCode).toBe(422);expect((await start({...payload,courseUrl:'https://127.0.0.1/private'})).statusCode).toBe(422);
+ const queued=await start(payload);expect(queued.statusCode,queued.body).toBe(202);const job=queued.json<JobSummary>();expect((await start(payload)).json<JobSummary>().id).toBe(job.id);
+ expect((await h.app.inject({method:'GET',url:`${base}/setup/${courseId}`})).json<GeoSetup>().courseUrl).toBe(url);
+ const fakeUrl='https://invented.example.org/fake';
+ const gen=vi.spyOn(generation,'generate').mockResolvedValueOnce({value:{urls:[fakeUrl]},sources:[],isMock:true,promptVersion:'v1',actualCostCents:0,latencyMs:1}).mockRejectedValueOnce(new Error('Temporary analysis failure')).mockResolvedValueOnce({value:analysis,isMock:true,promptVersion:'v1',actualCostCents:0,latencyMs:1});
+ const fetchPage=vi.fn(():Promise<FetchResult>=>Promise.resolve({ok:true,body:`<html><p>${text}</p></html>`,contentType:'text/html',status:200,finalUrl:url,chain:[url],connectedAddress:'93.184.216.34',byteSize:300,retrievedAt:new Date(),truncated:false}));
+ const s=h.appContext.services;const geo=new GeoService(generation,s.courses,s.brand,h.env,fetchPage);
+ const input={...payload,approved:true as const,labelId,jobId:job.id,attempt:1};
+ await expect(geo.research(h.db,h.currentUser,input)).rejects.toThrow('Temporary analysis failure');
+ const report=await geo.research(h.db,h.currentUser,{...input,attempt:2});expect(report.analysis.items[0]?.blog?.title).toBe(analysis.items[0]?.blog?.title);expect(report.isMock).toBe(true);expect(fetchPage).toHaveBeenCalledTimes(1);expect(gen).toHaveBeenCalledTimes(3);
+ expect((await geo.research(h.db,h.currentUser,input)).id).toBe(report.id);expect(gen).toHaveBeenCalledTimes(3);
+ const detail=await h.app.inject({method:'GET',url:`${base}/reports/${report.id}`});expect(detail.statusCode).toBe(200);expect(detail.json<GeoReport>().pages[0]?.text).toContain(text);
+ expect((await h.app.inject({method:'GET',url:`${base}/reports?search=vaardigheden`})).json<{items:unknown[]}>().items).toHaveLength(1);
+ const other=labelIdBySlug(h.seed,'demolabel-3');expect((await h.app.inject({method:'GET',url:`${base.replace(labelId,other)}/reports/${report.id}`})).statusCode).toBe(404);
+ });
+ it('captures exact ChatGPT questions once, exposes saved answers before analysis succeeds and resumes snapshots',async()=>{
+ const s=h.appContext.services;vi.spyOn(s.generation,'supportsWebSearch','get').mockReturnValue(true);
+ const payload={courseVersionId:courseId,courseUrl:url,questions:[question],approved:true as const,requestKey:randomUUID()};
+ const queued=await h.app.inject({method:'POST',url:`${base}/start`,payload});const job=queued.json<JobSummary>();
+ const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({snapshot_id:'s_test'}))).mockResolvedValueOnce(new Response(JSON.stringify({status:'ready'}))).mockResolvedValueOnce(new Response(JSON.stringify([{prompt:question,answer_text:'A competitor and our label are discussed.',country:'NL',search_sources:[{url,title:'Course'}],citations:[{url:null}]}])));
+ const capture=new BrightDataCapture('test-secret',request,()=>Promise.resolve());
+ const gen=vi.spyOn(s.generation,'generate').mockRejectedValueOnce(new Error('Analysis unavailable')).mockResolvedValueOnce({value:analysis,isMock:true,promptVersion:'v2',actualCostCents:0,latencyMs:1});
+ const fetchPage=vi.fn(():Promise<FetchResult>=>Promise.resolve({ok:true,body:`<p>${text}</p>`,contentType:'text/html',status:200,finalUrl:url,chain:[url],connectedAddress:'93.184.216.34',byteSize:300,retrievedAt:new Date(),truncated:false}));
+ const geo=new GeoService(s.generation,s.courses,s.brand,h.env,fetchPage,capture);
+ const input={...payload,mode:'chatgpt' as const,labelId,jobId:job.id,attempt:1};
+ await expect(geo.research(h.db,h.currentUser,input)).rejects.toThrow('Analysis unavailable');
+ const saved=await h.app.inject({method:'GET',url:`${base}/answers/${job.id}`});expect(saved.json()).toMatchObject([{answer:'A competitor and our label are discussed.',citationStatus:'unknown'}]);
+ const partial=await geo.list(h.db,h.currentUser,labelId,'ChatGPT-antwoorden zijn opgeslagen');expect(partial).toHaveLength(1);
+ const partialId=String(partial[0]!.id);expect((await geo.get(h.db,h.currentUser,labelId,partialId)).analysisStatus).toBe('unavailable');
+ const report=await geo.research(h.db,h.currentUser,{...input,attempt:2});expect(report.id).toBe(partialId);expect(report.analysisStatus).toBe('complete');
+ expect(report.method).toBe('chatgpt');expect(report.engineAnswers).toHaveLength(1);expect(request).toHaveBeenCalledTimes(3);expect(gen).toHaveBeenCalledTimes(2);
+ expect(JSON.parse(request.mock.calls[0]![1]?.body as string)).toEqual({input:[{url:'https://chatgpt.com/',prompt:question,country:'NL',web_search:true}]});
+ expect((await h.app.inject({method:'GET',url:`${base.replace(labelId,labelIdBySlug(h.seed,'demolabel-3'))}/answers/${job.id}`})).json()).toEqual([]);
+ });
+ it('resumes a provider snapshot and never reorders a request after ambiguous submission',async()=>{
+ vi.spyOn(h.appContext.services.generation,'supportsWebSearch','get').mockReturnValue(true);
+ const queue=async()=>{const res=await h.app.inject({method:'POST',url:`${base}/start`,payload:{courseVersionId:courseId,courseUrl:url,questions:[question],approved:true,requestKey:randomUUID()}});return res.json<JobSummary>().id;};
+ const job=await queue();
+ const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({snapshot_id:'s_resume'}))).mockRejectedValueOnce(new Error('private provider error')).mockResolvedValueOnce(new Response(JSON.stringify({status:'ready'}))).mockResolvedValueOnce(new Response(JSON.stringify([{prompt:question,answer_text:'Saved answer'}])));
+ const capture=new BrightDataCapture('secret',request,()=>Promise.resolve());
+ await expect(capture.capture(h.db,labelId,job,[question])).rejects.toThrow('Bright Data niet bereikbaar');
+ expect((await capture.capture(h.db,labelId,job,[question]))[0]?.answer).toBe('Saved answer');
+ expect(request.mock.calls.filter(c=>c[1]?.method==='POST')).toHaveLength(1);
+ const uncertainJob=await queue();const uncertainRequest=vi.fn<typeof fetch>().mockRejectedValue(new Error('API key should never leak'));
+ const uncertain=new BrightDataCapture('secret',uncertainRequest);
+ await expect(uncertain.capture(h.db,labelId,uncertainJob,[question])).rejects.toThrow('Bright Data niet bereikbaar');
+ await expect(uncertain.capture(h.db,labelId,uncertainJob,[question])).rejects.toThrow('onbekende afleverstatus');expect(uncertainRequest).toHaveBeenCalledTimes(1);
+ });
+ it('removes unsupported drafts and does not infer page gaps from failed fetches',()=>{
+ const none=verifyGeoAnalysis(analysis,[question],[],false).items[0]!;expect(none.relevance).toBe('unknown');expect(none.pageChange).toBeNull();expect(none.blog).toBeNull();
+ const missing=verifyGeoAnalysis(analysis,[question,'Een andere vraag zonder een onderzoeksantwoord?'],[{url,role:'course_page',text,retrievedAt:new Date().toISOString(),hash:'hash'}],false);
+ expect(missing.items[0]?.pageChange).toBeNull();expect(missing.items[0]?.blog).not.toBeNull();expect(missing.items[1]?.relevance).toBe('unknown');
+ });
+});

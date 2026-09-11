@@ -1,0 +1,16 @@
+{
+  "name": "@c360/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isomorphic domain contracts: Zod schemas, enums, error codes, access matrix. No server-only or browser-only imports.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
+  }
+}

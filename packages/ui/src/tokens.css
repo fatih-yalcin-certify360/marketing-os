@@ -1,0 +1,155 @@
+/*
+ * Certify360 Marketing OS design tokens.
+ *
+ * Values are sampled from the approved Certify360 Marketing OS interface
+ * designs (Werkruimte and Content Studio), so the built application matches the
+ * agreed visual language rather than approximating it:
+ *   deep teal navigation, purple as the single action colour, an off-white
+ *   canvas, white cards with a hairline border, and soft-tinted status pills.
+ */
+
+:root {
+  /* --- Brand: deep teal (navigation, headings) ------------------------- */
+  --c360-teal-900: #183b3e;
+  --c360-teal-800: #1d4043;
+  --c360-teal-700: #285055;
+  --c360-teal-600: #3c5d61;
+  --c360-teal-400: #567478;
+  --c360-teal-200: #cad6d8;
+
+  /* --- Brand: purple (the one action colour) --------------------------- */
+  --c360-purple-700: #6a55c4;
+  --c360-purple-600: #7762cf;
+  --c360-purple-400: #a793ed;
+  --c360-purple-100: #eee9fa;
+  --c360-purple-050: #f4f0fc;
+
+  /* --- Status ---------------------------------------------------------- */
+  --c360-green-600: #268070;
+  --c360-green-050: #eef4f2;
+  --c360-amber-700: #a66b13;
+  --c360-amber-050: #fdf4e6;
+  --c360-red-700: #a6402a;
+  --c360-red-050: #fbeeeb;
+
+  /* --- Surfaces & text ------------------------------------------------- */
+  --c360-canvas: #f5f6f9;
+  --c360-surface: #ffffff;
+  --c360-border: #e5e9ec;
+  --c360-border-strong: #d3dadd;
+  --c360-text: #183b3e;
+  --c360-text-muted: #657579;
+  --c360-text-inverse: #ffffff;
+  --c360-sidebar-text: #cad6d8;
+
+  /* --- Focus ring: must stay visible on both teal and white ----------- */
+  --c360-focus: #7762cf;
+  --c360-focus-inverse: #a793ed;
+
+  /* --- Shape & motion -------------------------------------------------- */
+  --c360-radius-sm: 6px;
+  --c360-radius: 10px;
+  --c360-radius-lg: 14px;
+  --c360-radius-pill: 999px;
+  --c360-shadow-card: 0 1px 2px rgb(24 59 62 / 6%);
+  --c360-shadow-raised: 0 4px 12px rgb(24 59 62 / 10%);
+
+  /* --- Spacing scale --------------------------------------------------- */
+  --c360-space-1: 4px;
+  --c360-space-2: 8px;
+  --c360-space-3: 12px;
+  --c360-space-4: 16px;
+  --c360-space-5: 24px;
+  --c360-space-6: 32px;
+  --c360-space-7: 48px;
+
+  /* --- Typography ------------------------------------------------------ */
+  --c360-font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --c360-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --c360-sidebar-width: 268px;
+  --c360-topbar-height: 80px;
+
+  color-scheme: light;
+}
+
+/*
+ * Respect the user's motion preference. Long-running jobs animate a progress
+ * indicator, which is exactly the kind of movement that causes problems for
+ * people with vestibular sensitivity.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--c360-canvas);
+  color: var(--c360-text);
+  font-family: var(--c360-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * A single, consistent, clearly visible focus ring. Never removed — keyboard
+ * operation is a stated requirement, not an optional extra.
+ */
+:focus-visible {
+  outline: 2px solid var(--c360-focus);
+  outline-offset: 2px;
+  border-radius: var(--c360-radius-sm);
+}
+
+/* Skip link: first tab stop, visible only once focused. */
+.c360-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--c360-space-3) var(--c360-space-4);
+  background: var(--c360-surface);
+  color: var(--c360-text);
+  border: 1px solid var(--c360-border-strong);
+  border-radius: var(--c360-radius);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.c360-skip-link:focus {
+  left: var(--c360-space-4);
+  top: var(--c360-space-4);
+}
+
+/* Content visible to assistive technology only. */
+.c360-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

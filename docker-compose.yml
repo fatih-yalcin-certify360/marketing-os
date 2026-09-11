@@ -1,0 +1,141 @@
+# Local development stack.
+#
+# Security posture (requirement 13, "İşletim"):
+#   - every application container runs as a non-root user;
+#   - no container mounts the Docker socket;
+#   - all capabilities are dropped and privilege escalation is disabled;
+#   - only the ports a developer actually needs are published, and PostgreSQL
+#     is bound to 127.0.0.1 so it is never reachable from the network;
+#   - secrets come from `.env`, which is git-ignored — never from the image.
+#
+# This file is for development. A production deployment adds TLS termination,
+# the Entra ID authenticating proxy, and encrypted storage/backups; see
+# docs/security/production-readiness.md.
+
+name: c360-marketing-os
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: c360
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-c360_dev_password}
+      POSTGRES_DB: c360_dev
+      # Deterministic collation, so ORDER BY does not differ between machines.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      # Loopback only. Binding 0.0.0.0 would expose the database to the LAN.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U c360 -d c360_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # Applies migrations once, then exits. The api and worker wait for it, so no
+  # process ever starts against a schema it does not understand.
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: runtime
+    command: ['node', 'dist/migrate.js']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: &db-env
+      NODE_ENV: development
+      DATABASE_URL: postgresql://c360:${POSTGRES_PASSWORD:-c360_dev_password}@postgres:5432/c360_dev
+    restart: 'no'
+    user: '10001:10001'
+    read_only: true
+    cap_drop: ['ALL']
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *db-env
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      API_HOST: 0.0.0.0
+      API_PORT: '4000'
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      # Development test identity. The API refuses to start with this when
+      # NODE_ENV=production.
+      AUTH_MODE: local
+      AI_PROVIDER: mock
+    ports:
+      - '127.0.0.1:4000:4000'
+    user: '10001:10001'
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      # Uploads and generated files. The only writable path in the container.
+      - api-storage:/app/var
+    cap_drop: ['ALL']
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *db-env
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      WORKER_CONCURRENCY: '2'
+      AI_PROVIDER: mock
+    # No published ports: the worker is not reachable from outside at all.
+    user: '10001:10001'
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - api-storage:/app/var
+    cap_drop: ['ALL']
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+  api-storage:

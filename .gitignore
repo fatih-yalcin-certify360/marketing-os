@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+tools/dist/
+*.tsbuildinfo
+.tsbuild/
+# Declaration output from the web build. It is generated, but the directory name
+# does not match `dist/`, so it needs naming explicitly.
+dist-types/
+
+# env & secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# local data
+/.data/
+/var/
+pgdata/
+storage/
+
+# tooling caches
+.vitest/
+coverage/
+.eslintcache
+playwright-report/
+test-results/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,53 @@
+{
+  "name": "@c360/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Certify360 Marketing OS — modular monolith HTTP API",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./db": "./src/core/db/index.ts",
+    "./jobs": "./src/modules/jobs-usage/index.ts",
+    "./audit": "./src/modules/audit/service.ts",
+    "./testing": "./src/testing/harness.ts",
+    "./generation-deps": "./src/generation-deps.ts",
+    "./errors": "./src/core/errors/app-error.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -b",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/core/db/cli/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=../../.env src/core/db/cli/seed.ts",
+    "db:reset": "tsx --env-file-if-exists=../../.env src/core/db/cli/reset.ts",
+    "db:verify-restore": "tsx --env-file-if-exists=../../.env src/core/db/cli/verify-restore.ts"
+  },
+  "dependencies": {
+    "@c360/config": "*",
+    "@c360/contracts": "*",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/multipart": "^10.1.1",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/sensible": "^6.0.4",
+    "@resvg/resvg-js": "^2.6.2",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.12.3",
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.3.289",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "playwright": "^1.63.0",
+    "sharp": "^0.35.4",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@c360/testing": "*",
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/pg": "^8.23.1",
+    "pino-pretty": "^13.1.3"
+  }
+}

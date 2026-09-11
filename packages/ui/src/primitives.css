@@ -1,0 +1,344 @@
+/* Certify360 UI primitives. Class names are prefixed `c360-` to avoid clashes. */
+
+/* ---------------------------------------------------------------- Card --- */
+.c360-card {
+  background: var(--c360-surface);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius-lg);
+  box-shadow: var(--c360-shadow-card);
+  padding: var(--c360-space-5);
+}
+
+.c360-card__title {
+  margin: 0 0 var(--c360-space-2);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c360-text);
+}
+
+.c360-card__hint {
+  margin: 0;
+  color: var(--c360-text-muted);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------- Buttons --- */
+.c360-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--c360-space-2);
+  min-height: 40px;
+  padding: 0 var(--c360-space-4);
+  border-radius: var(--c360-radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.c360-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.c360-button--primary {
+  background: var(--c360-purple-600);
+  color: var(--c360-text-inverse);
+}
+
+.c360-button--primary:hover:not(:disabled) {
+  background: var(--c360-purple-700);
+}
+
+.c360-button--secondary {
+  background: var(--c360-surface);
+  border-color: var(--c360-border-strong);
+  color: var(--c360-text);
+}
+
+.c360-button--secondary:hover:not(:disabled) {
+  border-color: var(--c360-teal-400);
+}
+
+.c360-button--ghost {
+  background: transparent;
+  color: var(--c360-purple-700);
+  padding: 0 var(--c360-space-2);
+}
+
+.c360-button--ghost:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+/* -------------------------------------------------------------- Badges --- */
+.c360-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c360-space-1);
+  padding: 4px 10px;
+  border-radius: var(--c360-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.c360-badge--purple {
+  background: var(--c360-purple-100);
+  color: var(--c360-purple-700);
+}
+
+.c360-badge--amber {
+  background: var(--c360-amber-050);
+  color: var(--c360-amber-700);
+}
+
+.c360-badge--green {
+  background: var(--c360-green-050);
+  color: var(--c360-green-600);
+}
+
+.c360-badge--red {
+  background: var(--c360-red-050);
+  color: var(--c360-red-700);
+}
+
+.c360-badge--neutral {
+  background: var(--c360-canvas);
+  color: var(--c360-text-muted);
+  border: 1px solid var(--c360-border);
+}
+
+/* ---------------------------------------------------------- Stat tiles --- */
+.c360-stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--c360-space-4);
+}
+
+.c360-stat__value {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.c360-stat__value--purple {
+  color: var(--c360-purple-600);
+}
+
+.c360-stat__value--amber {
+  color: var(--c360-amber-700);
+}
+
+.c360-stat__value--green {
+  color: var(--c360-green-600);
+}
+
+.c360-stat__value--neutral {
+  color: var(--c360-teal-400);
+}
+
+.c360-stat__caption {
+  color: var(--c360-text-muted);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------- Empty/info --- */
+.c360-notice {
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-4);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.c360-notice--info {
+  background: var(--c360-purple-050);
+  color: var(--c360-teal-800);
+}
+
+.c360-notice--warning {
+  background: var(--c360-amber-050);
+  color: var(--c360-amber-700);
+}
+
+.c360-notice--neutral {
+  background: var(--c360-green-050);
+  color: var(--c360-teal-800);
+}
+
+/* --------------------------------------------------------------- Forms --- */
+.c360-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c360-space-2);
+}
+
+.c360-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c360-text);
+}
+
+.c360-input,
+.c360-select,
+.c360-textarea {
+  min-height: 40px;
+  padding: var(--c360-space-2) var(--c360-space-3);
+  border: 1px solid var(--c360-border-strong);
+  border-radius: var(--c360-radius);
+  background: var(--c360-surface);
+  color: var(--c360-text);
+  font: inherit;
+  width: 100%;
+}
+
+.c360-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.c360-input[aria-invalid="true"],
+.c360-textarea[aria-invalid="true"] {
+  border-color: var(--c360-red-700);
+}
+
+.c360-field__hint,
+.c360-field__error {
+  font-size: 12px;
+}
+
+.c360-field__hint {
+  color: var(--c360-text-muted);
+}
+
+.c360-field__error {
+  color: var(--c360-red-700);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ Progress --- */
+.c360-progress {
+  height: 6px;
+  border-radius: var(--c360-radius-pill);
+  background: var(--c360-purple-050);
+  overflow: hidden;
+}
+
+.c360-progress__bar {
+  height: 100%;
+  background: var(--c360-purple-600);
+  transition: width 240ms ease;
+}
+
+/* --------------------------------------------------------------- Table --- */
+.c360-table-scroll {
+  overflow-x: auto;
+}
+
+.c360-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.c360-table th,
+.c360-table td {
+  text-align: left;
+  padding: var(--c360-space-3);
+  border-bottom: 1px solid var(--c360-border);
+  vertical-align: top;
+}
+
+.c360-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c360-text-muted);
+  font-weight: 700;
+}
+
+.c360-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------- Fieldsets --- */
+/*
+ * A group of related choices: a question as the legend, one help line, then
+ * the options. Replaces the inline border/padding reset that pages copied.
+ */
+.c360-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.c360-fieldset > legend {
+  padding: 0;
+  margin: 0 0 var(--c360-space-1);
+}
+
+.c360-fieldset__help {
+  margin: 0 0 var(--c360-space-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c360-text-muted);
+}
+
+/* An invalid group: a left rule plus inline text, never colour alone. */
+.c360-fieldset--error {
+  border-left: 3px solid var(--c360-red-700);
+  padding-left: var(--c360-space-3);
+}
+
+/* ------------------------------------------------------ Character count --- */
+.c360-char-count {
+  margin: 0;
+  font-size: 12px;
+  color: var(--c360-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.c360-char-count--over {
+  color: var(--c360-red-700);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------- Error summary --- */
+/*
+ * Shown at the top of a form after a failed submit, focused, with a link per
+ * problem — so a keyboard or screen-reader user finds every error in one
+ * place rather than hunting for a disabled button's reason.
+ */
+.c360-error-summary {
+  border: 2px solid var(--c360-red-700);
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-3) var(--c360-space-4);
+  background: var(--c360-red-050);
+}
+
+.c360-error-summary__title {
+  margin: 0 0 var(--c360-space-2);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c360-red-700);
+}
+
+.c360-error-summary ul {
+  margin: 0;
+  padding-left: var(--c360-space-4);
+}
+
+.c360-error-summary a {
+  color: var(--c360-red-700);
+  font-weight: 600;
+}
+
+.c360-button[aria-busy='true'] {
+  cursor: progress;
+}

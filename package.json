@@ -1,0 +1,52 @@
+{
+  "name": "@c360/marketing-os",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Certify360 AI-native Marketing Operating System — modular monolith + worker",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:api dev:worker dev:web",
+    "dev:api": "npm run dev -w @c360/api",
+    "dev:worker": "npm run dev -w @c360/worker",
+    "dev:web": "npm run dev -w @c360/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -b --pretty",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "npm run db:migrate -w @c360/api",
+    "db:seed": "npm run db:seed -w @c360/api",
+    "db:reset": "npm run db:reset -w @c360/api",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "dev:db": "tsx tools/dev-db/index.ts",
+    "dev:stack": "npm-run-all --parallel dev:db dev:api dev:worker dev:web",
+    "smoke": "tsx tools/ui-smoke/with-stack.ts",
+    "audit:gate": "tsx tools/audit-gate/index.ts",
+    "db:verify-restore": "npm run db:verify-restore -w @c360/api"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "npm-run-all2": "^8.0.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.0"
+  }
+}

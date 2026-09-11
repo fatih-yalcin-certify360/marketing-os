@@ -1,0 +1,240 @@
+/*
+ * Campaign flow: the objective cards at creation and the stage × channel grid
+ * in the channel plan. Tokens only — the palette is the Certify360 one, purple
+ * being the single action colour, so a chosen card or cell reads as chosen the
+ * same way a primary button does.
+ */
+
+/* ------------------------------------------------------ objective cards --- */
+.objective-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--c360-space-3);
+  margin-top: var(--c360-space-2);
+}
+
+@media (max-width: 720px) {
+  .objective-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.objective-card {
+  display: flex;
+  gap: var(--c360-space-3);
+  align-items: flex-start;
+  padding: var(--c360-space-3) var(--c360-space-4);
+  border: 1px solid var(--c360-border-strong);
+  border-radius: var(--c360-radius);
+  background: var(--c360-surface);
+  cursor: pointer;
+}
+
+.objective-card:hover {
+  border-color: var(--c360-teal-400);
+}
+
+.objective-card:has(input:checked) {
+  border-color: var(--c360-purple-600);
+  background: var(--c360-purple-050);
+  box-shadow: inset 0 0 0 1px var(--c360-purple-600);
+}
+
+.objective-card:has(input:focus-visible) {
+  outline: 2px solid var(--c360-focus);
+  outline-offset: 2px;
+}
+
+.objective-card input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--c360-purple-600);
+}
+
+.objective-card > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.objective-card__title {
+  display: block;
+  font-weight: 700;
+}
+
+/* Description in full text colour: it has to stay readable on the selected
+   purple tint, and it carries the consequence of the choice. */
+.objective-card__desc {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c360-text);
+}
+
+.objective-card__meta {
+  display: block;
+  margin-top: var(--c360-space-1);
+  font-size: 12px;
+  color: var(--c360-text-muted);
+}
+
+/* The "Wat heb je al?" group: same card, stacked — its descriptions are long. */
+.entry-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--c360-space-2);
+  margin-top: var(--c360-space-2);
+}
+
+.c360-fieldset--error .objective-card {
+  border-color: var(--c360-red-700);
+}
+
+/* The field a choice reveals, directly under the group, tied to it by a rule. */
+.choice-reveal {
+  margin: var(--c360-space-2) 0 0 var(--c360-space-4);
+  padding-left: var(--c360-space-4);
+  border-left: 3px solid var(--c360-purple-400);
+}
+
+.choice-reveal[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .choice-reveal {
+    margin-left: 0;
+  }
+}
+
+/* The one-sentence restatement above the button: canvas, not purple, so the
+   button stays the only purple action. */
+.form-summary {
+  margin: 0;
+  padding: var(--c360-space-3) var(--c360-space-4);
+  background: var(--c360-canvas);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--c360-text);
+}
+
+.form-summary strong {
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------- plan grid --- */
+.plan-grid th,
+.plan-grid td {
+  padding: var(--c360-space-2) var(--c360-space-1);
+}
+
+.plan-grid thead th {
+  white-space: normal;
+  text-align: center;
+  font-size: 10px;
+}
+
+.plan-grid th[scope='row'] {
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+  color: var(--c360-text);
+}
+
+.plan-grid__stage {
+  display: block;
+  font-weight: 700;
+}
+
+.plan-grid th[scope='row'] .c360-stat__caption {
+  display: block;
+  max-width: 120px;
+  white-space: normal;
+  font-weight: 400;
+}
+
+.plan-grid td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.plan-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c360-space-1);
+  padding: 4px 6px;
+  border-radius: var(--c360-radius-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.plan-cell--recommended .plan-cell__glyph {
+  color: var(--c360-purple-700);
+}
+
+.plan-cell--possible .plan-cell__glyph {
+  color: var(--c360-teal-600);
+}
+
+.plan-cell--discouraged {
+  color: var(--c360-text-muted);
+}
+
+.plan-cell--discouraged .plan-cell__glyph {
+  color: var(--c360-text-muted);
+}
+
+.plan-cell--chosen {
+  background: var(--c360-purple-050);
+  border-color: var(--c360-purple-400);
+}
+
+.plan-cell input:disabled {
+  cursor: default;
+}
+
+.plan-cell__glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.plan-grid__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c360-space-4);
+  margin-top: var(--c360-space-2);
+}
+
+.advice-panel details {
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-2) var(--c360-space-3);
+}
+
+.advice-panel summary {
+  cursor: pointer;
+}
+
+.plan-estimate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c360-space-4);
+  align-items: center;
+}
+
+/* ------------------------------------------------------- content by stage --- */
+.stage-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--c360-space-3);
+  margin: var(--c360-space-4) 0 0;
+  padding-top: var(--c360-space-3);
+  border-top: 1px solid var(--c360-border);
+}

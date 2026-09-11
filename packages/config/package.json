@@ -1,0 +1,16 @@
+{
+  "name": "@c360/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-only environment contract. MUST NOT be imported by @c360/web or @c360/ui.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
+  }
+}

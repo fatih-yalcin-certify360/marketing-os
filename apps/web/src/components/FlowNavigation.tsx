@@ -1,0 +1,6 @@
+import { useId, type ReactNode } from 'react';
+import './flow-navigation.css';
+export function FlowNavigation({items,value,onChange,label,steps=false}:{items:{id:string;label:string;done?:boolean;panelId?:string}[];value:string;onChange:(id:string)=>void;label:string;steps?:boolean}):ReactNode {
+  const id=useId();
+  return <nav aria-label={label}><div className="flow-navigation" role={steps?undefined:'tablist'}>{items.map((item,index)=><button key={item.id} id={`${id}-${item.id}`} type="button" role={steps?undefined:'tab'} aria-controls={item.panelId} aria-selected={steps?undefined:value===item.id} aria-current={steps&&value===item.id?'step':undefined} tabIndex={steps||value===item.id?0:-1} className={value===item.id?'is-current':''} onClick={()=>onChange(item.id)} onKeyDown={(event)=>{if(steps)return;const offset=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+offset+items.length)%items.length;if(offset||event.key==='Home'||event.key==='End'){event.preventDefault();onChange(items[next]!.id);document.getElementById(`${id}-${items[next]!.id}`)?.focus();}}}>{steps&&`${String(index+1)}. `}{item.label}{item.done&&<span className="flow-check" aria-label="Ingevuld"> ✓</span>}</button>)}</div></nav>;
+}

@@ -1,0 +1,266 @@
+name: CI
+
+# Runs the same four gates as `npm run verify`, plus the security scans the ISO
+# 27001 preparation depends on (docs/security/security-checklist.md).
+#
+# The test job runs twice: once against PGlite (fast, no services) and once
+# against a real PostgreSQL 18. The second run is what catches anything PGlite's
+# single-connection model cannot express — concurrency in particular.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default; jobs opt into more only if they need it.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  static:
+    name: Typecheck & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+
+  test:
+    name: Tests (in-process PostgreSQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Test
+        run: npm run test
+
+  ui-smoke:
+    name: Browser smoke (mock provider)
+    runs-on: ubuntu-latest
+    # The chain runs sixteen steps through a real browser against a real
+    # database, so it is slower than the unit suite and must not hang a
+    # queue forever if a step stalls.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Install Chromium
+        # Only Chromium: the smoke checks that the product works, not that it
+        # works in three engines. Cross-browser belongs in a separate job with
+        # its own reason to exist.
+        run: npx playwright install --with-deps chromium
+      - name: Smoke the whole campaign chain
+        # `AI_PROVIDER=mock` inside the runner, so this needs no API key, costs
+        # nothing and is deterministic. It exercises the product — the gates,
+        # the queue, the render layer, the export — rather than a model. The
+        # real-provider run stays a deliberate local act.
+        run: npm run smoke -- ./var/ui-shots
+      - name: Keep the screenshots
+        # Uploaded on failure *and* success: a passing run's screenshots are how
+        # a person notices something the assertions cannot, which is most of
+        # what goes wrong in an interface.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-screenshots
+          path: var/ui-shots
+          retention-days: 7
+          if-no-files-found: warn
+
+  test-real-postgres:
+    name: Tests (PostgreSQL 18)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: c360
+          POSTGRES_PASSWORD: c360_ci_password
+          POSTGRES_DB: c360_test
+        options: >-
+          --health-cmd "pg_isready -U c360 -d c360_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      # Suites that need genuine concurrency read this and skip when unset.
+      TEST_DATABASE_URL: postgresql://c360:c360_ci_password@127.0.0.1:5432/c360_test
+      DATABASE_URL: postgresql://c360:c360_ci_password@127.0.0.1:5432/c360_test
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Apply migrations against real PostgreSQL
+        run: npm run db:migrate
+      - name: Test
+        run: npm run test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Build all workspaces
+        run: npm run build
+      - name: Verify the browser bundle contains no server secrets
+        # A defence-in-depth check on top of the lint import boundary: if a
+        # server-only module or an env secret ever reached the SPA bundle, this
+        # fails the build rather than shipping it.
+        run: |
+          set -euo pipefail
+          if grep -rlE 'DATABASE_URL|ANTHROPIC_API_KEY|AUTH_PROXY_SHARED_SECRET|postgresql://' apps/web/dist; then
+            echo "::error::Server-only configuration found in the browser bundle."
+            exit 1
+          fi
+          echo "Browser bundle clean."
+
+  images:
+    name: Container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          target: runtime
+          push: false
+          load: true
+          tags: c360/api:ci
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/worker.Dockerfile
+          target: runtime
+          push: false
+          load: true
+          tags: c360/worker:ci
+      - name: Assert images do not run as root
+        run: |
+          set -euo pipefail
+          for image in c360/api:ci c360/worker:ci; do
+            uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')"
+            echo "$image runs as uid $uid"
+            if [ "$uid" = "0" ]; then
+              echo "::error::$image runs as root."
+              exit 1
+            fi
+          done
+      - name: Scan images (blocking at CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: c360/api:ci
+          format: table
+          severity: CRITICAL
+          # Critical blocks. A critical in a base image means rebuilding on a
+          # newer digest, which is a small, safe change — so there is no honest
+          # reason to ship past one.
+          exit-code: '1'
+          ignore-unfixed: true
+      - name: Report HIGH findings in the images
+        # Not blocking, deliberately. Base-image HIGHs frequently have no fix
+        # available at scan time, and a gate that cannot be satisfied gets
+        # switched off — the failure mode this whole policy exists to avoid.
+        # They are triaged against the timelines in the policy document.
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: c360/api:ci
+          format: table
+          severity: HIGH
+          exit-code: '0'
+      - name: Scan the worker image (blocking at CRITICAL)
+        # The worker was previously not scanned at all: only the API image was.
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: c360/worker:ci
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  supply-chain:
+    name: Dependency & secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Secret scanning needs history to inspect what was committed.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --fund=false
+      - name: Audit dependencies (blocking at high and above)
+        # `npm audit` exits non-zero for *any* finding, which is why the raw
+        # command used to be wrapped in `|| true` and stopped being a gate. The
+        # exit code now comes from the policy in
+        # docs/security/vulnerability-management.md: high and critical block
+        # unless the advisory has a live, dated acknowledgement.
+        run: npm run audit:gate
+      - name: Report advisories below the threshold
+        # Visible but never blocking, so a moderate finding is triaged rather
+        # than ignored or panicked over.
+        run: npm audit --audit-level=moderate || true
+      - name: Fail if the lockfile is out of date
+        # A drifting lockfile means CI and production install different trees.
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- package-lock.json; then
+            echo "::error::package-lock.json changed during install; commit the updated lockfile."
+            git diff --stat -- package-lock.json
+            exit 1
+          fi
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
