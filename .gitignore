@@ -34,3 +34,14 @@ test-results/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# reference material, not source
+#
+# Both are bundles we measure our own work against rather than build from: a
+# shipped 300x600 banner from another agency, and the UI/UX design archive.
+# They are large, binary and never imported by the application, so they live on
+# disk and stay out of the history. `docs/PLATFORM.md` points at the banner by
+# name; the check that every documented path exists treats an absent reference
+# bundle as fine.
+reference-banners/
+Kapsamlı UIUX Tasarımı.zip

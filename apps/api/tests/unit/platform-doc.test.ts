@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
 /**
@@ -45,11 +46,13 @@ async function indexRepository(): Promise<string[]> {
 
   /*
    * `reference-banners` holds shipped work we measure our own output against
-   * and the document points at by name, so it has to be indexed like any other
-   * source root. Missing roots are skipped rather than thrown on: a reference
-   * bundle is material somebody may not have checked out.
+   * and the document points at by name, so it is indexed like any other source
+   * root — but it is deliberately not in the repository (see `.gitignore`): it
+   * is large, binary and never imported. A checkout without it is normal, so a
+   * missing root is skipped rather than thrown on, and `resolves()` treats
+   * anything under an absent bundle as fine.
    */
-  for (const root of ['apps', 'packages', 'tools', 'docs', 'infra', 'reference-banners']) {
+  for (const root of [...SOURCE_ROOTS, ...REFERENCE_ROOTS]) {
     await walk(root).catch(() => undefined);
   }
   // Repository-root files the doc names directly.
@@ -57,8 +60,21 @@ async function indexRepository(): Promise<string[]> {
   return paths;
 }
 
+/** Roots that are part of the repository and must always be there. */
+const SOURCE_ROOTS = ['apps', 'packages', 'tools', 'docs', 'infra'] as const;
+
+/**
+ * Roots that live on disk but not in the repository.
+ *
+ * Reference material we compare our own work against. The document may name
+ * them; a checkout that does not have them is not a broken checkout.
+ */
+const REFERENCE_ROOTS = ['reference-banners'] as const;
+
 function resolves(candidate: string, index: readonly string[]): boolean {
   const needle = candidate.replace(/^\.\//u, '');
+  const bundle = REFERENCE_ROOTS.find((root) => needle.startsWith(`${root}/`));
+  if (bundle !== undefined && !existsSync(bundle)) return true;
   return index.some((path) => path === needle || path.endsWith(`/${needle}`));
 }
 

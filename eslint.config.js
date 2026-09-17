@@ -61,7 +61,11 @@ export default tseslint.config(
           // Root-level tooling files belong to no app or package tsconfig.
           // `tsconfig.tools.json` gives them strict type information so the
           // type-aware rules work there too instead of erroring out.
-          allowDefaultProject: ['*.js', '*.ts'],
+          //
+          // Build scripts inside a workspace are the same case: they run under
+          // plain node after the bundler, so they are not part of that
+          // workspace's TypeScript project and would otherwise fail to parse.
+          allowDefaultProject: ['*.js', '*.ts', 'apps/*/scripts/*.mjs'],
           defaultProject: 'tsconfig.tools.json',
         },
         tsconfigRootDir: import.meta.dirname,
@@ -95,7 +99,7 @@ export default tseslint.config(
 
   // ---- Server-side processes -------------------------------------------
   {
-    files: ['apps/api/**/*.ts', 'apps/worker/**/*.ts', 'packages/config/**/*.ts'],
+    files: ['apps/api/**/*.ts', 'apps/worker/**/*.ts', 'packages/config/**/*.ts', 'apps/*/scripts/*.mjs'],
     languageOptions: { globals: { ...globals.node } },
     rules: {
       'no-restricted-imports': [

@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /**
  * The animation engine that travels inside a banner.
@@ -53,7 +54,7 @@ export class GsapNoticeMissingError extends Error {
  * without a deploy, and every banner in a set embeds the same bytes.
  */
 export function gsapRuntime(): Runtime {
-  cached ??= read('gsap/dist/gsap.min.js');
+  cached ??= read('gsap.min.js');
   return cached;
 }
 
@@ -66,12 +67,45 @@ export function gsapRuntime(): Runtime {
  * 3,658 bytes gzipped, against a budget measured in tens of kilobytes.
  */
 export function splitTextRuntime(): Runtime {
-  cachedSplit ??= read('gsap/dist/SplitText.min.js');
+  cachedSplit ??= read('SplitText.min.js');
   return cachedSplit;
 }
 
-function read(specifier: string): Runtime {
-  const path = require_.resolve(specifier);
+/**
+ * Where the engine can be found, in the order worth trying.
+ *
+ * Beside the bundle first, because that is production: the image ships `dist/`
+ * and no `node_modules` at all, and `scripts/vendor-gsap.mjs` puts the files
+ * there at build time. Then the dependency itself, which is what development,
+ * the tests and anything running from source use.
+ *
+ * Reading only from `node_modules` worked everywhere it was tried and would
+ * have thrown on the first banner in a container — the kind of fault that only
+ * shows up where it costs the most (2026-09-17).
+ */
+function locate(file: string): string {
+  const beside = fileURLToPath(new URL(`./vendor/${file}`, import.meta.url));
+  if (existsSync(beside)) return beside;
+  try {
+    return require_.resolve(`gsap/dist/${file}`);
+  } catch {
+    throw new GsapMissingError(file, beside);
+  }
+}
+
+export class GsapMissingError extends Error {
+  constructor(file: string, beside: string) {
+    super(
+      `Cannot find ${file}. It is neither beside the bundle (${beside}) nor resolvable ` +
+        'from the gsap dependency. A production build runs `scripts/vendor-gsap.mjs`; ' +
+        'if that step was skipped, banners cannot be generated.',
+    );
+    this.name = 'GsapMissingError';
+  }
+}
+
+function read(file: string): Runtime {
+  const path = locate(file);
   const source = readFileSync(path, 'utf8');
   const match = NOTICE.exec(source);
   if (match?.[1] === undefined) throw new GsapNoticeMissingError(path);

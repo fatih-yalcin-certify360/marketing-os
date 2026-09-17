@@ -3168,7 +3168,7 @@ bestanden, 817 tests.
 ## Display banners: een korte reeks, uit de campagne geschreven — 16 september 2026
 
 Eén boodschap, meerdere formaten, en per formaat de bestanden waar een banner
-uit bestaat: `index.html`, `style.css`, `main.js` en de bestanden ernaast.
+uit bestaat: index.html, style.css, main.js en de bestanden ernaast.
 Wat die bestanden doen is een reeks — een loader, één tot drie schermen die elk
 één ding zeggen, en een stilstaand eindbeeld met de knop dat de rest van de
 vertoning blijft staan.
@@ -3356,7 +3356,7 @@ uitgaande tween eindigt nu precies waar de inkomende begint.
 ### De merkletter reist mee waar dat mag
 
 Voor de eigen site is het probleem opgelost: de goedgekeurde merkfonts gaan als
-bestand mee in het pakket, met `@font-face` in `style.css`. Dat is dezelfde bron
+bestand mee in het pakket, met `@font-face` in de style.css van de banner. Dat is dezelfde bron
 die de beeldrenderer gebruikt, en de familienaam komt uit het fontbestand zelf —
 niet uit het merkprofiel, want een bestand waarvan de interne naam niet
 overeenkomt past de browser niet toe, en stil terugvallen op een systeemletter is

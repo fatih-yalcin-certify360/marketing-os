@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Certify360 Marketing OS — modular monolith HTTP API",
+  "description": "Certify360 Marketing OS \u2014 modular monolith HTTP API",
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
-    "build": "tsup",
+    "build": "tsup && node scripts/vendor-gsap.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -b",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/core/db/cli/migrate.ts",

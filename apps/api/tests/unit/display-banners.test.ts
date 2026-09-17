@@ -143,6 +143,21 @@ describe('display banner sets', () => {
     expect(counts['320x50']).toBe(1);
   });
 
+  it('keeps the engine reachable from the production bundle', async () => {
+    /*
+     * The image ships `dist/` and no `node_modules`, so reading the library
+     * through `createRequire` alone worked everywhere it was tried and would
+     * have thrown on the first banner in a container. The build copies it next
+     * to the bundle; this asserts that step is still wired, because the failure
+     * it prevents only appears in production (2026-09-17).
+     */
+    const { readFile } = await import('node:fs/promises');
+    const manifest = JSON.parse(
+      await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { scripts: Record<string, string> };
+    expect(manifest.scripts.build).toContain('vendor-gsap');
+  });
+
   it('ships the animation library as a file, with its licence notice intact', () => {
     const { report, files } = build();
     expect(text(files['300x250'], 'gsap.min.js')).toMatch(/\/\*!\s*\n?\s*\*\s*GSAP/u);
