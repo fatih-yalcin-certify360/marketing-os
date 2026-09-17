@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EnvValidationError, loadServerEnv } from '@c360/config';
+import { createAiProvider } from '../../src/core/ai/index.js';
 import { createAuthAdapter } from '../../src/core/auth/create-adapter.js';
 import { LocalAuthAdapter } from '../../src/core/auth/local-adapter.js';
 
@@ -103,5 +104,116 @@ describe('adapter construction guards', () => {
   it('builds the local adapter in development', () => {
     const env = loadServerEnv({ ...base, NODE_ENV: 'development', AUTH_MODE: 'local' });
     expect(createAuthAdapter(env).mode).toBe('local');
+  });
+});
+
+/**
+ * The LiteLLM gateway.
+ *
+ * A gateway is a supplier, not a model: it speaks OpenAI's API in front of
+ * whatever an operator configured behind it. So the adapter is shared and the
+ * *claims* are not — what the product may offer depends on what is behind the
+ * proxy, and the safe default is the one that refuses.
+ */
+describe('the LiteLLM gateway', () => {
+  const litellm = {
+    ...base,
+    AUTH_MODE: 'trusted-header',
+    AI_PROVIDER: 'litellm',
+    LITELLM_BASE_URL: 'https://llm.internal',
+    LITELLM_API_KEY: 'sk-virtual-key',
+  };
+
+  it('refuses to start without a base URL or a virtual key', () => {
+    const noUrl = issuesOf(() => loadServerEnv({ ...litellm, LITELLM_BASE_URL: '' }));
+    expect(noUrl.join('\n')).toMatch(/LITELLM_BASE_URL/u);
+
+    const noKey = issuesOf(() => loadServerEnv({ ...litellm, LITELLM_API_KEY: '' }));
+    expect(noKey.join('\n')).toMatch(/LITELLM_API_KEY/u);
+  });
+
+  it('accepts plain http inside a container network, but not in production', () => {
+    const local = loadServerEnv({
+      ...litellm,
+      NODE_ENV: 'development',
+      LITELLM_BASE_URL: 'http://litellm:4000',
+    });
+    expect(local.LITELLM_BASE_URL).toBe('http://litellm:4000');
+
+    // Prompts, documents and the key travel over this connection.
+    const issues = issuesOf(() =>
+      loadServerEnv({ ...litellm, NODE_ENV: 'production', LITELLM_BASE_URL: 'http://litellm:4000' }),
+    );
+    expect(issues.join('\n')).toMatch(/https in production/u);
+  });
+
+  it('does not claim web search unless the operator says the proxy passes it through', () => {
+    const plain = createAiProvider(loadServerEnv(litellm));
+    expect(plain.name).toBe('litellm');
+    expect(plain.text()?.supportsWebSearch).toBe(false);
+
+    const declared = createAiProvider(
+      loadServerEnv({ ...litellm, AI_WEB_SEARCH_ENABLED: 'true' }),
+    );
+    expect(declared.text()?.supportsWebSearch).toBe(true);
+
+    // OpenAI directly keeps the capability it has always had.
+    const direct = createAiProvider(
+      loadServerEnv({ ...base, AUTH_MODE: 'trusted-header', AI_PROVIDER: 'openai', OPENAI_API_KEY: 'k' }),
+    );
+    expect(direct.name).toBe('openai');
+    expect(direct.text()?.supportsWebSearch).toBe(true);
+  });
+
+  /** The reservation the budget check makes before a call is allowed. */
+  function reservation(env: Record<string, string>): number {
+    const text = createAiProvider(loadServerEnv(env)).text();
+    if (text?.estimateCostCents === undefined) {
+      throw new Error('the text adapter no longer estimates cost, so nothing reserves budget');
+    }
+    return text.estimateCostCents(40_000, 8_192);
+  }
+
+  it('prices a gateway alias from configuration, and reserves a high placeholder without it', () => {
+    // An unknown model must not spend without a budget check.
+    expect(reservation({ ...litellm, AI_TEXT_MODEL: 'team-default' })).toBe(100);
+
+    // 10k input tokens at 200 + 8_192 output tokens at 1200, in eurocents.
+    expect(
+      reservation({
+        ...litellm,
+        AI_TEXT_MODEL: 'team-default',
+        AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK: '200',
+        AI_TEXT_PRICE_OUTPUT_CENTS_PER_MTOK: '1200',
+      }),
+    ).toBe(12);
+  });
+
+  it('half a price is not a price', () => {
+    expect(
+      reservation({
+        ...litellm,
+        AI_TEXT_MODEL: 'team-default',
+        AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK: '200',
+      }),
+    ).toBe(100);
+  });
+
+  it('lets images through a gateway, which the old guard tied to OpenAI alone', () => {
+    const withImages = loadServerEnv({ ...litellm, AI_IMAGE_ENABLED: 'true' });
+    expect(withImages.AI_IMAGE_ENABLED).toBe(true);
+    expect(createAiProvider(withImages).image()).toBeDefined();
+
+    // Anthropic still generates none, and says so at boot.
+    const issues = issuesOf(() =>
+      loadServerEnv({
+        ...base,
+        AUTH_MODE: 'trusted-header',
+        AI_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'k',
+        AI_IMAGE_ENABLED: 'true',
+      }),
+    );
+    expect(issues.join('\n')).toMatch(/AI_IMAGE_ENABLED/u);
   });
 });

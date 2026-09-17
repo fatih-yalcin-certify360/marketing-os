@@ -1,9 +1,10 @@
 {
-  "$comment": "Development tooling that ships with the repo but not in any image. A real project so it is typechecked and linted like everything else.",
+  "$comment": "Development tooling that ships with the repo but not in any image. A real project so it is typechecked and linted like everything else. DOM is in `lib` because these tools drive a browser and the code inside `page.evaluate` is browser code — without it every DOM call is an unresolved `any` and the type checker stops helping exactly where a measurement tool needs it most.",
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
   "include": ["**/*.ts"]

@@ -1,0 +1,200 @@
+.campaigns-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
+  gap: var(--c360-space-3);
+  width: 100%;
+}
+
+.campaigns-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c360-space-1);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c360-text-muted);
+  min-width: 0;
+}
+
+.campaigns-filters .c360-input,
+.campaigns-filters .c360-select {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Fixed shares, so the campaign name gets the room and the five remaining
+ * columns stop stealing it from each other as the text changes (2026-09-15). */
+.campaigns-table {
+  table-layout: fixed;
+}
+
+.campaigns-table th:nth-child(1) { width: 32%; }
+
+.campaigns-table th:nth-child(2) { width: 16%; }
+
+.campaigns-table th:nth-child(3) { width: 22%; }
+
+.campaigns-table th:nth-child(4) { width: 16%; }
+
+.campaigns-table th:nth-child(5) { width: 14%; }
+
+.campaigns-table .campaigns-table__name {
+  font-weight: 700;
+  color: var(--c360-text);
+}
+
+.campaigns-table .campaigns-table__name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.campaigns-table .campaigns-table__name a:hover,
+.campaigns-table .campaigns-table__name a:focus-visible {
+  text-decoration: underline;
+}
+
+/* Course and starting point: context on one line, never a second headline. */
+.campaigns-table__muted {
+  display: block;
+  color: var(--c360-text-muted);
+  font-size: 12px;
+  margin-top: var(--c360-space-1);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campaigns-table__action {
+  display: block;
+  margin-top: var(--c360-space-1);
+  color: var(--c360-text-muted);
+}
+
+.campaigns-progress {
+  display: grid;
+  gap: var(--c360-space-1);
+  min-width: 120px;
+}
+
+.campaigns-progress .c360-progress {
+  margin: 0;
+}
+
+.campaigns-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c360-space-3);
+  align-items: flex-start;
+}
+
+/* Under 1000px the filter grid folds to two columns. */
+@media (max-width: 1000px) {
+  .campaigns-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+/*
+ * Under 720px every row becomes a card: the header row disappears and each
+ * cell prints its own column name, so nothing scrolls sideways and nothing
+ * loses its meaning.
+ */
+@media (max-width: 720px) {
+  .campaigns-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+/* The fixed shares above are for the table; as cards each cell sets itself. */
+  .campaigns-table {
+    table-layout: auto;
+  }
+
+.campaigns-table thead {
+    display: none;
+  }
+
+.campaigns-table tr {
+    display: grid;
+    gap: var(--c360-space-2);
+    padding: var(--c360-space-4) 0;
+    border-bottom: 1px solid var(--c360-border);
+  }
+
+.campaigns-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 1fr) minmax(0, 2fr);
+    gap: var(--c360-space-3);
+    padding: 0;
+    border-bottom: none;
+  }
+
+.campaigns-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c360-text-muted);
+  }
+
+}
+
+/* ------------------------------------------- stand of affairs (2026-09-15) ---
+ * Four counts above the list, each one a filter. The stripe follows the row
+ * badge: purple is a campaign waiting for its next step, amber one that needs a
+ * second look, green one that is done.
+ */
+.campaigns-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--c360-space-3);
+  margin: var(--c360-space-4) 0;
+}
+
+.campaigns-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: var(--c360-space-3) var(--c360-space-4);
+  background: var(--c360-surface);
+  border: 1px solid var(--c360-border);
+  border-left-width: 3px;
+  border-radius: var(--c360-radius);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.campaigns-state:hover {
+  border-color: var(--c360-teal-400);
+}
+
+.campaigns-state:focus-visible {
+  outline: 2px solid var(--c360-purple-600);
+  outline-offset: 2px;
+}
+
+/* The chosen filter, which must still read as the same tile. */
+.campaigns-state--active {
+  background: var(--c360-purple-050);
+  border-color: var(--c360-purple-600);
+}
+
+.campaigns-state__count {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.campaigns-state__label {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.campaigns-state__note {
+  font-size: 12px;
+  color: var(--c360-text-muted);
+}

@@ -44,8 +44,17 @@ describe('the advertising proposal shape', () => {
     for (const field of forbidden) {
       expect(present, field).not.toContain(field);
     }
-    // What it does have: copy, and why.
-    expect(present.sort()).toEqual(['descriptions', 'headlines', 'keywords', 'rationaleNl']);
+    // What it does have: copy, the Search set-up fields (2026-09-15), and why.
+    expect(present.sort()).toEqual([
+      'descriptions',
+      'finalUrl',
+      'headlines',
+      'keywords',
+      'matchTypeAdviceNl',
+      'negativeKeywords',
+      'paths',
+      'rationaleNl',
+    ]);
   });
 
   it('refuses an extra field smuggled alongside the copy', () => {
@@ -64,8 +73,12 @@ describe('the advertising proposal shape', () => {
     });
     expect(Object.keys(parsed).sort()).toEqual([
       'descriptions',
+      'finalUrl',
       'headlines',
       'keywords',
+      'matchTypeAdviceNl',
+      'negativeKeywords',
+      'paths',
       'rationaleNl',
     ]);
     expect('cpc' in parsed).toBe(false);
@@ -88,39 +101,87 @@ describe('the advertising proposal shape', () => {
 });
 
 describe('the advertising channels', () => {
-  it('states no character limit it has not verified', () => {
+  /**
+   * All three were read against their platform's own page on 2026-09-15.
+   *
+   * LinkedIn Ads and Meta Ads were `unverified` until then, and worse, they
+   * shipped copy with no creative at all — which is not an advertisement. The
+   * point of this block is that a stated limit is always a *read* limit: every
+   * number here has a `sourceUrl` and a `verifiedAt` beside it.
+   */
+  it('states the limits it read, each with the page it read them on', () => {
+    const linkedIn = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'linkedin_ads' && item.format === 'single_image',
+    );
+    expect(linkedIn?.guidance.headlineMaxChars).toBe(200);
+    expect(linkedIn?.guidance.bodyTruncatesAtChars).toBe(150);
+    expect(linkedIn?.hard.maxImageBytes).toBe(5 * 1_048_576);
+    expect(linkedIn?.hard.sourceUrl).toMatch(/^https:\/\/www\.linkedin\.com\/help\/lms\/answer\/a426534/u);
+    expect(linkedIn?.hard.verifiedAt).toBe('2026-09-15T00:00:00.000Z');
+
+    const meta = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'meta_ads' && item.format === 'single_image',
+    );
+    // The tighter of the two placements, because one creative runs on both.
+    expect(meta?.guidance.headlineMaxChars).toBe(27);
+    expect(meta?.guidance.bodyTruncatesAtChars).toBe(125);
+    expect(meta?.hard.sourceUrl).toMatch(/^https:\/\/www\.facebook\.com\/business\/ads-guide/u);
+    expect(meta?.hard.verifiedAt).toBe('2026-09-15T00:00:00.000Z');
+  });
+
+  it('states Google’s limits only because they were read on Google’s page, and says which page', () => {
+    // google-ads-practice.md, read 2026-09-15.
+    const spec = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'google_search_ads' && item.format === 'text_only',
+    );
+    expect(spec?.guidance.headlineMaxChars).toBe(30);
+    expect(spec?.guidance.bodyMaxChars).toBe(90);
+    expect(spec?.hard.verification).toBe('verified_against_official_docs');
+    expect(spec?.hard.sourceUrl).toMatch(/^https:\/\/support\.google\.com\/google-ads\/answer\/7684791/u);
+    expect(spec?.hard.verifiedAt).toBe('2026-09-15T00:00:00.000Z');
+  });
+
+  it('gives the paid social channels a creative, and leaves the search ad as text', () => {
     /*
-     * Unlike a social post, where a guessed length is cosmetic, an advert that
-     * exceeds a platform limit is truncated or rejected. A number recalled from
-     * memory would look checked and would not be — so every one of them is
-     * null, deliberately.
+     * A Meta advertisement cannot run without an image or a video, and
+     * LinkedIn lists the image as required. Both shipped headlines and
+     * descriptions and nothing else until 2026-09-15. A search advertisement
+     * really is text, so it keeps no image.
      */
-    for (const channel of AD_CHANNELS) {
-      const spec = CHANNEL_CONFIG.formats.find(
-        (item) => item.channel === channel && item.format === 'text_only',
-      );
-      expect(spec, channel).toBeDefined();
-      expect(spec?.guidance.headlineMaxChars, channel).toBeNull();
-      expect(spec?.guidance.bodyMaxChars, channel).toBeNull();
-      expect(spec?.hard.sourceUrl, channel).toBeNull();
-      expect(spec?.hard.verification, channel).toBe('unverified');
-    }
+    const meta = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'meta_ads' && item.format === 'single_image',
+    );
+    expect(meta?.guidance.images).toEqual([
+      { widthPx: 1440, heightPx: 1800, aspectRatioLabel: '4:5', isDefault: true },
+    ]);
+
+    const linkedIn = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'linkedin_ads' && item.format === 'single_image',
+    );
+    expect(linkedIn?.guidance.images.map((image) => image.aspectRatioLabel)).toEqual([
+      '1.91:1',
+      '1:1',
+      '4:5',
+    ]);
+
+    const google = CHANNEL_CONFIG.formats.find(
+      (item) => item.channel === 'google_search_ads' && item.format === 'text_only',
+    );
+    expect(google?.guidance.images).toEqual([]);
   });
 
-  it('produces advertising copy but refuses to call it publish-ready', () => {
-    for (const channel of AD_CHANNELS) {
-      expect(isPublishable(CHANNEL_CONFIG, channel, 'text_only'), channel).toBe(false);
-    }
+  it('now lets all three advertising channels reach a publish-ready package', () => {
+    expect(isPublishable(CHANNEL_CONFIG, 'linkedin_ads', 'single_image')).toBe(true);
+    expect(isPublishable(CHANNEL_CONFIG, 'meta_ads', 'single_image')).toBe(true);
+    expect(isPublishable(CHANNEL_CONFIG, 'google_search_ads', 'text_only')).toBe(true);
   });
 
-  it('says in Dutch what has to be checked elsewhere, and that no figures exist', () => {
+  it('says in Dutch what the platform enforces, and that no figures exist', () => {
     for (const channel of AD_CHANNELS) {
       const spec = CHANNEL_CONFIG.formats.find(
-        (item) => item.channel === channel && item.format === 'text_only',
+        (item) => item.channel === channel && item.format === (channel === 'google_search_ads' ? 'text_only' : 'single_image'),
       );
-      // A refusal has to be actionable: it names the platform to go and check.
-      expect(spec?.noteNl, channel).toMatch(/niet tegen een primaire bron gecontroleerd/u);
-      expect(spec?.noteNl, channel).toMatch(/geen zoekvolumes, klikprijzen of conversie/u);
+      expect(spec?.noteNl, channel).toMatch(/zoekvolumes, klikprijzen/u);
     }
   });
 });

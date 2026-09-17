@@ -6,7 +6,9 @@
   "description": "Certify360 design tokens and UI primitives. Browser-safe only: no server code, no database, no secrets.",
   "exports": {
     ".": "./src/index.ts",
+    "./design-system.css": "./src/design-system.css",
     "./tokens.css": "./src/tokens.css",
+    "./tokens-2026.css": "./src/tokens-2026.css",
     "./primitives.css": "./src/primitives.css"
   },
   "scripts": {

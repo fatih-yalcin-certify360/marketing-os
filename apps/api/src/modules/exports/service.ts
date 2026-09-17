@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { and, desc, eq } from 'drizzle-orm';
-import {
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { GOOGLE_RSA, googleAdsFrameText,
   CHANNEL_CONFIG,
   CHANNEL_LABEL_NL,
   COURSE_FACT_LABEL_NL,
@@ -11,6 +11,9 @@ import {
   FUNNEL_STAGE_LABEL_NL,
   FUNNEL_STAGES,
   GATE_LABEL_NL,
+  contentMarkdown,
+  hardConstraintsFor,
+  utmTaggedUrl,
   isPublishable,
   PUBLISH_READY_GATES,
   unconfirmedFacts,
@@ -60,6 +63,17 @@ export class ExportService {
     private readonly campaigns: CampaignService,
     private readonly concepts: ConceptService,
     private readonly content: ContentAssetService,
+    /**
+     * Whether this process fabricates its output.
+     *
+     * Production cannot reach this state: `AI_PROVIDER=mock` is refused twice
+     * when `NODE_ENV=production`. But in development the publish-ready package
+     * used to leave the tool claiming every check was done, with no trace of
+     * demo data anywhere in the file, while the screen did show a badge
+     * (audit 2026-09-15). The rule is that development material is labelled
+     * as demo, and a ZIP that is mailed on is exactly where that matters.
+     */
+    private readonly aiIsMock = false,
   ) {}
 
   /**
@@ -134,7 +148,7 @@ export class ExportService {
       );
     }
 
-    // Channel specs must be verified for every channel in the package.
+    // channel_specs_verified
     const unverifiedChannels = [
       ...new Set(
         assetsList
@@ -142,13 +156,100 @@ export class ExportService {
           .map((asset) => CHANNEL_LABEL_NL[asset.channel]),
       ),
     ];
-    if (unverifiedChannels.length > 0) {
+    if (unverifiedChannels.length === 0) {
+      passed.add('channel_specs_verified');
+    } else {
       reasonsNl.push(
         `De kanaalspecificaties van ${unverifiedChannels.join(', ')} zijn niet tegen een officiële bron gecontroleerd. Deze kanalen kunnen niet publicatieklaar worden geëxporteerd.`,
       );
     }
 
+    // assets_within_channel_limits
+    const breaches = await this.channelLimitBreaches(db, labelId, assetsList);
+    if (breaches.length === 0) {
+      passed.add('assets_within_channel_limits');
+    } else {
+      reasonsNl.push(...breaches);
+    }
+
     return { passed, reasonsNl };
+  }
+
+  /**
+   * Checks each stored image and alt text against the channel's *hard*
+   * constraints.
+   *
+   * Those constraints — accepted upload format, pixel cap, byte cap, alt-text
+   * limit — were declared in `channels.ts` and read nowhere in the API until
+   * 2026-09-15: the gate above asked only whether a specification had been
+   * verified, never whether the file obeyed it. A 1080×1350 PNG therefore
+   * passed as publish-ready for Instagram, which accepts JPEG only.
+   *
+   * Reports in Dutch, one sentence per breach, naming the channel and the
+   * measured value so the reader can act without opening the file.
+   */
+  private async channelLimitBreaches(
+    db: Db,
+    labelId: string,
+    assetsList: readonly ContentAssetVersion[],
+  ): Promise<string[]> {
+    const reasons: string[] = [];
+    for (const asset of assetsList) {
+      const hard = hardConstraintsFor(CHANNEL_CONFIG, asset.channel, asset.format);
+      if (hard === undefined) {
+        continue;
+      }
+      const channelNl = CHANNEL_LABEL_NL[asset.channel];
+
+      if (
+        hard.altTextMaxChars !== null &&
+        asset.copy.imageAltText !== null &&
+        asset.copy.imageAltText.length > hard.altTextMaxChars
+      ) {
+        reasons.push(
+          `De alt-tekst van een item voor ${channelNl} is ${String(asset.copy.imageAltText.length)} tekens; ${channelNl} staat er ${String(hard.altTextMaxChars)} toe.`,
+        );
+      }
+
+      const imageIds = asset.variants
+        .map((variant) => variant.imageAssetId)
+        .filter((id): id is string => id !== null);
+      if (imageIds.length === 0) {
+        continue;
+      }
+      const rows = await db
+        .select({
+          id: assets.id,
+          mimeType: assets.mimeType,
+          byteSize: assets.byteSize,
+          widthPx: assets.widthPx,
+          heightPx: assets.heightPx,
+        })
+        .from(assets)
+        .where(and(inArray(assets.id, imageIds), eq(assets.labelId, labelId)));
+
+      for (const row of rows) {
+        const format = row.mimeType.replace(/^image\//u, '');
+        if (!hard.imageFormats.includes(format)) {
+          reasons.push(
+            `Een beeld voor ${channelNl} is opgeslagen als ${format.toUpperCase()}; ${channelNl} accepteert ${hard.imageFormats.map((entry) => entry.toUpperCase()).join(' of ')}.`,
+          );
+        }
+        if (hard.maxImageBytes !== null && row.byteSize > hard.maxImageBytes) {
+          reasons.push(
+            `Een beeld voor ${channelNl} is ${String(Math.round(row.byteSize / 1024))} kB; ${channelNl} staat ${String(Math.round(hard.maxImageBytes / 1024))} kB toe.`,
+          );
+        }
+        const pixels = (row.widthPx ?? 0) * (row.heightPx ?? 0);
+        if (hard.maxImagePixels !== null && pixels > hard.maxImagePixels) {
+          reasons.push(
+            `Een beeld voor ${channelNl} telt ${String(pixels)} pixels; ${channelNl} staat er ${String(hard.maxImagePixels)} toe.`,
+          );
+        }
+      }
+    }
+    // One sentence per distinct problem: ten identical lines help nobody.
+    return [...new Set(reasons)];
   }
 
   async build(
@@ -212,7 +313,7 @@ export class ExportService {
 
     // A draft package says so in its own README, so a file that leaves this
     // system cannot be mistaken for approved material.
-    const readme = buildReadme(kind, campaign.name, reasonsNl);
+    const readme = buildReadme(kind, campaign.name, reasonsNl, this.aiIsMock);
     zip.file('LEESMIJ.txt', readme);
     manifest.push({
       path: 'LEESMIJ.txt',
@@ -230,7 +331,7 @@ export class ExportService {
        * in the package. Stage-less content keeps the flat folder it always had.
        */
       const folder = `${kind === 'draft' ? 'CONCEPT_' : ''}${stageFolder(asset.funnelStage)}${asset.channel}`;
-      const text = buildAssetText(asset, kind);
+      const text = buildAssetText(asset, kind, campaign.name);
       const textPath = `${folder}/tekst-v${String(asset.version)}.txt`;
       zip.file(textPath, text);
       manifest.push({
@@ -240,6 +341,48 @@ export class ExportService {
         assetVersion: asset.version,
         bytes: Buffer.byteLength(text, 'utf8'),
       });
+
+      /*
+       * A website piece also travels as Markdown.
+       *
+       * The `.txt` is for reading; a change proposal or an article has to be
+       * *placed*, and every CMS worth the name takes Markdown while none takes
+       * our plain-text layout. The builder is the same one the screen's "copy
+       * as Markdown" button uses, so the file and the button cannot drift
+       * (audit 2026-09-15).
+       */
+      if (asset.copy.website !== null) {
+        const markdown = contentMarkdown(asset);
+        const markdownPath = `${folder}/tekst-v${String(asset.version)}.md`;
+        zip.file(markdownPath, markdown);
+        manifest.push({
+          path: markdownPath,
+          channel: asset.channel,
+          variant: null,
+          assetVersion: asset.version,
+          bytes: Buffer.byteLength(markdown, 'utf8'),
+        });
+      }
+
+      /*
+       * A Google Search ad also travels as a hand-off sheet: one row with the
+       * headlines, descriptions, paths and final URL, then a row per keyword
+       * and per negative keyword. It is for the person who builds the
+       * campaign in Google Ads or its Editor, not an upload the system
+       * performs, and the column names are ours; the LEESMIJ says so.
+       */
+      if (asset.channel === 'google_search_ads' && asset.copy.ads !== null) {
+        const csv = buildGoogleAdsSheet(asset, kind, campaign.name);
+        const csvPath = `${folder}/google-ads-v${String(asset.version)}.csv`;
+        zip.file(csvPath, csv);
+        manifest.push({
+          path: csvPath,
+          channel: asset.channel,
+          variant: null,
+          assetVersion: asset.version,
+          bytes: Buffer.byteLength(csv, 'utf8'),
+        });
+      }
 
       /*
        * An e-mail also travels as HTML, because that is the artefact.
@@ -277,7 +420,7 @@ export class ExportService {
           continue;
         }
         const rows = await db
-          .select({ storagePath: assets.storagePath, byteSize: assets.byteSize })
+          .select({ storagePath: assets.storagePath, byteSize: assets.byteSize, mimeType: assets.mimeType })
           .from(assets)
           .where(and(eq(assets.id, variant.imageAssetId), eq(assets.labelId, labelId)))
           .limit(1);
@@ -286,7 +429,11 @@ export class ExportService {
           continue;
         }
         const bytes = await readFile(path.join(this.storageRoot, stored.storagePath));
-        const imagePath = `${folder}/variant-${variant.variant}-v${String(asset.version)}.png`;
+        // The extension follows the stored bytes. Social channels are rendered
+        // as JPEG since 2026-09-15; a `.png` name on JPEG bytes is refused by
+        // the very upload it is meant for.
+        const extension = stored.mimeType === 'image/jpeg' ? 'jpg' : 'png';
+        const imagePath = `${folder}/variant-${variant.variant}-v${String(asset.version)}.${extension}`;
         zip.file(imagePath, bytes);
         manifest.push({
           path: imagePath,
@@ -473,9 +620,15 @@ export class ExportService {
   }
 }
 
-function buildReadme(kind: ExportKind, campaignName: string, reasonsNl: readonly string[]): string {
-  const header =
-    kind === 'draft'
+function buildReadme(
+  kind: ExportKind,
+  campaignName: string,
+  reasonsNl: readonly string[],
+  aiIsMock: boolean,
+): string {
+  const header = aiIsMock
+    ? 'DEMO — NIET PUBLICEREN'
+    : kind === 'draft'
       ? 'CONCEPT — NIET PUBLICATIEKLAAR'
       : 'PUBLICATIEKLAAR PAKKET';
 
@@ -488,6 +641,17 @@ function buildReadme(kind: ExportKind, campaignName: string, reasonsNl: readonly
     '',
   ];
 
+  // The badge on screen never reached the file. A ZIP is the thing that gets
+  // forwarded, so the warning belongs at the top of it (audit 2026-09-15).
+  if (aiIsMock) {
+    lines.push(
+      'Deze teksten en beelden zijn verzonnen door de demo-aanbieder van dit',
+      'systeem. Ze beschrijven geen echte opleiding, prijs of voorwaarde en',
+      'mogen nergens worden gepubliceerd of gedeeld als voorstel.',
+      '',
+    );
+  }
+
   if (kind === 'draft') {
     lines.push(
       'Dit is een conceptpakket. De inhoud is nog niet volledig goedgekeurd en',
@@ -497,6 +661,12 @@ function buildReadme(kind: ExportKind, campaignName: string, reasonsNl: readonly
     if (reasonsNl.length > 0) {
       lines.push('Wat er nog open staat:', ...reasonsNl.map((reason) => `  - ${reason}`), '');
     }
+  } else if (aiIsMock) {
+    lines.push(
+      'De controles en goedkeuringen in dit systeem zijn afgerond, maar over',
+      'demomateriaal. Dat maakt het niet publicatieklaar.',
+      '',
+    );
   } else {
     lines.push(
       'Alle controles en goedkeuringen voor dit pakket zijn afgerond.',
@@ -514,7 +684,23 @@ function buildReadme(kind: ExportKind, campaignName: string, reasonsNl: readonly
   return lines.join('\n');
 }
 
-function buildAssetText(asset: ContentAssetVersion, kind: ExportKind): string {
+function buildAssetText(asset: ContentAssetVersion, kind: ExportKind, campaignName: string): string {
+  /*
+   * The published link carries campaign tagging; the stored one does not.
+   *
+   * No platform requires it — LinkedIn calls tracking parameters optional and
+   * Google enforces only a domain match — so this is our own choice, made
+   * because an untagged click lands in the website's analytics as "direct" and
+   * the campaign that earned it cannot be told apart (audit 2026-09-15). A link
+   * that already carries `utm_source` is left exactly as the marketer wrote it.
+   */
+  const tagged = utmTaggedUrl({
+    url: asset.copy.ctaUrl,
+    channel: asset.channel,
+    campaignName,
+    stage: asset.funnelStage,
+    assetKey: asset.assetKey,
+  });
   const lines = [
     `${CHANNEL_LABEL_NL[asset.channel]} — versie ${String(asset.version)}`,
     kind === 'draft' ? '(CONCEPT)' : '',
@@ -529,7 +715,13 @@ function buildAssetText(asset: ContentAssetVersion, kind: ExportKind): string {
     asset.copy.body,
     '',
     'CTA',
-    `${asset.copy.ctaText}${asset.copy.ctaUrl === null ? ' (link ontbreekt)' : ` → ${asset.copy.ctaUrl}`}`,
+    `${asset.copy.ctaText}${tagged === null ? ' (link ontbreekt)' : ` → ${tagged}`}`,
+    // Said out loud, because the link in the file is not byte-for-byte the one
+    // that was approved. Nothing is rewritten in the database; the tagging
+    // happens here, on the way out.
+    tagged !== null && tagged !== asset.copy.ctaUrl
+      ? `  (campagnemarkering toegevoegd voor toewijzing; de goedgekeurde link is ${String(asset.copy.ctaUrl)})`
+      : '',
     '',
   ];
 
@@ -558,28 +750,102 @@ function buildAssetText(asset: ContentAssetVersion, kind: ExportKind): string {
    * place for a volume or a click price, and the note says why.
    */
   if (asset.copy.ads !== null) {
+    const ads = asset.copy.ads;
+    const google = asset.channel === 'google_search_ads';
     lines.push('ADVERTENTIETEKST');
-    for (const [index, headline] of asset.copy.ads.headlines.entries()) {
-      lines.push(`  Kop ${String(index + 1)}: ${headline}`);
+    if (google) lines.push('  Responsieve zoekadvertentie (Google Ads)');
+    for (const [index, headline] of ads.headlines.entries()) {
+      lines.push(`  Kop ${String(index + 1)}: ${headline}${google ? ` (${String([...headline].length)}/${String(GOOGLE_RSA.headlines.maxChars)})` : ''}`);
     }
-    for (const [index, description] of asset.copy.ads.descriptions.entries()) {
-      lines.push(`  Beschrijving ${String(index + 1)}: ${description}`);
+    for (const [index, description] of ads.descriptions.entries()) {
+      lines.push(`  Beschrijving ${String(index + 1)}: ${description}${google ? ` (${String([...description].length)}/${String(GOOGLE_RSA.descriptions.maxChars)})` : ''}`);
     }
-    if (asset.copy.ads.keywords.length > 0) {
+    if (ads.paths.length > 0) lines.push(`  Weergavepaden: ${ads.paths.join(' / ')}`);
+    if (ads.finalUrl !== null) lines.push(`  Uiteindelijke URL: ${ads.finalUrl}`);
+    if (ads.keywords.length > 0) {
       lines.push('  Zoektermen (suggesties, zonder volume of klikprijs):');
-      for (const keyword of asset.copy.ads.keywords) {
+      for (const keyword of ads.keywords) {
         lines.push(`    - ${keyword}`);
       }
     }
+    if (ads.negativeKeywords.length > 0) lines.push(`  Uitsluitingszoekwoorden: ${ads.negativeKeywords.join(', ')}`);
+    if (ads.matchTypeAdviceNl.length > 0) lines.push(`  Zoekwoordtype: ${ads.matchTypeAdviceNl}`);
+    lines.push(`  Onderbouwing: ${ads.rationaleNl}`);
+    if (google) {
+      lines.push(
+        `  Tekstlimieten volgens Google's documentatie (gelezen ${GOOGLE_RSA.verifiedAt.slice(0, 10)}): koppen ${String(GOOGLE_RSA.headlines.maxChars)}, beschrijvingen ${String(GOOGLE_RSA.descriptions.maxChars)}, weergavepaden ${String(GOOGLE_RSA.paths.maxChars)} tekens. Dit pakket bevat geen zoekvolumes, klikprijzen of conversieverwachtingen, en geen biedingen; die komen uit het advertentieaccount.`,
+        '',
+      );
+      if (asset.funnelStage !== null) lines.push(googleAdsFrameText(asset.funnelStage), '');
+    } else {
+      lines.push(
+        '  Let op: tekstlimieten en advertentieregels van dit platform zijn niet tegen een primaire bron gecontroleerd. Controleer ze in het advertentieplatform. Dit pakket bevat geen zoekvolumes, klikprijzen of conversieverwachtingen.',
+        '',
+      );
+    }
+  }
+
+  /*
+   * The website piece's form, in full.
+   *
+   * A change proposal lists, per change, where on the page, why, the passage
+   * that is there now and the text that should follow — the four things a
+   * web editor needs to act without re-reading the campaign. An article is
+   * printed in reading order with its search snippet and its questions, so
+   * it can be pasted into a CMS top to bottom.
+   */
+  if (asset.copy.website?.form === 'course_page_update') {
+    lines.push('WIJZIGINGSVOORSTEL OPLEIDINGSPAGINA', `  Pagina: ${asset.copy.website.pageUrl}`, '');
+    for (const [index, change] of asset.copy.website.changes.entries()) {
+      lines.push(
+        `  Wijziging ${String(index + 1)} — ${change.placement}`,
+        `  Waarom: ${change.reason}`,
+        `  Huidige passage: “${change.currentExcerpt}”`,
+        '  Voorgestelde tekst:',
+        `  ${change.proposedText}`,
+        '',
+      );
+    }
+  }
+  if (asset.copy.website?.form === 'blog_article') {
+    const article = asset.copy.website;
     lines.push(
-      `  Onderbouwing: ${asset.copy.ads.rationaleNl}`,
-      '  Let op: tekstlimieten en advertentieregels zijn niet gecontroleerd. Controleer ze in het advertentieplatform. Dit pakket bevat geen zoekvolumes, klikprijzen of conversieverwachtingen.',
+      'BLOGARTIKEL',
+      `  Titel: ${article.title}`,
+      `  Zoekfragment (meta description): ${article.metaDescription}`,
+      '',
+    );
+    if (article.directAnswerNl.length > 0) lines.push(`  Direct antwoord: ${article.directAnswerNl}`, '');
+    lines.push(`  ${article.intro}`, '');
+    for (const [index, section] of article.sections.entries()) {
+      lines.push(`  ## ${section.heading}`, `  ${section.text}`, '');
+      if (index === 1 && article.scenarioNl.length > 0) lines.push(`  Praktijkscenario: ${article.scenarioNl}`, '');
+      if (index === article.midCtaAfterSection && article.midCtaNl.length > 0) {
+        lines.push(`  ${article.midCtaNl}${asset.copy.ctaUrl === null ? '' : ` [link: ${asset.copy.ctaUrl}]`}`, '');
+      }
+    }
+    if (article.externalFacts.length > 0) {
+      lines.push('  Aangehaalde bronnen');
+      for (const fact of article.externalFacts) lines.push(`  - ${fact.statementNl} — ${fact.sourceRef}`);
+      lines.push('');
+    }
+    if (article.coursePathNl.length > 0) lines.push('  ## Wat dit van je vraagt', `  ${article.coursePathNl}`, '');
+    lines.push('  Veelgestelde vragen');
+    for (const item of article.faq) {
+      lines.push(`  V: ${item.question}`, `  A: ${item.answer}`, '');
+    }
+    if (article.closingCtaNl.length > 0) lines.push(`  ${article.closingCtaNl}`, '');
+    lines.push(
+      `  Interne link naar de opleidingspagina: “${article.internalLinkText}”${asset.copy.ctaUrl === null ? '' : ` → ${asset.copy.ctaUrl}`}`,
       '',
     );
   }
+  if (asset.copy.keywordsUsed.length > 0) {
+    lines.push('ZOEKTERMEN IN DE TEKST (geen volume, geen positie)', `  ${asset.copy.keywordsUsed.join(' · ')}`, '');
+  }
 
   if (asset.copy.hashtags.length > 0) {
-    lines.push('HASHTAGS', asset.copy.hashtags.map((tag) => `#${tag}`).join(' '), '');
+    lines.push('HASHTAGS', asset.copy.hashtags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' '), '');
   }
   if (asset.copy.imageAltText !== null) {
     lines.push('ALT-TEKST (toegankelijkheid)', asset.copy.imageAltText, '');
@@ -634,6 +900,17 @@ function buildPlanText(plan: ContentPlan): string {
     }
   }
 
+  if (plan.measurementPlan.length > 0) {
+    lines.push('', 'MEETPLAN PER FASE (indicator · bron · beslisregel — geen prognose)');
+    for (const measurement of plan.measurementPlan) {
+      lines.push(
+        `  ${FUNNEL_STAGE_LABEL_NL[measurement.stage]}: ${measurement.indicatorNl}`,
+        `    Afgelezen uit: ${measurement.sourceNl}`,
+        `    Beslisregel: ${measurement.decisionRuleNl}`,
+      );
+    }
+  }
+
   if (plan.channelAdvice.length > 0) {
     lines.push('', 'KANAALADVIES (regel · advies voor deze campagne)');
     for (const advice of plan.channelAdvice) {
@@ -669,4 +946,55 @@ function toExport(row: ExportRow): ExportRecord {
     createdAt: row.createdAt.toISOString(),
     sizeBytes: row.sizeBytes,
   };
+}
+
+
+const csvCell = (value: string): string => `"${value.replace(/"/gu, '""')}"`;
+
+/** The responsive search ad as a spreadsheet a person pastes into Google Ads: one ad row, then keyword rows. */
+export function buildGoogleAdsSheet(
+  asset: ContentAssetVersion,
+  kind: 'draft' | 'publish_ready',
+  campaignName: string,
+): string {
+  const ads = asset.copy.ads;
+  if (ads === null) return '';
+  const stage = asset.funnelStage ?? 'zonder-fase';
+  const header = [
+    'Campagne',
+    'Advertentiegroep',
+    'Uiteindelijke URL',
+    'Pad 1',
+    'Pad 2',
+    ...Array.from({ length: GOOGLE_RSA.headlines.max }, (_, index) => `Kop ${String(index + 1)}`),
+    ...Array.from({ length: GOOGLE_RSA.descriptions.max }, (_, index) => `Beschrijving ${String(index + 1)}`),
+    'Zoekterm',
+    'Zoekwoordtype (advies)',
+    'Uitsluitingszoekwoord',
+  ];
+  const campaign = `${kind === 'draft' ? 'CONCEPT ' : ''}${stage}`;
+  const group = 'thema 1';
+  const adRow = [
+    campaign,
+    group,
+    // Same campaign tagging as the text file, so the sheet and the post agree.
+    utmTaggedUrl({
+      url: ads.finalUrl ?? asset.copy.ctaUrl,
+      channel: asset.channel,
+      campaignName,
+      stage: asset.funnelStage,
+      assetKey: asset.assetKey,
+    }) ?? '',
+    ads.paths[0] ?? '',
+    ads.paths[1] ?? '',
+    ...Array.from({ length: GOOGLE_RSA.headlines.max }, (_, index) => ads.headlines[index] ?? ''),
+    ...Array.from({ length: GOOGLE_RSA.descriptions.max }, (_, index) => ads.descriptions[index] ?? ''),
+    '',
+    '',
+    '',
+  ];
+  const blank = Array.from({ length: header.length - 3 }, () => '');
+  const keywordRows = ads.keywords.map((keyword) => [campaign, group, ...blank.slice(2), keyword, 'woordgroep (phrase) — zie advies', '']);
+  const negativeRows = ads.negativeKeywords.map((keyword) => [campaign, group, ...blank.slice(2), '', '', keyword]);
+  return [header, adRow, ...keywordRows, ...negativeRows].map((row) => row.map(csvCell).join(',')).join('\n') + '\n';
 }

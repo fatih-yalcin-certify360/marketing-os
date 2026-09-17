@@ -1,0 +1,7 @@
+/* Certify360 Design System — global entry point.
+   Consumers link this single file. @import only; no rules here. */
+@import url('./tokens/fonts.css');
+@import url('./tokens/colors.css');
+@import url('./tokens/typography.css');
+@import url('./tokens/layout.css');
+@import url('./tokens/base.css');

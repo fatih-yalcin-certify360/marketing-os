@@ -105,6 +105,15 @@ function specWith(verification: ChannelVerification): {
       verification: 'unverified',
       sourceUrl: null,
       verifiedAt: null,
+      length: {
+        minBodyWords: null,
+        minTotalWords: null,
+        minSections: null,
+        maxSections: null,
+        minSectionWords: null,
+        minHashtags: 0,
+        maxHashtags: 0,
+      },
     },
     noteNl: null,
   };

@@ -26,18 +26,28 @@ export function MerkPage(props: { label: LabelSummary | undefined }): ReactNode 
   const brand = useBrand(props.label?.id);
 
   if (props.label === undefined) {
-    return <Notice tone="warning">Kies eerst een label.</Notice>;
+    return (
+      <div className="os-page">
+        <Notice tone="warning">Kies eerst een label.</Notice>
+      </div>
+    );
   }
   if (brand.isPending) {
-    return <LoadingState label="Merkprofiel wordt geladen" />;
+    return (
+      <div className="os-page">
+        <LoadingState label="Merkprofiel wordt geladen" />
+      </div>
+    );
   }
   if (brand.isError) {
     return (
+      <div className="os-page">
       <ErrorState
         message={brand.error.userMessage}
         requestId={brand.error.requestId}
         onRetry={() => void brand.refetch()}
       />
+      </div>
     );
   }
 
@@ -45,16 +55,32 @@ export function MerkPage(props: { label: LabelSummary | undefined }): ReactNode 
   const approved = brand.data.approved ?? null;
 
   return (
-    <>
-      <header>
-        <h1 className="c360-page-title">Merk &amp; bronnen</h1>
-        <p className="c360-page-lead">
-          Het goedgekeurde merkprofiel is bindend: de kleuren worden in beelden gebruikt en de
-          merkregels komen automatisch in het &quot;buiten kader&quot; van elke briefing.
-        </p>
+    <div className="os-page os-page--reading">
+      <header className="os-page__head">
+        <div className="os-page__head-text">
+          <p className="os-eyebrow">Kennis &amp; beheer</p>
+          <h1 className="c360-page-title">Merk &amp; bronnen</h1>
+          <p className="c360-page-lead">
+            Het goedgekeurde merkprofiel is bindend: deze kleuren sturen de beelden, de interface van
+            dit label, en de merkregels komen automatisch in het buiten kader van elke briefing.
+          </p>
+        </div>
+        <div className="os-page__actions">
+          {approved === null ? (
+            <Badge tone="amber">Nog geen goedgekeurd merkprofiel</Badge>
+          ) : (
+            <>
+              <Badge tone="green" icon="check">{`Goedgekeurd · versie ${String(approved.version)}`}</Badge>
+              {approved.origin === 'demo' && <Badge tone="amber">Demo</Badge>}
+            </>
+          )}
+        </div>
       </header>
 
-      <PortalConnection key={props.label.id} label={props.label} state={brand.data} />
+      {/* Two columns where the canvas allows: where the brand comes from on
+          the left, what it paints with on the right. */}
+      <div className="os-brandgrid">
+        <PortalConnection key={props.label.id} label={props.label} state={brand.data} />
 
       {approved === null ? (
         <Notice tone="warning">
@@ -70,32 +96,50 @@ export function MerkPage(props: { label: LabelSummary | undefined }): ReactNode 
 
           <dl className="c360-definition" style={{ marginTop: 'var(--c360-space-4)' }}>
             <div>
-              <dt className="c360-definition__term">Kleuren (gebruikt in beelden)</dt>
-              <dd className="c360-definition__value">
-                <div className="c360-row">
-                  {(
-                    [
-                      ['Primair', approved.colors.primary],
-                      ['Accent', approved.colors.accent],
-                      ['Tekst op primair', approved.colors.onPrimary],
-                    ] as const
-                  ).map(([name, value]) => (
-                    <span key={name} className="c360-row" style={{ gap: 'var(--c360-space-2)' }}>
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 5,
-                          background: value,
-                          border: '1px solid var(--c360-border-strong)',
-                          display: 'inline-block',
-                        }}
-                      />
-                      <span className="c360-stat__caption">{`${name} ${value}`}</span>
+              <dt className="c360-definition__term">Kleuren van dit label</dt>
+              <dd className="c360-definition__value" style={{ fontWeight: 400 }}>
+                <p className="c360-definition__note" style={{ marginBottom: 6 }}>
+                  Gebruikt in de beelden én in deze interface. Vlakken met tekst gebruiken een
+                  verdonkerde variant, zodat kleine tekst leesbaar blijft.
+                </p>
+                {(
+                  [
+                    ['Primair', approved.colors.primary, 'Balken, markers en de gevulde knoppen'],
+                    ['Accent', approved.colors.accent, 'Attentiestip en de markering van de huidige stap'],
+                    ['Tekstkleur op donker', approved.colors.onSurface, 'De navigatiebalk en het einde van de gradiënt'],
+                    ['Tekst op primair', approved.colors.onPrimary, 'Tekst op een gevuld merkvlak in beelden'],
+                  ] as const
+                ).map(([name, value, use]) => (
+                  <span key={name} className="os-swatchrow">
+                    <span className="os-swatchrow__chip" aria-hidden="true" style={{ background: value }} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700 }}>{name}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--tx-3)' }}>{use}</span>
                     </span>
-                  ))}
-                </div>
+                    <span className="os-swatchrow__hex">{value}</span>
+                  </span>
+                ))}
+                <span
+                  className="os-gradient"
+                  style={{
+                    display: 'grid',
+                    gap: 6,
+                    borderRadius: 'var(--radius-lg)',
+                    padding: 14,
+                    marginTop: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', opacity: 0.85 }}>
+                    VOORBEELD IN BEELD
+                  </span>
+                  <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
+                    {approved.exampleContent.slice(0, 120) || 'Zo ziet een merkvlak met tekst eruit.'}
+                  </span>
+                  <span style={{ fontSize: 11.5, lineHeight: 1.5, opacity: 0.9 }}>
+                    Het woordmerk wordt door onze eigen rendering in het beeld gezet, niet door een
+                    AI-model getekend.
+                  </span>
+                </span>
               </dd>
             </div>
             <div>
@@ -130,6 +174,7 @@ export function MerkPage(props: { label: LabelSummary | undefined }): ReactNode 
           </dl>
         </Card>
       )}
+      </div>
 
       {!brand.data.portal?.slug && <BrandEditor
         labelId={props.label.id}
@@ -155,7 +200,7 @@ export function MerkPage(props: { label: LabelSummary | undefined }): ReactNode 
         }
         pendingVersion={current?.version ?? null}
       />}
-    </>
+    </div>
   );
 }
 

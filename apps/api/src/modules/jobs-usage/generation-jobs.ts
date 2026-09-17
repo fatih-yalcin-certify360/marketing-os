@@ -28,15 +28,26 @@ const CALLS_PER_JOB: Readonly<Record<string, number>> = Object.freeze({
   'course.extract_from_documents': 1,
   'course.extract_from_url': 1,
   'research.run': 1,
-  'radar.scan': 4,
-  'persona.propose': 1,
+  // discover, analyze, audience, keywords and the synthesis of the market picture.
+  'radar.scan': 5,
+  // The proposal, then one questionnaire call per persona (up to three).
+  'persona.propose': 4,
+  // One questionnaire call for one stored persona.
+  'persona.fill_questionnaire': 1,
+  // One call over the same material, for where that audience orients.
+  'persona.fill_orientation': 1,
   'opportunity.propose': 1,
   'brief.draft': 1,
   'concept.propose': 1,
   'content.plan': 1,
   // One text call per funnel stage — a full-funnel campaign makes three —
   // then image work.
-  'content.generate': 3,
+  // Up to three calls per stage: the social and advert channels together, then
+  // the website piece and the e-mail each on their own, so a long piece has
+  // the whole output budget; one repair call may follow each.
+  'content.generate': 9,
+  // One piece: the text call, plus one repair round if the shape is wrong.
+  'content.standalone': 2,
   'content.revise': 1,
 });
 
@@ -46,7 +57,15 @@ const IMAGES_PER_JOB: Readonly<Record<string, number>> = Object.freeze({
   // adverts render no image, so this is the ceiling, not the usual case.
   'content.generate': 18,
   'content.revise': 2,
+  // One generated scene rendered into two variants, for an image channel.
+  'content.standalone': 2,
 });
+
+/** Up to three personas can each carry 36 answers of 1,000 characters. */
+const PERSONA_CONTEXT_JOBS: ReadonlySet<JobType> = new Set([
+  'opportunity.propose', 'brief.draft', 'concept.propose', 'content.plan',
+  'content.generate', 'content.revise',
+]);
 
 export class GenerationJobService {
   constructor(
@@ -71,13 +90,18 @@ export class GenerationJobService {
    * of the job finishing, so erring high is the safe direction.
    */
   private estimateFor(type: JobType): number {
+    if (type === 'persona.extract_from_text') return this.generation.estimatePerCallCents(30_000);
     if (type === 'campaign.package') return this.generation.estimatePerCallCents(200_000);
     if (type === 'geo.research') return 2 * this.generation.estimatePerCallCents(120_000) + 100;
-    if (type === 'radar.scan') return 4 * this.generation.estimatePerCallCents(180_000) + 100;
+    if (type === 'radar.scan') return 5 * this.generation.estimatePerCallCents(180_000) + 100;
     const calls = CALLS_PER_JOB[type] ?? 1;
     const images = IMAGES_PER_JOB[type] ?? 0;
+    // The shared creative dossier adds bounded source excerpts and channel
+    // rationale to image-producing content calls; it makes no extra AI call.
+    const creativeChars = type === 'content.generate' || type === 'content.revise' ? 50_000 : 0;
+    const inputChars = (type === 'research.run' ? 100_000 : 8_000) + (PERSONA_CONTEXT_JOBS.has(type) ? 140_000 : 0) + creativeChars;
     return (
-      calls * this.generation.estimatePerCallCents(type === 'research.run' ? 100_000 : 8_000) +
+      calls * this.generation.estimatePerCallCents(inputChars) +
       images * this.generation.estimatePerImageCents()
     );
   }
@@ -116,6 +140,9 @@ export class GenerationJobService {
       // Generation is slow and retrying is expensive; three attempts is enough
       // to ride out a rate limit without multiplying cost.
       maxAttempts: 3,
+      // A deliberate new import supplies a new request key; replaying the old
+      // key after a lost response must never buy another completed extraction.
+      reuseTerminalJob: input.type === 'persona.extract_from_text',
       ...(input.requestId === undefined ? {} : { requestId: input.requestId }),
       ...(input.clientAddress === undefined ? {} : { clientAddress: input.clientAddress }),
     });

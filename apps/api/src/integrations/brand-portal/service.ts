@@ -116,6 +116,25 @@ export class PortalSyncService {
   }
 }
 
+/**
+ * Reads a brand file, or says plainly that the storage does not have it.
+ *
+ * A raw `ENOENT` here used to surface as "Er is een onverwachte fout
+ * opgetreden" and a dead job: the file was in another process's storage root.
+ * The database row is intact, so this is a dependency that moved, not a crash
+ * — and the message names the two things that fix it.
+ */
+export async function readStoredFile(filename: string, kindNl: string): Promise<Buffer> {
+  try {
+    return await readFile(filename);
+  } catch (error: unknown) {
+    throw new AppError('dependency_changed', {
+      publicMessage: `Het ${kindNl} van dit merk staat niet in de opslag van deze omgeving. Controleer of api en worker dezelfde STORAGE_ROOT gebruiken, of synchroniseer het merk opnieuw.`,
+      internalDetail: `brand ${kindNl} unreadable at ${filename}: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
 export async function loadBrandResources(db: DbOrTx, storageRoot: string, brand: BrandProfileVersion): Promise<{ fontFiles: string[]; logoDataUri?: string; headingFamily?: string; bodyFamily?: string }> {
   if (!brand.portal) return { fontFiles: [] };
   const store = new FileStore(storageRoot);
@@ -127,7 +146,7 @@ export async function loadBrandResources(db: DbOrTx, storageRoot: string, brand:
     const [row] = await db.select().from(assets).where(and(eq(assets.id, id), eq(assets.labelId, brand.labelId), eq(assets.kind, id === brand.logoAssetId ? 'logo' : 'font')));
     if (!row) throw new AppError('dependency_changed');
     const filename = store.absolutePathFor(row.storagePath);
-    const bytes = await readFile(filename);
+    const bytes = await readStoredFile(filename, id === brand.logoAssetId ? 'logo' : 'lettertype');
     if (createHash('sha256').update(bytes).digest('hex') !== row.sha256) throw new AppError('dependency_changed');
     if (id === brand.logoAssetId) logoDataUri = `data:image/png;base64,${bytes.toString('base64')}`;
     else { fontFiles.push(filename); names.push(...fontFamilyNames(bytes)); }

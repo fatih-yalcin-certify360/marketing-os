@@ -142,6 +142,26 @@ describe('strict schema conversion', () => {
     expect(acceptsNull).toBe(true);
   });
 
+  it('requires the per-piece creative direction in structured output while allowing null for text-only content', () => {
+    const { schema } = toStrictJsonSchema(z.toJSONSchema(contentProposalSet, { io: 'output' }));
+    const item = objectNodes(schema).find(node => Object.hasOwn(node.properties as object, 'creativeBrief'));
+    expect(item).toBeDefined();
+    expect(item!.required).toContain('creativeBrief');
+    const creative = (item!.properties as Record<string, Record<string, unknown>>).creativeBrief!;
+    expect((creative.anyOf as Record<string, unknown>[]).some(branch => branch.type === 'null')).toBe(true);
+    const direction = objectNodes(creative)[0]!;
+    expect(direction.required).toContain('audienceInsight');
+    expect(direction.required).toContain('textTreatment');
+    expect(direction.required).toContain('textPosition');
+    expect(direction.required).toContain('brandIntegration');
+    expect(direction.required).toContain('campaignAlignment');
+    expect(direction.required).toContain('channelRationale');
+    expect(direction.required).toContain('personaVersionIds');
+    expect(direction.required).toContain('evidenceIds');
+    expect(direction.required).toContain('testHypothesis');
+    expect(direction.additionalProperties).toBe(false);
+  });
+
   it('leaves an already-nullable property alone', () => {
     const schema = z.object({ note: z.string().nullable() });
     const { schema: strict } = toStrictJsonSchema(z.toJSONSchema(schema, { io: 'output' }));

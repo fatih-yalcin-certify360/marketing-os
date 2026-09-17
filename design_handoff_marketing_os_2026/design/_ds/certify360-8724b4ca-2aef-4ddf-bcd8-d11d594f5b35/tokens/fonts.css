@@ -1,0 +1,25 @@
+/* Certify360 — brand @font-face declarations (self-hosted)
+   At Gambit .......... display serif  (main headlines, H1–H4)
+   TT Firs Neue ....... modern sans    (smaller titles, labels, tags, buttons, H5–H6)
+   Plus Jakarta Sans .. humanist sans  (all body & long-form copy) */
+
+/* ---- At Gambit (display serif) ---- */
+@font-face{font-family:'At Gambit';src:url('../assets/fonts/AtGambit-Light.otf') format('opentype');font-weight:300;font-style:normal;font-display:swap}
+@font-face{font-family:'At Gambit';src:url('../assets/fonts/AtGambit-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'At Gambit';src:url('../assets/fonts/AtGambit-Italic.otf') format('opentype');font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:'At Gambit';src:url('../assets/fonts/AtGambit-Semibold.otf') format('opentype');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'At Gambit';src:url('../assets/fonts/AtGambit-Bold.otf') format('opentype');font-weight:700;font-style:normal;font-display:swap}
+
+/* ---- TT Firs Neue (title / UI sans) ---- */
+@font-face{font-family:'TT Firs Neue';src:url('../assets/fonts/TTFirsNeue-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'TT Firs Neue';src:url('../assets/fonts/TTFirsNeue-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'TT Firs Neue';src:url('../assets/fonts/TTFirsNeue-DemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'TT Firs Neue';src:url('../assets/fonts/TTFirsNeue-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+
+/* ---- Plus Jakarta Sans (body) ---- */
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('../assets/fonts/PlusJakartaSans-BoldItalic.woff2') format('woff2');font-weight:700;font-style:italic;font-display:swap}

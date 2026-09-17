@@ -100,8 +100,12 @@ Do not:
 Honest, and each with a reason:
 
 - **The browser suite is one path, not a matrix.** `npm run smoke` boots its own
-  stack, drives the whole campaign chain and asserts ten properties of the
-  finished campaign; it runs in CI as the `ui-smoke` job. What it does *not* do:
+  stack, drives the whole campaign chain through the eight numbered steps
+  (nineteen clicks) and asserts sixteen properties of the finished campaign —
+  among them that the briefing speaks per stage, the plan advises on every
+  producible channel and measures every stage, the calendar walks the stages
+  in journey order, and every piece of content knows its stage; it runs in CI
+  as the `ui-smoke` job. What it does *not* do:
   more than one browser, more than one entry mode (`discover_opportunities`
   only), any error path, or anything outside the chain — the Opleidingen, Merk
   and Labels screens are still verified by hand. It also runs against the

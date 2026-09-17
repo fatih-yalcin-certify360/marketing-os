@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { marketingChannel } from './channels.js';
 import type { ContentPlan } from './campaigns.js';
 import type { CourseDate } from './courses.js';
+import { FUNNEL_STAGES, funnelStage, type FunnelStage } from './funnel.js';
 
 /**
  * The campaign calendar (P3-3).
@@ -36,6 +37,8 @@ import type { CourseDate } from './courses.js';
 
 export const calendarSlot = z.object({
   channel: marketingChannel,
+  /** The stage the piece serves; null for slots from a stage-less plan. */
+  stage: funnelStage.nullable().default(null),
   /** 1-based, per channel: the second LinkedIn post is `sequence: 2`. */
   sequence: z.number().int().min(1),
   /** Days from day zero. Stable whether or not a start date exists. */
@@ -80,6 +83,11 @@ const DAYS_PER_WEEK = 7;
 const DAYS_BETWEEN_CHANNELS = 2;
 /** Keeps a week's stagger inside the week however many channels there are. */
 const MAX_STAGGER_DAYS = 6;
+
+/** Journey order for sorting; stage-less slots sort after staged ones on the same day. */
+function stageRank(stage: FunnelStage | null): number {
+  return stage === null ? FUNNEL_STAGES.length : FUNNEL_STAGES.indexOf(stage);
+}
 
 function addDays(isoDate: string, days: number): string {
   /*
@@ -130,34 +138,54 @@ export function buildCampaignCalendar(input: {
 
   if (input.plan !== null) {
     /*
-     * Numbered per channel across the whole plan, not per item.
+     * Sequenced by stage, then numbered per channel across the whole plan.
      *
-     * A staged plan holds one item per stage × channel, so the same channel
-     * appears up to three times. Numbering each item from one gave three
-     * "first" e-mails on the same day — the same identity three times, which
-     * the interface duly rendered as duplicate rows. The second piece for a
-     * channel is the second, whichever stage it serves. Sequencing the stages
-     * themselves is slice 3 of the campaign-flow redesign.
+     * The stages are a journey, so the calendar walks them in order: every
+     * Ontdekken piece is scheduled from week one, every Overwegen piece from
+     * week two, every Beslissen piece from week three (campaign-flow-design.md,
+     * slice 3). With one piece per cell that is one stage per week; with two
+     * pieces per cell the stages overlap by a week — Ontdekken weeks 1–2,
+     * Overwegen 2–3, Beslissen 3–4 — which is what gives the order a reason a
+     * reader can check against the funnel rather than against the plan's item
+     * order. A stage-less plan keeps the old rhythm: everything from week one.
+     *
+     * Numbering is per channel across stages, not per item: a staged plan
+     * holds one item per stage × channel, so the same channel appears up to
+     * three times, and numbering each item from one gave three "first"
+     * e-mails on one day. The second piece for a channel is the second,
+     * whichever stage it serves.
      */
     const perChannel = new Map<string, number>();
-    for (const [channelIndex, item] of input.plan.items.entries()) {
-      const stagger = Math.min(channelIndex * DAYS_BETWEEN_CHANNELS, MAX_STAGGER_DAYS);
+    const perStage = new Map<string, number>();
+    for (const item of input.plan.items) {
+      const stage = item.stage ?? null;
+      const stageKey = stage ?? '';
+      const indexInStage = perStage.get(stageKey) ?? 0;
+      perStage.set(stageKey, indexInStage + 1);
+      const stageOffset = stage === null ? 0 : FUNNEL_STAGES.indexOf(stage) * DAYS_PER_WEEK;
+      const stagger = Math.min(indexInStage * DAYS_BETWEEN_CHANNELS, MAX_STAGGER_DAYS);
       for (let piece = 0; piece < item.count; piece += 1) {
-        const offsetDays = piece * DAYS_PER_WEEK + stagger;
+        const offsetDays = stageOffset + piece * DAYS_PER_WEEK + stagger;
         const sequence = (perChannel.get(item.channel) ?? 0) + 1;
         perChannel.set(item.channel, sequence);
         slots.push({
           channel: item.channel,
+          stage,
           sequence,
           offsetDays,
-          week: piece + 1,
+          week: Math.floor(offsetDays / DAYS_PER_WEEK) + 1,
           date: input.startDate === null ? null : addDays(input.startDate, offsetDays),
         });
       }
     }
   }
 
-  slots.sort((a, b) => a.offsetDays - b.offsetDays || a.channel.localeCompare(b.channel));
+  slots.sort(
+    (a, b) =>
+      a.offsetDays - b.offsetDays ||
+      stageRank(a.stage) - stageRank(b.stage) ||
+      a.channel.localeCompare(b.channel),
+  );
 
   if (input.startDate === null) {
     warnings.push({

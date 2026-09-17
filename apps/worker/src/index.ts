@@ -121,6 +121,7 @@ async function main(): Promise<void> {
       aiProvider: env.AI_PROVIDER,
       textModel: env.AI_TEXT_MODEL,
       imageGeneration: env.AI_IMAGE_ENABLED,
+      storageRoot: env.STORAGE_ROOT,
     },
     'worker started',
   );

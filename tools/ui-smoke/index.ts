@@ -49,20 +49,17 @@ type Step =
 
 const CHAIN: readonly Step[] = [
   /*
-   * The documented order, which the screen now follows: personas, then
-   * opportunities, then the briefing.
-   *
-   * This list used to run 1 → briefing → 2 → approve, because the brief-draft
-   * button lived inside step 1 and drafting was what unlocked step 2. The steps
-   * were numbered 1, 2, 3 while the flow ran 1, 3, 2 — and this driver was the
-   * thing that noticed, by stalling.
+   * The eight numbered steps of the campaign screen, in the order the step
+   * bar shows them. The bar numbers by position and every card takes its
+   * number from the same list, so a tab label here doubles as a check that
+   * the numbering still matches: "5. Kanaalplan" must be the fifth button.
    */
   { kind: 'click', name: 'Doelgroepen voorstellen', slug: 'doelgroepen', startsJob: true },
   { kind: 'choose-personas', count: 2, slug: 'doelgroepen-gekozen' },
-  { kind: 'click', name: /Richting/u, slug: 'fase-richting', startsJob: false },
+  { kind: 'click', name: /^2\. Richting/u, slug: 'stap-richting', startsJob: false },
   { kind: 'click', name: 'Kansen voorstellen', slug: 'kansen', startsJob: true },
+  // Choosing a direction moves the screen on to the briefing by itself.
   { kind: 'choose-first', name: /^Kies deze$/u, slug: 'kans-gekozen' },
-  { kind: 'click', name: /3.*Briefing/u, slug: 'fase-briefing', startsJob: false },
   /*
    * Both labels of the same button: a supplied briefing is *structured*, an
    * idea is *written out*. The strings are the ones in `BriefDraftButton` —
@@ -75,19 +72,23 @@ const CHAIN: readonly Step[] = [
     slug: 'briefing-opgesteld',
     startsJob: true,
   },
-  { kind: 'click', name: /Briefing v\d+ goedkeuren/u, slug: 'briefing-goedgekeurd', startsJob: false },
-  { kind: 'click', name: /Social & beelden/u, slug: 'fase-social', startsJob: false },
+  { kind: 'click', name: /^Briefing v\d+ goedkeuren$/u, slug: 'briefing-goedgekeurd', startsJob: false },
+  { kind: 'click', name: /^4\. Concept/u, slug: 'stap-concept', startsJob: false },
   { kind: 'click', name: 'Drie beeldrichtingen voorstellen', slug: 'concepten', startsJob: true },
   // Opportunities offer "Kies deze"; concepts offer "Kies". Anchored so one
   // cannot match the other's button further up the page.
   { kind: 'choose-first', name: /^Kies$/u, slug: 'concept-gekozen' },
+  { kind: 'click', name: /^5\. Kanaalplan/u, slug: 'stap-kanaalplan', startsJob: false },
   { kind: 'click', name: 'Kanaalplan voorstellen', slug: 'kanaalplan', startsJob: true },
   // Exact: with an edited selection the button reads "Kanaalplan met mijn
   // keuze goedkeuren"; the driver approves the proposal as it stands.
   { kind: 'click', name: 'Kanaalplan goedkeuren', slug: 'kanaalplan-goedgekeurd', startsJob: false },
+  { kind: 'click', name: /^6\. Content/u, slug: 'stap-content', startsJob: false },
   { kind: 'click', name: 'Content maken', slug: 'content', startsJob: true },
+  { kind: 'click', name: /^7\. Export/u, slug: 'stap-export', startsJob: false },
   { kind: 'click', name: 'Concept exporteren', slug: 'export-concept', startsJob: false },
   { kind: 'click', name: 'Publicatieklaar', slug: 'export-publicatieklaar', startsJob: false },
+  { kind: 'click', name: /^8\. Resultaten/u, slug: 'stap-resultaten', startsJob: false },
 ];
 
 async function main(): Promise<void> {
@@ -144,8 +145,9 @@ async function main(): Promise<void> {
    * looking for a course that was never going to be there. The label is an
    * input, so it is selected rather than assumed.
    */
-  const switcher = page.locator('#label-switch');
-  await switcher.selectOption({ label: LABEL_NAME });
+  const switcher = page.locator('.os-labelchip');
+  await switcher.click();
+  await page.getByRole('menuitem', { name: LABEL_NAME }).click();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1_000);
   /*
@@ -154,13 +156,29 @@ async function main(): Promise<void> {
    * A run that silently operates on the wrong label fails several steps later
    * with a permission error, and the output gives no hint that the label was
    * the problem. This is one line and removes that whole class of confusion.
+   *
+   * Read off the chip rather than a form value: the switcher is a menu now,
+   * because picking a label re-tints the whole interface and the menu shows
+   * each label's colours before you commit to one.
    */
-  const labelId = await switcher.inputValue();
-  process.stdout.write(`  label: ${LABEL_NAME} (${labelId})\n`);
+  const chosen = (await switcher.textContent())?.trim() ?? '';
+  // The id the app is actually working with, read where the app keeps it.
+  const labelId = await page.evaluate(() => localStorage.getItem('c360.activeLabelId') ?? '');
+  process.stdout.write(`  label: ${chosen} (${labelId})\n`);
 
   await page.getByRole('link', { name: /Campagnes/u }).first().click();
   await page.waitForLoadState('networkidle');
 
+  /*
+   * The form sits behind one primary button when the label already has
+   * campaigns; a label without any shows it open. Read the button's state
+   * rather than assuming either, so the driver works on a fresh label and on
+   * one that has been used all day.
+   */
+  const newCampaign = page.getByRole('button', { name: 'Nieuwe campagne' });
+  if ((await newCampaign.count()) > 0 && (await newCampaign.getAttribute('aria-expanded')) === 'false') {
+    await newCampaign.click();
+  }
   const name = `UI-smoke ${new Date().toISOString().slice(11, 19)} (Demo)`;
   await page.getByLabel('Naam van de campagne').fill(name);
   // Stap 0: the objective. The full funnel, so every stage is exercised and
@@ -273,16 +291,24 @@ interface Check {
   detail?: string | undefined;
 }
 
+/** Persona rows showing every question answered, counted in the Doelgroep step. */
+let completeQuestionnaires = 0;
+
 /** The campaign as the interface sees it, plus the label's exports. */
 interface Outcome {
-  brief: { personaVersionIds: string[] } | null;
+  brief: { personaVersionIds: string[]; stageMessages: { stage: string; proofFields: string[] }[] } | null;
   briefApproved: boolean;
   concepts: { id: string; selected: boolean }[];
   selectedConcept: unknown;
   plan: {
     reviewState: string;
-    plan: { items: { stage: string | null }[]; channelAdvice: unknown[] };
+    plan: {
+      items: { stage: string | null }[];
+      channelAdvice: { channel: string }[];
+      measurementPlan: { stage: string }[];
+    };
   } | null;
+  calendar: { slots: { stage: string | null; week: number }[] };
   assets: { channel: string; funnelStage: string | null; variants: unknown[] }[];
   exports: { kind: string; sizeBytes: number; blockedReasonsNl: string[] }[];
 }
@@ -376,6 +402,12 @@ async function verifyOutcome(
     (outcome.plan?.plan.items ?? []).map((item) => item.stage).filter((stage) => stage !== null),
   );
   const adviceCount = outcome.plan?.plan.channelAdvice.length ?? 0;
+  const advisedChannels = new Set((outcome.plan?.plan.channelAdvice ?? []).map((entry) => entry.channel));
+  const measuredStages = new Set((outcome.plan?.plan.measurementPlan ?? []).map((entry) => entry.stage));
+  const briefedStages = new Set((outcome.brief?.stageMessages ?? []).map((entry) => entry.stage));
+  const slots = outcome.calendar?.slots ?? [];
+  const firstWeekOf = (stage: string): number =>
+    Math.min(...slots.filter((slot) => slot.stage === stage).map((slot) => slot.week), Number.POSITIVE_INFINITY);
   const scriptErrors = consoleErrors.filter((line) => !line.includes('Failed to load resource'));
   const emailPreview = await previewFrameText(page, outcome.assets.some((asset) => asset.channel === 'email'));
 
@@ -384,6 +416,11 @@ async function verifyOutcome(
     {
       name: 'the campaign response has the expected shape',
       ok: true,
+    },
+    {
+      name: 'every proposed doelgroep arrived with all 36 personavragen answered',
+      ok: completeQuestionnaires >= 2,
+      detail: `${String(completeQuestionnaires)} rows with 36/36`,
     },
     {
       name: 'a briefing exists, is approved, and rests on chosen doelgroepen',
@@ -404,6 +441,39 @@ async function verifyOutcome(
       detail: `stages: ${[...plannedStages].join(', ') || 'none'}; ${String(adviceCount)} advice entries`,
     },
     {
+      /*
+       * Slice 2: the briefing speaks per stage, and only with confirmed
+       * proof. The demo course card has unconfirmed facts, so a proof field
+       * naming one would mean the server stopped removing them.
+       */
+      name: 'the briefing carries a message for every funnel stage, with confirmed proof only',
+      ok: briefedStages.size === 3,
+      detail: `stages briefed: ${[...briefedStages].join(', ') || 'none'}`,
+    },
+    {
+      /*
+       * R-2: advice for every producible channel, not only the brief's four,
+       * so a person ticking an unplanned cell is not choosing blind.
+       */
+      // Nine channels since the website split into a course-page change and a
+      // blog article (2026-09-15).
+      name: 'the plan advises on every producible channel and measures every stage',
+      ok: advisedChannels.size === 9 && measuredStages.size === 3,
+      detail: `${String(advisedChannels.size)} channels advised; measured: ${[...measuredStages].join(', ') || 'none'}`,
+    },
+    {
+      /*
+       * Slice 3: the calendar walks the journey. Ontdekken starts before
+       * Overwegen, which starts before Beslissen — the order has a reason.
+       */
+      name: 'the calendar sequences the stages in journey order',
+      ok:
+        slots.length > 0 &&
+        firstWeekOf('discover') < firstWeekOf('consider') &&
+        firstWeekOf('consider') < firstWeekOf('decide'),
+      detail: `first weeks: ontdekken ${String(firstWeekOf('discover'))}, overwegen ${String(firstWeekOf('consider'))}, beslissen ${String(firstWeekOf('decide'))}`,
+    },
+    {
       name: 'every piece of content knows which funnel stage it serves',
       ok: outcome.assets.length > 0 && outcome.assets.every((asset) => typeof asset.funnelStage === 'string'),
       detail: `${String(outcome.assets.filter((asset) => typeof asset.funnelStage === 'string').length)} of ${String(outcome.assets.length)} staged`,
@@ -414,7 +484,7 @@ async function verifyOutcome(
       detail: `${String(outcome.concepts.length)} concept(en), gekozen=${String(outcome.selectedConcept !== null)}`,
     },
     {
-      name: 'the content package is approved',
+      name: 'the channel plan is approved',
       ok: outcome.plan?.reviewState === 'approved',
       detail: `plan=${String(outcome.plan?.reviewState)}`,
     },
@@ -497,7 +567,17 @@ async function perform(page: Page, step: Step): Promise<void> {
       return;
     }
     case 'choose-personas': {
-      const boxes = page.locator('input[type="checkbox"]');
+      /*
+       * The persona checkboxes by their accessible name, and nothing else.
+       *
+       * A bare `input[type="checkbox"]` count was satisfied by the website
+       * branch's deliverable checkboxes — present in the DOM inside a hidden
+       * panel — before the personas had arrived, so the driver then tried to
+       * tick a hidden box and timed out. The name is the interface's own
+       * label for the control, which is what the label-drift test checks.
+       */
+      const boxes = page.getByRole('checkbox', { name: /Kies doelgroep/u });
+      await boxes.first().waitFor({ state: 'visible', timeout: 25_000 });
       const total = await boxes.count();
       /*
        * Selecting nothing is a failure, not a choice.
@@ -515,7 +595,14 @@ async function perform(page: Page, step: Step): Promise<void> {
       for (let index = 0; index < step.count; index += 1) {
         await boxes.nth(index).check();
       }
-      process.stdout.write(`  chose ${String(step.count)} of ${String(total)} doelgroepen\n`);
+      /*
+       * Since 2026-09-14 a proposed persona arrives with all 36 questions
+       * answered — quoted or inferred, never open. The row's badge is the
+       * interface's own count; fewer complete badges than personas means the
+       * questionnaire came back with open cells.
+       */
+      completeQuestionnaires = await page.getByText(/36\/36 personavragen/u).count();
+      process.stdout.write(`  chose ${String(step.count)} of ${String(total)} doelgroepen; ${String(completeQuestionnaires)} with 36/36 personavragen\n`);
       await page.waitForTimeout(1_000);
       return;
     }

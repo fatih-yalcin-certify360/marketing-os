@@ -5,22 +5,33 @@ import type {
   BrandProfileVersion,
   BriefVersion,
   Campaign,
+  CampaignListItem,
   CampaignObjective,
   CampaignCalendar,
   ConceptVersion,
   ContentAssetVersion,
+  StandaloneContentInput,
   ContentPlan,
   CourseFactField,
   CourseVersion,
   ExportRecord,
+  Learning,
+  LearningInputData,
+  LearningWithEvidence,
   Opportunity,
+  OutcomeInputData,
+  OutcomeReport,
+  PersonaListScope,
   PersonaVersion,
+  PublicationInput,
+  PublicationRecord,
   ReviewState,
   WorkflowGate,
 } from '@c360/contracts';
 import type { JobSummary } from '@c360/contracts';
 import type { ApiClientError } from './client.js';
 import { api } from './client.js';
+import { queryKeys } from './queries.js';
 
 /**
  * Server state for the campaign chain.
@@ -42,6 +53,7 @@ export const campaignKeys = {
   opportunitySet: (labelId: string, setId: string) => ['opportunities', labelId, setId] as const,
   contentVersions: (labelId: string, campaignId: string, assetKey: string) =>
     ['content-versions', labelId, campaignId, assetKey] as const,
+  standaloneContent: (labelId: string) => ['standalone-content', labelId] as const,
 };
 
 function retryPolicy(failureCount: number, error: ApiClientError): boolean {
@@ -114,6 +126,88 @@ export function useCourses(labelId: string | undefined): UseQueryResult<CourseLi
     queryFn: ({ signal }) => api.get<CourseList>(`/labels/${String(labelId)}/courses`, signal),
     enabled: labelId !== undefined,
     retry: retryPolicy,
+  });
+}
+
+/**
+ * Every piece this label made outside a campaign.
+ *
+ * A separate list, not a filter on the campaign content: the campaign list
+ * starts by requiring a campaign, and a loose piece has none (2026-09-15).
+ */
+export function useStandaloneContent(
+  labelId: string | undefined,
+): UseQueryResult<{ items: ContentAssetVersion[] }, ApiClientError> {
+  return useQuery<{ items: ContentAssetVersion[] }, ApiClientError>({
+    queryKey: campaignKeys.standaloneContent(labelId ?? 'none'),
+    queryFn: ({ signal }) =>
+      api.get<{ items: ContentAssetVersion[] }>(`/labels/${String(labelId)}/content/standalone`, signal),
+    enabled: labelId !== undefined,
+    retry: retryPolicy,
+  });
+}
+
+/**
+ * Withdraws a piece from its campaign.
+ *
+ * Nothing is deleted: every version is archived, so approvals and earlier
+ * exports keep pointing at something real. It exists because three producible
+ * channels can never reach a publish-ready export, and one such piece blocked
+ * every publish-ready export of that campaign for good (2026-09-15).
+ */
+export function useWithdrawContent(
+  labelId: string,
+  campaignId: string,
+): UseMutationResult<{ assetKey: string; archivedVersions: number }, ApiClientError, { assetId: string }> {
+  const client = useQueryClient();
+  return useMutation<{ assetKey: string; archivedVersions: number }, ApiClientError, { assetId: string }>({
+    mutationFn: ({ assetId }) =>
+      api.remove(`/labels/${labelId}/campaigns/${campaignId}/content/${assetId}`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: campaignKeys.campaign(labelId, campaignId) });
+      void client.invalidateQueries({ queryKey: ['workspace'] });
+    },
+  });
+}
+
+/** Gives a loose piece a campaign, after the fact. */
+export function useAttachToCampaign(
+  labelId: string,
+): UseMutationResult<ContentAssetVersion, ApiClientError, { assetId: string; campaignId: string }> {
+  const client = useQueryClient();
+  return useMutation<ContentAssetVersion, ApiClientError, { assetId: string; campaignId: string }>({
+    mutationFn: ({ assetId, campaignId }) =>
+      api.post(`/labels/${labelId}/content/${assetId}/campaign`, { campaignId }),
+    onSuccess: (asset) => {
+      void client.invalidateQueries({ queryKey: campaignKeys.standaloneContent(labelId) });
+      if (asset.campaignId !== null) {
+        void client.invalidateQueries({ queryKey: campaignKeys.campaign(labelId, asset.campaignId) });
+      }
+    },
+  });
+}
+
+/** Asks for one piece of content outside any campaign. */
+/**
+ * Asks for one piece outside a campaign, and gets a job back.
+ *
+ * The work moved onto the queue because writing a piece — and for an image
+ * channel rendering two variants of it — is minutes, not seconds, and nobody
+ * should have to sit in front of that. The caller shows the confirmation and
+ * closes; the shell's background-work watcher says when it has landed
+ * (2026-09-15).
+ */
+export function useCreateStandaloneContent(
+  labelId: string,
+): UseMutationResult<JobSummary, ApiClientError, StandaloneContentInput> {
+  const client = useQueryClient();
+  return useMutation<JobSummary, ApiClientError, StandaloneContentInput>({
+    mutationFn: (input) => api.post(`/labels/${labelId}/content/standalone`, input),
+    onSuccess: () => {
+      // The list is invalidated now so the job appears in the background-task
+      // panel immediately; the piece itself arrives when the job finishes.
+      void client.invalidateQueries({ queryKey: queryKeys.jobs(labelId) });
+    },
   });
 }
 
@@ -244,20 +338,82 @@ export function useSetStartDate(
  * normal list query once the job invalidates it.
  */
 
+/**
+ * `scope` follows the route's default when omitted: a campaign id lists that
+ * campaign's personas, none lists the library. `all` is for the screens that
+ * show every persona of the course with where it came from.
+ */
 export function usePersonas(
   labelId: string | undefined,
   courseVersionId: string | undefined,
   campaignId?: string,
+  scope?: PersonaListScope,
 ): UseQueryResult<{ items: PersonaVersion[] }, ApiClientError> {
+  const query = new URLSearchParams();
+  if (campaignId !== undefined) query.set('campaignId', campaignId);
+  if (scope !== undefined) query.set('scope', scope);
+  const search = query.size === 0 ? '' : `?${query.toString()}`;
   return useQuery<{ items: PersonaVersion[] }, ApiClientError>({
-    queryKey: [...campaignKeys.personas(labelId ?? 'none', courseVersionId ?? 'none'), campaignId ?? 'course'],
+    queryKey: [
+      ...campaignKeys.personas(labelId ?? 'none', courseVersionId ?? 'none'),
+      campaignId ?? 'course',
+      scope ?? 'default',
+    ],
     queryFn: ({ signal }) =>
       api.get<{ items: PersonaVersion[] }>(
-        `/labels/${String(labelId)}/courses/${String(courseVersionId)}/personas${campaignId ? `?campaignId=${campaignId}` : ''}`,
+        `/labels/${String(labelId)}/courses/${String(courseVersionId)}/personas${search}`,
         signal,
       ),
     enabled: labelId !== undefined && courseVersionId !== undefined,
     retry: retryPolicy,
+  });
+}
+
+/**
+ * Copies a campaign persona into the library. The result is the new library
+ * version; every persona list of the label is refetched so both screens show
+ * it without a reload.
+ */
+export function usePromotePersona(
+  labelId: string,
+): UseMutationResult<PersonaVersion, ApiClientError, { personaVersionId: string }> {
+  const client = useQueryClient();
+  return useMutation<PersonaVersion, ApiClientError, { personaVersionId: string }>({
+    mutationFn: ({ personaVersionId }) =>
+      api.post<PersonaVersion>(`/labels/${labelId}/personas/${personaVersionId}/library`, {}),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['personas', labelId] });
+    },
+  });
+}
+
+/**
+ * Lets the system answer the open questions of a stored persona's
+ * questionnaire. The result is a job; when it finishes, the persona lists are
+ * refetched by the job poller and the new version appears in place.
+ */
+export function useFillPersonaQuestionnaire(
+  labelId: string,
+): UseMutationResult<JobSummary, ApiClientError, { personaVersionId: string }> {
+  return useMutation<JobSummary, ApiClientError, { personaVersionId: string }>({
+    mutationFn: ({ personaVersionId }) =>
+      api.post<JobSummary>(`/labels/${labelId}/personas/${personaVersionId}/questionnaire/fill`, {}),
+  });
+}
+
+/**
+ * Researches where one stored audience orients.
+ *
+ * Separate from the questionnaire fill because it answers a different question
+ * and a persona can need one without the other: a hand-written persona often
+ * has all 36 answers and no orientation at all.
+ */
+export function useFillPersonaOrientation(
+  labelId: string,
+): UseMutationResult<JobSummary, ApiClientError, { personaVersionId: string }> {
+  return useMutation<JobSummary, ApiClientError, { personaVersionId: string }>({
+    mutationFn: ({ personaVersionId }) =>
+      api.post<JobSummary>(`/labels/${labelId}/personas/${personaVersionId}/orientation/fill`, {}),
   });
 }
 
@@ -324,17 +480,27 @@ export interface CampaignDetail {
     blockedReasonsNl: string[];
     labels: Record<WorkflowGate, string>;
   };
+  /** Whether any result has been recorded for this campaign; see step 8. */
+  hasOutcomes: boolean;
   aiIsMock: boolean;
   aiProvider: string;
 }
 
+/**
+ * The label's campaigns with where each stands (`progress`, computed by the
+ * server with the same rule the detail page uses). One page of up to a
+ * hundred: a label with more than that gets a "Meer laden" from `nextCursor`.
+ */
 export function useCampaigns(
   labelId: string | undefined,
-): UseQueryResult<{ items: Campaign[] }, ApiClientError> {
-  return useQuery<{ items: Campaign[] }, ApiClientError>({
+): UseQueryResult<{ items: CampaignListItem[]; nextCursor: string | null }, ApiClientError> {
+  return useQuery<{ items: CampaignListItem[]; nextCursor: string | null }, ApiClientError>({
     queryKey: campaignKeys.campaigns(labelId ?? 'none'),
     queryFn: ({ signal }) =>
-      api.get<{ items: Campaign[] }>(`/labels/${String(labelId)}/campaigns`, signal),
+      api.get<{ items: CampaignListItem[]; nextCursor: string | null }>(
+        `/labels/${String(labelId)}/campaigns?limit=100`,
+        signal,
+      ),
     enabled: labelId !== undefined,
     retry: retryPolicy,
   });
@@ -385,7 +551,8 @@ export function useCreateCampaign(
  */
 export function useCampaignAction<TResult, TInput = void>(
   labelId: string,
-  campaignId: string,
+  /** Null for a standalone piece, whose list is refreshed instead. */
+  campaignId: string | null,
   buildRequest: (input: TInput) => { path: string; body?: unknown; method?: 'PATCH' | 'POST' },
 ): UseMutationResult<TResult, ApiClientError, TInput> {
   const client = useQueryClient();
@@ -395,7 +562,12 @@ export function useCampaignAction<TResult, TInput = void>(
       return method === 'PATCH' ? api.patch<TResult>(path, body) : api.post<TResult>(path, body);
     },
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: campaignKeys.campaign(labelId, campaignId) });
+      void client.invalidateQueries({
+        queryKey:
+          campaignId === null
+            ? campaignKeys.standaloneContent(labelId)
+            : campaignKeys.campaign(labelId, campaignId),
+      });
       void client.invalidateQueries({ queryKey: ['workspace'] });
     },
   });
@@ -508,7 +680,8 @@ export function isTerminalJobStatus(status: JobSummary['status']): boolean {
 
 export function useEditContent(
   labelId: string,
-  campaignId: string,
+  /** Null for a standalone piece; only the cache key depends on it. */
+  campaignId: string | null,
 ): UseMutationResult<
   ContentAssetVersion,
   ApiClientError,
@@ -526,7 +699,12 @@ export function useEditContent(
         copy,
       }),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: campaignKeys.campaign(labelId, campaignId) });
+      void client.invalidateQueries({
+        queryKey:
+          campaignId === null
+            ? campaignKeys.standaloneContent(labelId)
+            : campaignKeys.campaign(labelId, campaignId),
+      });
     },
   });
 }
@@ -578,5 +756,127 @@ export function useUploadBrandLogo(
 ): UseMutationResult<{ id: string }, ApiClientError, File> {
   return useMutation<{ id: string }, ApiClientError, File>({
     mutationFn: (file) => api.upload<{ id: string }>(`/labels/${labelId}/uploads/brand_logo`, file),
+  });
+}
+
+// ---------------------------------------------------- results & learnings ---
+
+/**
+ * What happened after the product's part was done (P4-1, P4-2), read per
+ * campaign. Publications and outcomes are campaign-scoped; learnings belong
+ * to the label, because a lesson outlives the campaign that taught it.
+ */
+export const resultKeys = {
+  publications: (labelId: string, campaignId: string) =>
+    ['publications', labelId, campaignId] as const,
+  outcomes: (labelId: string, campaignId: string) => ['outcomes', labelId, campaignId] as const,
+  learnings: (labelId: string) => ['learnings', labelId] as const,
+};
+
+export function usePublications(
+  labelId: string,
+  campaignId: string,
+): UseQueryResult<{ items: PublicationRecord[] }, ApiClientError> {
+  return useQuery<{ items: PublicationRecord[] }, ApiClientError>({
+    queryKey: resultKeys.publications(labelId, campaignId),
+    queryFn: ({ signal }) =>
+      api.get<{ items: PublicationRecord[] }>(
+        `/labels/${labelId}/campaigns/${campaignId}/publications`,
+        signal,
+      ),
+    retry: retryPolicy,
+  });
+}
+
+export function useRecordPublication(
+  labelId: string,
+  campaignId: string,
+): UseMutationResult<PublicationRecord, ApiClientError, PublicationInput> {
+  const client = useQueryClient();
+  return useMutation<PublicationRecord, ApiClientError, PublicationInput>({
+    mutationFn: (input) =>
+      api.post<PublicationRecord>(`/labels/${labelId}/campaigns/${campaignId}/publications`, input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: resultKeys.publications(labelId, campaignId) });
+    },
+  });
+}
+
+export function useOutcomes(
+  labelId: string,
+  campaignId: string,
+): UseQueryResult<{ items: OutcomeReport[] }, ApiClientError> {
+  return useQuery<{ items: OutcomeReport[] }, ApiClientError>({
+    queryKey: resultKeys.outcomes(labelId, campaignId),
+    queryFn: ({ signal }) =>
+      api.get<{ items: OutcomeReport[] }>(
+        `/labels/${labelId}/campaigns/${campaignId}/outcomes`,
+        signal,
+      ),
+    retry: retryPolicy,
+  });
+}
+
+/**
+ * Records figures a person read off a platform. The body is the contract's
+ * *input* shape: defaulted fields may be left out and the server fills them.
+ */
+export function useRecordOutcome(
+  labelId: string,
+  campaignId: string,
+): UseMutationResult<OutcomeReport, ApiClientError, OutcomeInputData> {
+  const client = useQueryClient();
+  return useMutation<OutcomeReport, ApiClientError, OutcomeInputData>({
+    mutationFn: (input) =>
+      api.post<OutcomeReport>(`/labels/${labelId}/campaigns/${campaignId}/outcomes`, input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: resultKeys.outcomes(labelId, campaignId) });
+    },
+  });
+}
+
+export function useLearnings(
+  labelId: string,
+): UseQueryResult<{ items: LearningWithEvidence[] }, ApiClientError> {
+  return useQuery<{ items: LearningWithEvidence[] }, ApiClientError>({
+    queryKey: resultKeys.learnings(labelId),
+    queryFn: ({ signal }) =>
+      api.get<{ items: LearningWithEvidence[] }>(`/labels/${labelId}/learnings`, signal),
+    retry: retryPolicy,
+  });
+}
+
+export function useCreateLearning(
+  labelId: string,
+): UseMutationResult<Learning, ApiClientError, LearningInputData> {
+  const client = useQueryClient();
+  return useMutation<Learning, ApiClientError, LearningInputData>({
+    mutationFn: (input) => api.post<Learning>(`/labels/${labelId}/learnings`, input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: resultKeys.learnings(labelId) });
+    },
+  });
+}
+
+export function useApproveLearning(
+  labelId: string,
+): UseMutationResult<Learning, ApiClientError, { learningId: string }> {
+  const client = useQueryClient();
+  return useMutation<Learning, ApiClientError, { learningId: string }>({
+    mutationFn: ({ learningId }) =>
+      api.post<Learning>(`/labels/${labelId}/learnings/${learningId}/approve`, {}),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: resultKeys.learnings(labelId) });
+    },
+  });
+}
+
+/** Uploads a platform report and returns its asset id, for `source: 'platform_report'`. */
+export function useUploadOutcomeReport(
+  labelId: string,
+): UseMutationResult<{ id: string }, ApiClientError, File> {
+  return useMutation<{ id: string }, ApiClientError, File>({
+    mutationFn: (file) =>
+      api.upload<{ id: string }>(`/labels/${labelId}/uploads/outcome_report`, file),
   });
 }

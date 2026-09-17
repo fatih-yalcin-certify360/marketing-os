@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { RenderSpec } from '@c360/contracts';
-import { buildSvg } from '../../src/core/render/layouts.js';
+import { Resvg } from '@resvg/resvg-js';
+import { buildSvg, buildPhotoSvg, buildCreativeSvg, creativeTextZone, creativeSourceZones, resolveCreativePalette, CreativeTextOverflowError, CreativeContrastError } from '../../src/core/render/layouts.js';
+import { resolveCreativeLogoPlate } from '../../src/core/render/renderer.js';
 
 /**
  * The render layer's text fitting.
@@ -193,5 +195,292 @@ describe('render layout — every layout', () => {
     const svg = buildSvg(spec({ logoText: 'A "B" & <C>', headline: "O'Brien & Zn" }));
     expect(svg).not.toMatch(/<C>/u);
     expect(svg).toMatch(/&amp;/u);
+  });
+});
+
+const creativeBrief: NonNullable<RenderSpec['creativeBrief']> = {
+  campaignAlignment: '',
+  channelRationale: '',
+  personaVersionIds: [],
+  evidenceIds: [],
+  testHypothesis: '',
+  mechanism: 'visual_question',
+  audienceInsight: 'Een adviseur wil met vertrouwen een volgende stap kunnen kiezen.',
+  conceptRationale: 'Een herkenbare vraag maakt de behoefte zichtbaar.',
+  scene: 'Een onverwachte splitsing in een alledaagse route.',
+  composition: 'De betekenisvolle details staan rechts; links blijft ruimte voor echte tekst.',
+  textTreatment: 'speech_bubble',
+  textPosition: 'top_left',
+  brandIntegration: 'De vormtaal en het accent komen uit de merkidentiteit.',
+  avoid: ['Generiek kantoorbeeld'],
+};
+// A small PNG; no external image request or AI call is needed for layout checks.
+const backgroundPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDngAAAAASUVORK5CYII=';
+function creative(overrides: Partial<RenderSpec> = {}): RenderSpec {
+  return spec({ headline: 'Wie bepaalt jouw volgende stap?', subline: 'Maak ruimte voor een onderbouwde keuze.', creativeBrief, ...overrides });
+}
+function copyGroup(svg: string, role: string): string {
+  const content = new RegExp(`<g data-copy="${role}"[^>]*>(.*?)<\\/g>`, 'u').exec(svg)?.[1] ?? '';
+  return textElements(content).join(' ');
+}
+
+describe('creative layouts — complete copy on the reserved composition', () => {
+  const dimensions = [[1200, 628], [1080, 1080], [1080, 1350]] as const;
+  const treatments = ['speech_bubble', 'editorial', 'image_led'] as const;
+
+  it('keeps full artwork and complete readable copy in all supported aspect ratios and treatments', () => {
+    for (const [widthPx, heightPx] of dimensions) for (const textTreatment of treatments) {
+      const input = creative({ widthPx, heightPx, creativeBrief: { ...creativeBrief, textTreatment }, ctaText: LONGEST_ALLOWED_CTA });
+      const svg = buildPhotoSvg(input, backgroundPng);
+      expect(svg).toContain(`data-composition="${textTreatment}"`);
+      expect(svg).toContain(`x="0" y="0" width="${String(widthPx)}" height="${String(heightPx)}" preserveAspectRatio="xMidYMid slice"`);
+      expect(copyGroup(svg, 'headline')).toBe(input.headline);
+      expect(copyGroup(svg, 'subline')).toBe(input.subline);
+      expect(copyGroup(svg, 'cta')).toBe(LONGEST_ALLOWED_CTA);
+      expect(textElements(svg).join(' ')).not.toContain('…');
+      for (const position of textPositions(svg)) {
+        expect(position.x).toBeGreaterThan(0);
+        expect(position.x).toBeLessThan(widthPx);
+        expect(position.y).toBeGreaterThan(0);
+        expect(position.y).toBeLessThan(heightPx);
+      }
+    }
+  });
+
+  it('never moves the artwork crop or text blocks between variants', () => {
+    for (const textPosition of ['top_left', 'top_right', 'bottom_left'] as const) {
+      const input = creative({ creativeBrief: { ...creativeBrief, textPosition } });
+      const first = buildPhotoSvg(input, backgroundPng);
+      const second = buildPhotoSvg({ ...input, variant: 'B', layout: 'split_panel' }, backgroundPng);
+      expect(first).not.toBe(second);
+      expect(textPositions(first)).toEqual(textPositions(second));
+      expect(textElements(first)).toEqual(textElements(second));
+      expect(/<image data-artwork="background"[^>]+>/u.exec(first)?.[0]).toBe(/<image data-artwork="background"[^>]+>/u.exec(second)?.[0]);
+      expect(/data-text-zone="[^"]+"/u.exec(first)?.[0]).toBe(/data-text-zone="[^"]+"/u.exec(second)?.[0]);
+    }
+  });
+
+  it('keeps every reserved text zone above the dedicated footer and within canvas margins', () => {
+    for (const [width, height] of dimensions) for (const position of ['top_left', 'top_right', 'bottom_left'] as const) {
+      const zone = creativeTextZone(width, height, position);
+      expect(zone.x).toBeGreaterThan(0);
+      expect(zone.y).toBeGreaterThan(0);
+      expect(zone.x + zone.width).toBeLessThan(width);
+      expect(zone.y + zone.height).toBeLessThan(height * .85);
+      expect(zone.height).toBeCloseTo(height * (width > height * 1.3 ? .55 : .38));
+    }
+  });
+
+  it('maps a landscape provider frame into the exact center crop and protected source zones', () => {
+    const zones = creativeSourceZones(1200,628,1536,1024,'top_left');
+    expect(zones.crop.x).toBe(0);
+    expect(zones.crop.y).toBeCloseTo(110.08);
+    expect(zones.crop.width).toBe(1536);
+    expect(zones.crop.height).toBeCloseTo(803.84);
+    expect(zones.text.x).toBeCloseTo(40.192);
+    expect(zones.text.y).toBeCloseTo(150.272);
+    expect(zones.text.width).toBeCloseTo(737.28);
+    expect(zones.text.height).toBeCloseTo(442.112);
+    expect(zones.footer.y).toBeCloseTo(793.344);
+    expect(zones.footer.y + zones.footer.height).toBeCloseTo(zones.crop.y + zones.crop.height);
+  });
+
+  it('maps a portrait provider frame and keeps the footer below bottom-left copy', () => {
+    const zones = creativeSourceZones(1080,1350,1024,1536,'bottom_left');
+    expect(zones.crop).toEqual({x:0,y:128,width:1024,height:1280});
+    expect(zones.text.x).toBeCloseTo(51.2);
+    expect(zones.text.y).toBeCloseTo(678.4);
+    expect(zones.text.y + zones.text.height).toBeLessThan(zones.footer.y);
+    expect(zones.footer.y).toBeCloseTo(1216);
+    expect(zones.footer.height).toBeCloseTo(192);
+    const uncropped = creativeSourceZones(1080,1080,1080,1080,'top_right');
+    expect(uncropped.text).toEqual(creativeTextZone(1080,1080,'top_right'));
+    expect(() => creativeSourceZones(1080,1080,0,1024,'top_left')).toThrow('dimensions');
+  });
+
+  it('uses the headline only once as the speech-bubble text and supplies a deliberate tail', () => {
+    const input = creative();
+    const svg = buildCreativeSvg(input, backgroundPng);
+    expect([...svg.matchAll(/data-copy="headline"/gu)]).toHaveLength(1);
+    expect(copyGroup(svg, 'headline')).toBe(input.headline);
+    expect(svg).toMatch(/<path data-panel="speech_bubble" d="[^"\n]+L/u);
+  });
+
+  it('rejects impossible text instead of dropping words or silently adding ellipses', () => {
+    expect(() => buildCreativeSvg(creative({ headline: 'Veel te veel volledige woorden '.repeat(200) }), backgroundPng)).toThrow(CreativeTextOverflowError);
+  });
+
+  it('retains all characters in a long token even when it needs a hard line break', () => {
+    const input = creative({ headline: 'Verantwoordelijkheidsverdelingbijopleidingskeuze', subline: null });
+    const svg = buildCreativeSvg(input);
+    expect(copyGroup(svg, 'headline').replace(/\s/gu, '')).toBe(input.headline);
+    expect(svg).not.toContain('…');
+  });
+
+  it('chooses a readable approved color and refuses a palette without an accessible text pair', () => {
+    const svg = buildCreativeSvg(creative({ colors: { background: '#ffffff', foreground: '#eeeeee', accent: '#000000', surface: '#ffffff', onSurface: '#eeeeee' } }));
+    expect(svg).toMatch(/data-copy="headline"[^>]*fill="#000000"/u);
+    const normal = buildCreativeSvg(creative({ colors: { background: '#14383a', foreground: '#ffffff', accent: '#a78bfa', surface: '#f4f7f6', onSurface: '#14383a' } }));
+    expect(normal).toMatch(/data-copy="headline"[^>]*fill="#14383a"/u);
+    expect(() => buildCreativeSvg(creative({ colors: { background: '#ffffff', foreground: '#eeeeee', accent: '#cccccc', surface: '#ffffff', onSurface: '#eeeeee' } }))).toThrow('merkpalet');
+  });
+
+  it('renders the real CS palette using an approved alternative to its inaccessible mid-tone primary', () => {
+    // CS Portal snapshot: primary/white = 2.99:1 and primary/ink = 3.72:1;
+    // surface/ink = 9.58:1. Previously every primary-panel variant failed.
+    const colors = { background:'#00A894',foreground:'#ffffff',accent:'#C5003E',surface:'#f3edeb',onSurface:'#203E58' };
+    for (const treatment of treatments) for (const variant of ['A','B'] as const) {
+      const input = creative({colors,variant,creativeBrief:{...creativeBrief,textTreatment:treatment}});
+      const resolution = resolveCreativePalette(input);
+      expect(resolution.panel.background).toBe(colors.surface);
+      expect(resolution.panel.foreground).toBe(colors.onSurface);
+      expect(resolution.panel.contrastRatio).toBeCloseTo(9.58,2);
+      expect(resolution.panel.mode).toBe((variant==='A' ? treatment==='editorial' : treatment!=='editorial') ? 'brand_alternative' : 'preferred');
+      expect(resolution.footer.mode).toBe('preferred');
+      for (const pair of [resolution.panel,resolution.footer]) {
+        expect(Object.values(colors)).toContain(pair.background);
+        expect(Object.values(colors)).toContain(pair.foreground);
+        expect(pair.contrastRatio).toBeGreaterThanOrEqual(4.5);
+      }
+      const svg = buildPhotoSvg(input,backgroundPng);
+      expect(svg).toContain('id="creative-color-resolution"');
+      const panel = /<(?:path|rect) data-panel="[^"]+"[^>]+>/u.exec(svg)?.[0] ?? '';
+      const footer = /<rect data-footer="brand"[^>]+>/u.exec(svg)?.[0] ?? '';
+      expect(panel).toContain('fill="#f3edeb"');
+      expect(footer).toContain('fill="#f3edeb"');
+      expect(panel + footer).not.toMatch(/(?:opacity|fill-opacity)=/u);
+      expect(svg).toMatch(/data-copy="headline"[^>]*fill="#203E58"/u);
+      expect(svg).toMatch(/data-copy="cta"[^>]*fill="#203E58"/u);
+    }
+    const first = buildCreativeSvg(creative({colors,creativeBrief:{...creativeBrief,textTreatment:'editorial'}}));
+    const second = buildCreativeSvg(creative({colors,variant:'B',creativeBrief:{...creativeBrief,textTreatment:'editorial'}}));
+    expect(first).not.toBe(second);
+    expect(textPositions(first)).toEqual(textPositions(second));
+    expect(textElements(first)).toEqual(textElements(second));
+  });
+
+  it('can change an unsuitable footer surface when another approved pair works', () => {
+    const colors = {background:'#ffffff',foreground:'#C5003E',accent:'#00A894',surface:'#00A894',onSurface:'#00A894'};
+    const input = creative({colors});
+    const resolution = resolveCreativePalette(input);
+    expect(resolution.footer.mode).toBe('brand_alternative');
+    expect(resolution.footer.background).toBe(colors.background);
+    expect(resolution.footer.foreground).toBe(colors.foreground);
+    expect(resolution.footer.contrastRatio).toBeGreaterThanOrEqual(4.5);
+    const svg = buildCreativeSvg(input);
+    expect(svg).toMatch(/data-footer="brand"[^>]*fill="#ffffff"/u);
+  });
+
+  it('keeps an already accessible intended pair even when color roles share a surface', () => {
+    const input = creative({colors:{background:'#767676',surface:'#767676',foreground:'#ffffff',onSurface:'#000000',accent:'#767676'},creativeBrief:{...creativeBrief,textTreatment:'editorial'}});
+    const resolution = resolveCreativePalette(input);
+    expect(resolution.panel.foreground).toBe('#ffffff');
+    expect(resolution.panel.mode).toBe('preferred');
+    expect(resolution.footer.foreground).toBe('#000000');
+    expect(resolution.footer.mode).toBe('preferred');
+  });
+
+  it('still rejects a genuinely unreadable approved palette instead of inventing neutral colors', () => {
+    const input = creative({colors:{background:'#dddddd',foreground:'#eeeeee',accent:'#cccccc',surface:'#ffffff',onSurface:'#f3edeb'}});
+    expect(() => resolveCreativePalette(input)).toThrow(CreativeContrastError);
+    expect(() => buildCreativeSvg(input)).toThrow(CreativeContrastError);
+  });
+
+  it('gives a real white reverse logo an approved contrasting plate without recoloring the PNG', () => {
+    const colors = {background:'#00A894',foreground:'#ffffff',accent:'#C5003E',surface:'#f3edeb',onSurface:'#203E58'};
+    const input = creative({colors});
+    const png = Buffer.from(new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30"><path d="M0 0H120V30H0Z" fill="#ffffff"/></svg>').render().asPng());
+    const logo = `data:image/png;base64,${png.toString('base64')}`;
+    const plate = resolveCreativeLogoPlate(input,logo,colors.surface);
+    expect(plate.mode).toBe('brand_plate');
+    expect(plate.background).toBe(colors.onSurface);
+    expect(plate.contrastScore).toBeGreaterThan(10);
+    const svg = buildCreativeSvg(input,undefined,logo,undefined,plate);
+    expect(svg).toContain(`href="${logo}"`);
+    expect(svg).toMatch(/data-logo-plate="brand"[^>]*fill="#203E58"/u);
+    const imageX = Number(/<image data-brand="logo"[^>]*x="([\d.]+)"/u.exec(svg)?.[1]);
+    const plateX = Number(/<rect data-logo-plate="brand"[^>]*x="([\d.]+)"/u.exec(svg)?.[1]);
+    expect(imageX).toBeGreaterThan(plateX);
+    expect(plateX).toBeGreaterThan(input.widthPx * .6);
+  });
+
+  it('keeps a dark logo on its clear footer and correctly composites semitransparent logo pixels', () => {
+    const input = creative({colors:{background:'#ffffff',foreground:'#000000',accent:'#777777',surface:'#ffffff',onSurface:'#000000'}});
+    const png = (fill:string,opacity:number) => `data:image/png;base64,${Buffer.from(new Resvg(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="${fill}" opacity="${String(opacity)}"/></svg>`).render().asPng()).toString('base64')}`;
+    expect(resolveCreativeLogoPlate(input,png('#000000',1),'#ffffff').mode).toBe('footer');
+    const translucent = resolveCreativeLogoPlate(input,png('#ffffff',.5),'#ffffff');
+    expect(translucent.background).toBe('#000000');
+    // White alpha128 on black composites to #808080, not #404040 (double alpha).
+    expect(translucent.contrastScore).toBeCloseTo(5.317,2);
+    expect(() => resolveCreativeLogoPlate(input,png('#ffffff',1),'#123456')).toThrow('approved');
+  });
+
+  it('escapes exact copy and font names, rejects injected colors and image addresses', () => {
+    const svg = buildCreativeSvg(creative({ headline: 'Jouw "keuze" & <volgende stap>', headingFamily: 'A" onload="unsafe' }));
+    expect(svg).toContain('&lt;volgende');
+    expect(svg).not.toContain('<volgende');
+    expect(svg).not.toContain(' onload="unsafe');
+    expect(() => buildCreativeSvg(creative({ colors: { background: 'url(https://example.com)', foreground: '#fff', accent: '#123' } }))).toThrow();
+    expect(() => buildCreativeSvg(creative(), 'https://example.com/photo.png')).toThrow('Invalid embedded image');
+  });
+
+  it('uses one real logo without adding a second wordmark and identifies the graphic fallback honestly', () => {
+    const svg = buildSvg(creative(), backgroundPng);
+    expect(svg).toContain('data-artwork-source="deterministic_graphic"');
+    expect(svg).toContain('Grafische merkcompositie zonder gegenereerde foto.');
+    expect([...svg.matchAll(/data-brand="logo"/gu)]).toHaveLength(1);
+    expect(svg).not.toContain('data-copy="logo"');
+    expect(svg).not.toContain('data-artwork="background"');
+  });
+
+  it('leaves legacy photo layouts unchanged when there is no creative brief', () => {
+    const svg = buildPhotoSvg(spec(), backgroundPng);
+    expect(svg).not.toContain('data-composition=');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+  });
+});
+
+/**
+ * No call to action in a picture nobody can tap.
+ *
+ * On an organic post the image is not a click target: tapping it opens the
+ * post, and the destination lives in the caption. A "Bekijk de opleiding →"
+ * drawn into it is an instruction the viewer cannot follow, with an arrow
+ * pointing at nothing. A paid single image *is* the click target and keeps it.
+ *
+ * The rule lives in the channel registry (`CLICKABLE_IMAGE_CHANNELS`); these
+ * check that the render layer honours a null and does not leave a hole where
+ * the block used to be.
+ */
+describe('a call to action is drawn only when the image is a link', () => {
+  it('omits the text and the arrow on every layout when there is none', () => {
+    for (const layout of ['bold_statement', 'split_panel', 'quiet_editorial'] as const) {
+      const withCta = buildSvg(spec({ layout, ctaText: 'Bekijk de opleiding' }));
+      const without = buildSvg(spec({ layout, ctaText: null }));
+
+      expect(textElements(withCta)).toContain('Bekijk de opleiding');
+      expect(textElements(without)).not.toContain('Bekijk de opleiding');
+      // The drawn arrow goes with it: it is the part that promises a tap.
+      expect(without).not.toContain('<polyline');
+      // And the wordmark stays, because brand presence is not a promise of a link.
+      expect(textElements(without)).toContain('Lindenhaeghe (Demo)');
+    }
+  });
+
+  it('still renders to a real bitmap without the call to action', () => {
+    const png = new Resvg(buildSvg(spec({ ctaText: null })), {
+      fitTo: { mode: 'width', value: 1080 },
+    })
+      .render()
+      .asPng();
+    expect(png.byteLength).toBeGreaterThan(1_000);
+  });
+
+  it('keeps the headline where it was: the block is removed, not left empty', () => {
+    const without = textPositions(buildSvg(spec({ ctaText: null })));
+    const withCta = textPositions(buildSvg(spec({ ctaText: 'Bekijk de opleiding' })));
+    // One text element fewer, and the first line sits at the same place.
+    expect(without.length).toBe(withCta.length - 1);
+    expect(without[0]).toEqual(withCta[0]);
   });
 });

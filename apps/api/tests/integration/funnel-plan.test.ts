@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import {
   FUNNEL_STAGES,
   PRODUCIBLE_CHANNELS,
+  buildCampaignCalendar,
   channelFit,
+  confirmedFacts,
   createCampaignInput,
   stagesForObjective,
   type MarketingChannel,
@@ -146,7 +148,7 @@ describe('a full-funnel campaign in the chain', () => {
      * different in different stages. The landing page is planned for every
      * stage, so it is the cleanest comparison.
      */
-    const pages = result.assets.filter((asset) => asset.channel === 'landing_page');
+    const pages = result.assets.filter((asset) => asset.channel === 'course_page_update' || asset.channel === 'blog_article');
     expect(pages.length).toBeGreaterThanOrEqual(2);
     const hooks = new Set(pages.map((asset) => asset.copy.hook));
     expect(hooks.size).toBe(pages.length);
@@ -157,23 +159,187 @@ describe('a full-funnel campaign in the chain', () => {
     const s = h.appContext.services;
     const before = await s.concepts.requireApprovedPlan(db, campaignId);
 
+    /*
+     * Everything a person may tick — which is everything except the same page
+     * twice.
+     *
+     * Advice is not a gate anywhere in this product: a discouraged cell can be
+     * chosen with the advice still beside it. The course page is the one
+     * exception, and it is not taste: it is a single object, so two change sets
+     * for it cannot both be applied and one of them would silently lose. That
+     * is a contradiction rather than an opinion, so it is refused — see the
+     * test below (2026-09-16).
+     */
     const everything = FUNNEL_STAGES.flatMap((stage) =>
-      PRODUCIBLE_CHANNELS.map((channel) => ({ stage, channel, count: 1, withImage: false })),
+      PRODUCIBLE_CHANNELS.filter(
+        (channel) => channel !== 'course_page_update' || stage === 'consider',
+      ).map((channel) => ({ stage, channel, count: 1, withImage: false })),
     );
     const approved = await s.concepts.approvePlan(db, user, labelId, campaignId, {
       items: everything,
       cadenceNl: before.plan.cadenceNl,
       rationaleNl: before.plan.rationaleNl,
       // The client sends the advice back unchanged; an empty list would also
-      // keep the previous version's advice.
+      // keep the previous version's advice — and the measurement plan travels
+      // the same way.
       channelAdvice: [],
+      measurementPlan: [],
     });
 
     expect(approved.version).toBe(before.version + 1);
-    expect(approved.plan.items).toHaveLength(FUNNEL_STAGES.length * PRODUCIBLE_CHANNELS.length);
+    expect(approved.plan.items).toHaveLength(everything.length);
 
     const stored = await s.concepts.requireApprovedPlan(db, campaignId);
     expect(stored.plan.channelAdvice).toEqual(before.plan.channelAdvice);
+    expect(stored.plan.measurementPlan).toEqual(before.plan.measurementPlan);
+  });
+
+  it('refuses to plan the one course page more than once, and says why', async () => {
+    const { db, currentUser: user } = h;
+    const s = h.appContext.services;
+    const before = await s.concepts.requireApprovedPlan(db, campaignId);
+
+    /*
+     * Three stages each asking for a change to the same page produces three
+     * change sets, and applying them all leaves the page in whichever state was
+     * applied last. The stages do each want something different from the page —
+     * the answer to that is several changes inside one proposal, not three
+     * proposals.
+     */
+    await expect(
+      s.concepts.approvePlan(db, user, labelId, campaignId, {
+        items: FUNNEL_STAGES.map((stage) => ({
+          stage,
+          channel: 'course_page_update' as const,
+          count: 1,
+          withImage: false,
+        })),
+        cadenceNl: before.plan.cadenceNl,
+        rationaleNl: before.plan.rationaleNl,
+        channelAdvice: [],
+        measurementPlan: [],
+      }),
+    ).rejects.toThrow(/opleidingspagina staat 3 keer/u);
+  });
+
+  it('briefs every stage the objective covers, citing confirmed proof only (slice 2)', async () => {
+    const s = h.appContext.services;
+    const brief = await s.campaigns.requireApprovedBrief(h.db, campaignId);
+    const campaign = await s.campaigns.requireById(h.db, labelId, campaignId);
+    const course = await s.courses.requireVersion(h.db, labelId, campaign.courseVersionId);
+    const confirmed = new Set(confirmedFacts(course));
+
+    expect(new Set(brief.stageMessages.map((message) => message.stage))).toEqual(
+      new Set(stagesForObjective('full_funnel')),
+    );
+    for (const message of brief.stageMessages) {
+      expect(message.coreMessageNl.length).toBeGreaterThan(10);
+      expect(message.ctaNl.length).toBeGreaterThan(2);
+      // The demo card has unconfirmed facts; none may be cited as proof.
+      for (const field of message.proofFields) {
+        expect(confirmed.has(field), `${message.stage} cites ${field}`).toBe(true);
+      }
+    }
+    // Three stages, three different things to say.
+    expect(new Set(brief.stageMessages.map((message) => message.coreMessageNl)).size).toBe(3);
+  });
+
+  it('advises on every producible channel, plans only the briefing channels, measures every stage (R-2, R-7)', async () => {
+    const s = h.appContext.services;
+    // A fresh proposal: the approved plan above is a person's "everything"
+    // edit, and this is about what the *model* proposes.
+    const { plan } = await s.concepts.proposePlan(h.db, h.currentUser, { labelId, campaignId });
+    const brief = await s.campaigns.requireApprovedBrief(h.db, campaignId);
+
+    const advised = new Set(plan.channelAdvice.map((advice) => advice.channel));
+    expect(advised).toEqual(new Set(PRODUCIBLE_CHANNELS));
+    expect(plan.channelAdvice).toHaveLength(FUNNEL_STAGES.length * PRODUCIBLE_CHANNELS.length);
+
+    for (const item of plan.items) {
+      expect(brief.channelSuggestions, `${item.channel} is not in the brief`).toContain(item.channel);
+    }
+
+    expect(new Set(plan.measurementPlan.map((entry) => entry.stage))).toEqual(new Set(FUNNEL_STAGES));
+    for (const entry of plan.measurementPlan) {
+      // No target, no forecast: the shape has no field for one and the text
+      // must not smuggle a percentage in.
+      expect(Object.keys(entry).sort()).toEqual(['decisionRuleNl', 'indicatorNl', 'sourceNl', 'stage']);
+      expect(`${entry.indicatorNl} ${entry.decisionRuleNl}`).not.toMatch(/\d+\s*%/u);
+    }
+  });
+
+  it('writes each stage from the briefing\'s own message for that stage (slice 2)', async () => {
+    const s = h.appContext.services;
+    const brief = await s.campaigns.requireApprovedBrief(h.db, campaignId);
+    const assets = await s.content.list(h.db, h.currentUser, labelId, campaignId);
+    expect(assets.length).toBeGreaterThan(0);
+    for (const asset of assets) {
+      const message = brief.stageMessages.find((entry) => entry.stage === asset.funnelStage);
+      expect(message, String(asset.funnelStage)).toBeDefined();
+      // The blog article opens with the reader's question by design
+      // (blog-article-practice.md); the stage message shapes it but is not
+      // quoted in it. Every other piece, the course-page change included,
+      // leads with the stage's message.
+      if (asset.channel === 'blog_article') continue;
+      // The stage's message leads the body of every piece — that is the
+      // hand-off this slice exists for — and the LinkedIn post opens with it.
+      expect(asset.copy.body).toContain(message!.coreMessageNl.replace(/\s*\[Voorbeeldtekst.*$/u, ''));
+      if (asset.channel === 'linkedin_organic') {
+        expect(message!.coreMessageNl).toContain(asset.copy.hook.replace(/\s*\[Voorbeeldtekst.*$/u, ''));
+      }
+    }
+    // Within a stage, every channel opens differently: one message, many
+    // executions — never the same first line on four channels.
+    for (const stage of new Set(assets.map((asset) => asset.funnelStage))) {
+      const hooks = assets.filter((asset) => asset.funnelStage === stage).map((asset) => asset.copy.hook);
+      expect(new Set(hooks).size).toBe(hooks.length);
+    }
+  });
+
+  it('sequences the calendar by stage: Ontdekken before Overwegen before Beslissen (slice 3)', async () => {
+    const s = h.appContext.services;
+    const { plan } = await s.concepts.requireApprovedPlan(h.db, campaignId);
+    const calendar = buildCampaignCalendar({
+      plan,
+      startDate: null,
+      courseDates: [],
+      courseDatesUnconfirmed: false,
+    });
+    const first = (stage: string): number =>
+      Math.min(...calendar.slots.filter((slot) => slot.stage === stage).map((slot) => slot.offsetDays));
+    expect(first('discover')).toBeLessThan(first('consider'));
+    expect(first('consider')).toBeLessThan(first('decide'));
+    // Every slot knows its stage, so the screen can say why it is where it is.
+    expect(calendar.slots.every((slot) => slot.stage !== null)).toBe(true);
+  });
+
+  it('records a measured outcome per stage and refuses a stage outside the vocabulary (slice 3)', async () => {
+    const s = h.appContext.services;
+    const recorded = await s.outcomes.recordOutcome(h.db, h.currentUser, labelId, campaignId, {
+      channel: 'email',
+      funnelStage: 'consider',
+      publicationRecordId: null,
+      periodStart: '2027-03-01',
+      periodEnd: '2027-03-07',
+      impressions: null,
+      clicks: 12,
+      signups: null,
+      spendCents: null,
+      source: 'manual_entry',
+      reportAssetId: null,
+      noteNl: null,
+    });
+    expect(recorded.funnelStage).toBe('consider');
+
+    const listed = await s.outcomes.listOutcomes(h.db, h.currentUser, labelId, campaignId);
+    expect(listed.find((item) => item.id === recorded.id)?.funnelStage).toBe('consider');
+
+    const refused = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/campaigns/${campaignId}/outcomes`,
+      payload: { channel: 'email', funnelStage: 'growth', periodStart: '2027-03-01', periodEnd: '2027-03-07', clicks: 1, source: 'manual_entry' },
+    });
+    expect(refused.statusCode).toBe(422);
   });
 
   it('refuses an edited plan for a stage the objective does not cover', async () => {
@@ -206,6 +372,7 @@ describe('a full-funnel campaign in the chain', () => {
         cadenceNl: proposed.plan.cadenceNl,
         rationaleNl: proposed.plan.rationaleNl,
         channelAdvice: [],
+        measurementPlan: [],
       }),
     ).rejects.toMatchObject({ code: 'bad_request' });
   });
@@ -268,7 +435,7 @@ describe('planProblems', () => {
       {
         items: [
           { stage: 'decide', channel: 'email', count: 1, withImage: false },
-          { stage: null, channel: 'landing_page', count: 1, withImage: false },
+          { stage: null, channel: 'course_page_update', count: 1, withImage: false },
           { stage: 'discover', channel: 'linkedin_organic', count: 1, withImage: true },
           { stage: 'discover', channel: 'linkedin_organic', count: 1, withImage: false },
         ],
@@ -289,7 +456,7 @@ describe('planProblems', () => {
         channelAdvice: [],
       },
       FUNNEL_STAGES,
-      ['linkedin_organic', 'landing_page'],
+      ['linkedin_organic', 'course_page_update'],
     );
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('meta_ads');

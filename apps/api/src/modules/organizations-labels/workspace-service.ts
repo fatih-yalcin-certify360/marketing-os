@@ -47,7 +47,7 @@ export class WorkspaceService {
 
     // Content waiting for a decision is the most actionable thing on the page,
     // so it leads.
-    const campaignList = await this.campaigns.list(db, user, labelId, 20);
+    const campaignList = (await this.campaigns.list(db, user, labelId, { limit: 20 })).items;
     for (const campaign of campaignList) {
       const assets = await this.content.list(db, user, labelId, campaign.id);
       const stale = assets.filter((asset) => asset.reviewState === 'needs_rereview');

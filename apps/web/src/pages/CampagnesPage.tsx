@@ -1,24 +1,43 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import type { Campaign, CampaignObjective, LabelSummary } from '@c360/contracts';
+import type {
+  Campaign,
+  CampaignListItem,
+  CampaignObjective,
+  CampaignProgressState,
+  CampaignStepId,
+  LabelSummary,
+} from '@c360/contracts';
 import {
+  CAMPAIGN_STEPS,
   FUNNEL_STAGE_LABEL_NL,
   OBJECTIVE_HINT_NL,
   OBJECTIVE_LABEL_NL,
   campaignObjective,
+  campaignStepLabel,
   stagesForObjective,
 } from '@c360/contracts';
-import { Badge, Button, Card, Field, Notice } from '@c360/ui';
+import { Badge, Button, Card, Field, Notice, Progress } from '@c360/ui';
 import { useCampaigns, useCourses, useCreateCampaign } from '../api/campaign-queries.js';
 import { ErrorState, LoadingState } from '../components/states.js';
+import { FunnelPills } from '../components/FunnelPills.js';
 import './campaign-flow.css';
+import './radar.css';
+import './campaigns-list.css';
 
 /**
- * Campaign list and the form that starts one.
+ * The campaigns of a label, and the form that starts one.
  *
- * A campaign cannot be created without an approved brand profile and a course
- * card — the server refuses, and the form says so up front rather than letting
- * the user fill it in and then fail.
+ * The list is the page. It used to sit under a three-hundred-line form, with
+ * a server enum as its only status — an enum that stops at "production", so a
+ * campaign that had been exported and measured still read as "Content". Now
+ * each row says where the campaign stands (the server computes it with the
+ * same rule the detail page uses), what to do next, how far it is and when it
+ * last moved; the form sits behind the one primary action, open by default
+ * only when there is nothing to list yet.
+ *
+ * Everything a person needs to find a campaign is a control, not a scroll:
+ * search on name, the next step, the objective, the course, and a sort.
  */
 export function CampagnesPage(props: { label: LabelSummary | undefined }): ReactNode {
   const labelId = props.label?.id;
@@ -28,7 +47,7 @@ export function CampagnesPage(props: { label: LabelSummary | undefined }): React
   if (props.label === undefined) {
     return <Notice tone="warning">Kies eerst een label.</Notice>;
   }
-  if (campaigns.isPending || courses.isPending) {
+  if (campaigns.isPending) {
     return <LoadingState label="Campagnes worden geladen" />;
   }
   if (campaigns.isError) {
@@ -41,49 +60,371 @@ export function CampagnesPage(props: { label: LabelSummary | undefined }): React
     );
   }
 
-  const courseOptions = courses.data?.items ?? [];
+  return (
+    <CampaignsScreen
+      label={props.label}
+      items={campaigns.data.items}
+      courses={courses.data?.items ?? []}
+      coursesPending={courses.isPending}
+      coursesError={courses.isError ? courses.error.userMessage : null}
+    />
+  );
+}
+
+/**
+ * The stand-of-affairs strip above the list.
+ *
+ * The list used to open on 22 rows sorted by date, with the campaign that
+ * needed a person indistinguishable from the one that was finished
+ * (2026-09-15). These are counts of the same `progress.state` the row badge
+ * shows, so the strip cannot drift from the rows under it.
+ */
+const STATE_TILES: readonly {
+  key: 'all' | CampaignProgressState;
+  label: string;
+  note: string;
+  tone: 'all' | 'active' | 'attention' | 'finished';
+}[] = Object.freeze([
+  { key: 'all', label: 'Alle campagnes', note: 'in dit label', tone: 'all' },
+  { key: 'open', label: 'Nu aan zet', note: 'wacht op een volgende stap', tone: 'active' },
+  { key: 'attention', label: 'Opnieuw beoordelen', note: 'een bron is gewijzigd', tone: 'attention' },
+  { key: 'finished', label: 'Afgerond', note: 'alle acht stappen gedaan', tone: 'finished' },
+]);
+
+type SortKey = 'activity' | 'name' | 'created';
+
+const SORT_NL: Record<SortKey, string> = {
+  activity: 'Laatst gewijzigd',
+  name: 'Naam',
+  created: 'Aangemaakt',
+};
+
+function CampaignsScreen(props: {
+  label: LabelSummary;
+  items: CampaignListItem[];
+  courses: { course: { id: string; name: string } }[];
+  coursesPending: boolean;
+  coursesError: string | null;
+}): ReactNode {
+  const { label, items } = props;
+  const canEdit = label.role !== 'label_viewer';
+  const ids = { form: useId(), list: useId() };
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // Open by default only when there is nothing to list: a returning person
+  // wants the list, a new label wants the form. Decided once, on mount — the
+  // first campaign a person creates must not collapse the form (and its
+  // success notice) the moment the list learns about it.
+  const [formOpen, setFormOpen] = useState<boolean>(() => items.length === 0);
+  const open = canEdit && formOpen;
+
+  const [search, setSearch] = useState('');
+  // The three states the progress model already knows. A person opens this
+  // screen to answer "what needs me now", so that is the first control.
+  const [state, setState] = useState<'all' | CampaignProgressState>('all');
+  const [step, setStep] = useState<'all' | CampaignStepId>('all');
+  const [objective, setObjective] = useState<'all' | CampaignObjective | 'none'>('all');
+  // 'all' or a course version id.
+  const [course, setCourse] = useState<string>('all');
+  const [sort, setSort] = useState<SortKey>('activity');
+
+  const visible = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const filtered = items.filter(
+      (item) =>
+        (needle.length === 0 || item.name.toLowerCase().includes(needle)) &&
+        (state === 'all' || item.progress.state === state) &&
+        (step === 'all' || item.progress.nextStepId === step) &&
+        (objective === 'all' ||
+          (objective === 'none' ? item.objective === null : item.objective === objective)) &&
+        (course === 'all' || item.courseVersionId === course),
+    );
+    const collator = new Intl.Collator('nl');
+    return [...filtered].sort((a, b) => {
+      if (sort === 'name') return collator.compare(a.name, b.name);
+      if (sort === 'created') return b.createdAt.localeCompare(a.createdAt);
+      return b.progress.lastActivityAt.localeCompare(a.progress.lastActivityAt);
+    });
+  }, [items, search, state, step, objective, course, sort]);
+
+  const courseNames = new Map(props.courses.map((item) => [item.course.id, item.course.name]));
+  const stepsInUse = new Set(items.map((item) => item.progress.nextStepId));
+
+  const showForm = (): void => {
+    setFormOpen(true);
+    setTimeout(() => formRef.current?.querySelector<HTMLElement>('select, input')?.focus(), 0);
+  };
 
   return (
-    <>
-      <header>
-        <h1 className="c360-page-title">Campagnes</h1>
-        <p className="c360-page-lead">
-          Elke campagne doorloopt dezelfde stappen: Doelgroep, Richting, Briefing, Contentpakket en
-          Social &amp; beelden. Controles kunnen niet worden overgeslagen.
-        </p>
+    <div className="os-page">
+      <header className="os-page__head">
+        <div className="os-page__head-text">
+          <p className="os-eyebrow">{`Campagnes · ${label.name}`}</p>
+          <h1 className="c360-page-title">Campagnes</h1>
+          <p className="c360-page-lead">
+            Elke campagne doorloopt dezelfde acht stappen; de lijst zegt per campagne welke stap nu
+            aan de beurt is. Controles kunnen niet worden overgeslagen.
+          </p>
+        </div>
+        {canEdit && (
+          <div className="os-page__actions">
+            <Button
+              variant="primary"
+              icon="plus"
+              aria-expanded={open}
+              aria-controls={ids.form}
+              onClick={() => {
+                if (open) {
+                  setFormOpen(false);
+                } else {
+                  showForm();
+                }
+              }}
+            >
+              Nieuwe campagne
+            </Button>
+          </div>
+        )}
       </header>
 
-      {courseOptions.length === 0 ? (
-        <Notice tone="warning">
-          Er is nog geen opleidingskaart voor dit label. Leg eerst een opleiding vast onder Kennis
-          &amp; beheer → Opleidingen.
+      {!canEdit && (
+        <Notice tone="neutral">
+          Als meelezer bekijk je campagnes; een redacteur of labelbeheerder start ze.
         </Notice>
-      ) : (
-        <NewCampaignForm label={props.label} courses={courseOptions} />
+      )}
+      {props.coursesError !== null && (
+        <Notice tone="warning">{`De opleidingen konden niet worden geladen: ${props.coursesError}`}</Notice>
       )}
 
-      <Card title="Bestaande campagnes" ariaLabel="Bestaande campagnes">
-        {campaigns.data.items.length === 0 ? (
-          <p className="c360-card__hint">Nog geen campagnes voor dit label.</p>
-        ) : (
-          <ul className="c360-list">
-            {campaigns.data.items.map((campaign) => (
-              <li className="c360-list__item" key={campaign.id}>
-                <div style={{ minWidth: 0 }}>
-                  <p className="c360-list__title">
-                    <Link to={`/campagnes/${campaign.id}`}>{campaign.name}</Link>
-                  </p>
-                  <p className="c360-list__subtitle">
-                    {`${campaign.objective === null ? 'Geen doel vastgelegd' : OBJECTIVE_LABEL_NL[campaign.objective]} · ${ENTRY_MODE_NL[campaign.entryMode]} · aangemaakt ${formatDate(campaign.createdAt)}`}
-                  </p>
-                </div>
-                <Badge tone="purple">{STAGE_NL[campaign.stage] ?? campaign.stage}</Badge>
-              </li>
-            ))}
-          </ul>
+      <div id={ids.form} ref={formRef} hidden={!open}>
+        {open &&
+          (props.coursesPending ? (
+            <LoadingState label="Opleidingen worden geladen" />
+          ) : props.courses.length === 0 ? (
+            <Notice tone="warning">
+              Er is nog geen opleidingskaart voor dit label. Leg eerst een opleiding vast onder{' '}
+              <Link to="/beheer/opleidingen">Kennis &amp; beheer → Opleidingen</Link>.
+            </Notice>
+          ) : (
+            <NewCampaignForm label={label} courses={props.courses} />
+          ))}
+      </div>
+
+      <section aria-labelledby={ids.list}>
+        <div className="radar-toolbar">
+          <div>
+            <h2 className="c360-section-title" id={ids.list} style={{ margin: 0 }}>
+              {`Campagnes (${String(items.length)})`}
+            </h2>
+            <p className="c360-card__hint">
+              Volgende stap en voortgang komen uit wat er op de server staat: een goedgekeurde briefing,
+              een gekozen concept, een goedgekeurd plan. Amber vraagt om een nieuwe beoordeling.
+            </p>
+          </div>
+        </div>
+
+        {items.length > 0 && (
+          <div className="campaigns-states" role="group" aria-label="Filter op stand van zaken">
+            {STATE_TILES.map((tile) => {
+              const count = items.filter((item) => tile.key === 'all' || item.progress.state === tile.key).length;
+              const active = state === tile.key;
+              return (
+                <button
+                  key={tile.key}
+                  type="button"
+                  className={`campaigns-state campaigns-state--tone-${tile.tone}${active ? ' campaigns-state--active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => {
+                    setState(tile.key);
+                  }}
+                >
+                  <span className="campaigns-state__count">{count}</span>
+                  <span className="campaigns-state__label">{tile.label}</span>
+                  <span className="campaigns-state__note">{tile.note}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
-      </Card>
-    </>
+
+        {items.length > 0 && (
+          <div className="campaigns-filters" role="search">
+            <label>
+              Zoek op naam
+              <input
+                className="c360-input"
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                }}
+              />
+            </label>
+            <label>
+              Volgende stap
+              <select
+                className="c360-select"
+                value={step}
+                onChange={(event) => {
+                  setStep(event.target.value as 'all' | CampaignStepId);
+                }}
+              >
+                <option value="all">Alle stappen</option>
+                {CAMPAIGN_STEPS.filter((entry) => stepsInUse.has(entry.id)).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {`${String(CAMPAIGN_STEPS.indexOf(entry) + 1)}. ${entry.label}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Doel
+              <select
+                className="c360-select"
+                value={objective}
+                onChange={(event) => {
+                  setObjective(event.target.value as 'all' | CampaignObjective | 'none');
+                }}
+              >
+                <option value="all">Alle doelen</option>
+                {campaignObjective.options.map((option) => (
+                  <option key={option} value={option}>
+                    {OBJECTIVE_LABEL_NL[option]}
+                  </option>
+                ))}
+                <option value="none">Geen doel vastgelegd</option>
+              </select>
+            </label>
+            <label>
+              Filter op opleiding
+              <select
+                className="c360-select"
+                value={course}
+                onChange={(event) => {
+                  setCourse(event.target.value);
+                }}
+              >
+                <option value="all">Alle opleidingen</option>
+                {[...new Set(items.map((item) => item.courseVersionId))].map((id) => (
+                  <option key={id} value={id}>
+                    {courseNames.get(id) ?? items.find((item) => item.courseVersionId === id)?.courseName ?? id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Sorteren
+              <select
+                className="c360-select"
+                value={sort}
+                onChange={(event) => {
+                  setSort(event.target.value as SortKey);
+                }}
+              >
+                {(Object.keys(SORT_NL) as SortKey[]).map((key) => (
+                  <option key={key} value={key}>
+                    {SORT_NL[key]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {items.length === 0 ? (
+          <Notice tone="info">
+            <div className="campaigns-empty">
+              <span>
+                Nog geen campagnes voor dit label. Een campagne begint bij een opleiding en een doel;
+                daarna stelt het systeem doelgroepen, een richting en een briefing voor die jij
+                beoordeelt.
+              </span>
+              {canEdit && !open && (
+                <Button variant="primary" onClick={showForm}>
+                  Eerste campagne starten
+                </Button>
+              )}
+            </div>
+          </Notice>
+        ) : visible.length === 0 ? (
+          <Notice tone="neutral">Geen campagne voldoet aan deze filters.</Notice>
+        ) : (
+          <Card ariaLabel="Campagnes in dit label">
+            <div className="c360-table-scroll">
+              <table className="c360-table campaigns-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Campagne</th>
+                    <th scope="col">Doel</th>
+                    <th scope="col">Volgende stap</th>
+                    <th scope="col">Voortgang</th>
+                    <th scope="col">Laatst gewijzigd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((item) => (
+                    <CampaignRow key={item.id} item={item} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="c360-stat__caption" style={{ marginTop: 'var(--c360-space-3)' }}>
+              {`${String(visible.length)} van ${String(items.length)} campagnes getoond.`}
+            </p>
+          </Card>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function CampaignRow(props: { item: CampaignListItem }): ReactNode {
+  const { item } = props;
+  const { progress } = item;
+  const tone = progress.state === 'attention' ? 'amber' : progress.state === 'finished' ? 'green' : 'purple';
+  const badge =
+    progress.state === 'attention'
+      ? 'Opnieuw beoordelen'
+      : progress.state === 'finished'
+        ? 'Afgerond'
+        : 'Nu aan zet';
+  const done = progress.doneStepIds.length;
+  return (
+    <tr>
+      <td data-label="Campagne" className="campaigns-table__name">
+        <Link to={`/campagnes/${item.id}?fase=${progress.nextStepId}`}>{item.name}</Link>
+        <span className="campaigns-table__muted">{`${item.courseName} · ${ENTRY_MODE_NL[item.entryMode]}`}</span>
+      </td>
+      <td data-label="Doel">
+        {item.objective === null ? 'Geen doel vastgelegd' : OBJECTIVE_LABEL_NL[item.objective]}
+        <span className="campaigns-table__muted">
+          <FunnelPills
+            small
+            stages={stagesForObjective(item.objective ?? 'full_funnel')}
+            label="Fasen van deze campagne"
+          />
+        </span>
+      </td>
+      <td data-label="Volgende stap">
+        <Badge tone={tone}>{badge}</Badge>{' '}
+        <span>{`${String(progress.nextStepNumber)}. ${campaignStepLabel(progress.nextStepId)}`}</span>
+        <span className="campaigns-table__action">{progress.nextActionNl}</span>
+      </td>
+      <td data-label="Voortgang">
+        <div className="campaigns-progress">
+          <span>{`${String(done)} van ${String(CAMPAIGN_STEPS.length)} stappen`}</span>
+          <Progress
+            percent={(done / CAMPAIGN_STEPS.length) * 100}
+            label={`Voortgang van ${item.name}: ${String(done)} van ${String(CAMPAIGN_STEPS.length)} stappen afgerond`}
+          />
+        </div>
+      </td>
+      <td data-label="Laatst gewijzigd">
+        <time dateTime={progress.lastActivityAt} title={formatDateTime(progress.lastActivityAt)}>
+          {formatRelative(progress.lastActivityAt)}
+        </time>
+      </td>
+    </tr>
   );
 }
 
@@ -95,6 +436,8 @@ const BRIEF_LIMIT = 20_000;
 
 type FieldKey = 'course' | 'objective' | 'text' | 'name';
 type FormErrors = Partial<Record<FieldKey, string>>;
+
+const STEP_NAMES_NL = CAMPAIGN_STEPS.map((step) => step.label).join(', ');
 
 /**
  * The form, in the order a marketer thinks: which course, what it must
@@ -194,8 +537,7 @@ function NewCampaignForm(props: {
         }}
       >
         <p className="c360-card__hint">
-          Vier keuzes op één pagina. Daarna doorloopt elke campagne dezelfde stappen: Doelgroep,
-          Richting, Briefing, Contentpakket en Social &amp; beelden.
+          {`Vier keuzes op één pagina. Daarna doorloopt elke campagne dezelfde acht stappen: ${STEP_NAMES_NL}.`}
         </p>
 
         {(errorEntries.length > 0 || create.isError) && (
@@ -305,9 +647,7 @@ function NewCampaignForm(props: {
         <fieldset className="c360-fieldset" aria-describedby={`${ids.entry}-help`}>
           <legend className="c360-label">Wat heb je al?</legend>
           <p className="c360-fieldset__help" id={`${ids.entry}-help`}>
-            Elke campagne doorloopt daarna dezelfde stappen: Doelgroep, Richting, Briefing,
-            Contentpakket en Social &amp; beelden. Je keuze bepaalt alleen waarmee het systeem
-            begint.
+            Je keuze bepaalt alleen waarmee het systeem begint; de acht stappen blijven dezelfde.
           </p>
           <div className="entry-grid">
             {ENTRY_OPTIONS.map((option) => {
@@ -414,16 +754,10 @@ function NewCampaignForm(props: {
         {create.isSuccess ? (
           <div className="c360-stack">
             <Notice tone="info" live>
-              {`Campagne “${create.data.name}” is aangemaakt. Volgende stap: Doelgroep — daar laat je doelgroepen voorstellen of kies je bestaande.${
-                create.data.entryMode === 'develop_my_idea'
-                  ? ' Je idee staat ongewijzigd bij de campagne.'
-                  : create.data.entryMode === 'start_from_briefing'
-                    ? ' Je briefing staat ongewijzigd bij de campagne; in de stap Briefing structureer en controleer je hem.'
-                    : ''
-              }`}
+              {`Campagne “${create.data.name}” is aangemaakt. ${NEXT_AFTER_CREATE_NL[create.data.entryMode]}`}
             </Notice>
             <div className="c360-row">
-              <Link className="c360-button c360-button--secondary" to={`/campagnes/${create.data.id}`}>
+              <Link className="c360-button c360-button--secondary" to={`/campagnes/${create.data.id}?fase=audience`}>
                 Open campagne
               </Link>
               <Button variant="ghost" onClick={reset}>
@@ -511,6 +845,24 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat('nl-NL').format(value);
 }
 
+function formatDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('nl-NL', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(iso));
+}
+
+/**
+ * "vandaag", "gisteren", "3 dagen geleden", then the date. Relative for the
+ * week a campaign is being worked on, absolute once it is history — the full
+ * timestamp is always in the title.
+ */
+function formatRelative(iso: string): string {
+  const then = new Date(iso);
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000);
+  if (days <= 0) return 'vandaag';
+  if (days === 1) return 'gisteren';
+  if (days < 7) return new Intl.RelativeTimeFormat('nl-NL', { numeric: 'always' }).format(-days, 'day');
+  return new Intl.DateTimeFormat('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }).format(then);
+}
+
 /**
  * The three starting points, phrased as what the marketer already has.
  *
@@ -555,27 +907,19 @@ const START_POINT_NL: Record<Campaign['entryMode'], string> = {
   start_from_briefing: 'vanuit je bestaande briefing',
 };
 
+/** What the success notice says the person does next, per starting point. */
+const NEXT_AFTER_CREATE_NL: Record<Campaign['entryMode'], string> = {
+  discover_opportunities:
+    'Volgende stap: Doelgroep — laat doelgroepen voorstellen of kies bestaande; daarna stelt het systeem kansen voor in de stap Richting.',
+  develop_my_idea:
+    'Volgende stap: Doelgroep — kies of laat doelgroepen voorstellen; daarna werkt het systeem je idee in de stap Briefing uit. Je idee staat ongewijzigd bij de campagne.',
+  start_from_briefing:
+    'Volgende stap: Doelgroep — kies of laat doelgroepen voorstellen; daarna structureert en controleert het systeem je briefing in de stap Briefing. Je briefing staat ongewijzigd bij de campagne.',
+};
+
 // Noun forms for the list: these describe a campaign, not a choice to make.
 const ENTRY_MODE_NL: Record<Campaign['entryMode'], string> = {
   discover_opportunities: 'Startpunt: voorstellen van het systeem',
   develop_my_idea: 'Startpunt: eigen idee',
   start_from_briefing: 'Startpunt: bestaande briefing',
 };
-
-const STAGE_NL: Partial<Record<Campaign['stage'], string>> = {
-  persona_selection: 'Doelgroepen',
-  opportunity_selection: 'Kansen',
-  brief_approval: 'Briefing',
-  concept_selection: 'Concept',
-  content_plan_approval: 'Pakket',
-  production: 'Content',
-  editing: 'Bewerken',
-  final_approval: 'Goedkeuring',
-  export: 'Export',
-};
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }).format(
-    new Date(iso),
-  );
-}

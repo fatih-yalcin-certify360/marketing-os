@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import type {
+  SourceImpactReport,
   LabelRole,
   CurrentUser,
   JobSummary,
@@ -83,6 +84,26 @@ export function useWorkspace(
     queryKey: queryKeys.workspace(labelId ?? 'none'),
     queryFn: ({ signal }) =>
       api.get<WorkspaceOverview>(`/labels/${String(labelId)}/workspace`, signal),
+    enabled: labelId !== undefined,
+    retry: retryPolicy,
+  });
+}
+
+/**
+ * "A source changed — what does that touch?"
+ *
+ * The report has existed on the server since P4-3 and was shown to nobody
+ * until 2026-09-15; the audit found it as fully built and unreachable. It is
+ * a read with no action attached, by design: what to do about a changed
+ * source depends on what changed.
+ */
+export function useSourceImpact(
+  labelId: string | undefined,
+): UseQueryResult<SourceImpactReport, ApiClientError> {
+  return useQuery<SourceImpactReport, ApiClientError>({
+    queryKey: ['source-impact', labelId ?? 'none'],
+    queryFn: ({ signal }) =>
+      api.get<SourceImpactReport>(`/labels/${String(labelId)}/source-impact`, signal),
     enabled: labelId !== undefined,
     retry: retryPolicy,
   });

@@ -14,11 +14,14 @@ import {
 } from './types.js';
 
 /**
- * OpenAI provider.
+ * The OpenAI-compatible provider: OpenAI itself, or a gateway in front of it.
  *
  * Called over plain HTTPS rather than through the SDK: the surface used is two
  * endpoints, and avoiding the dependency keeps the production bundle small and
- * every failure mode explicit.
+ * every failure mode explicit. That is also what makes a gateway a
+ * configuration change rather than a second adapter — LiteLLM speaks the same
+ * two endpoints, so only the base URL, the key and the *claims* differ
+ * (2026-09-16).
  *
  * Design points:
  *
@@ -42,8 +45,83 @@ import {
  * https://developers.openai.com/api/docs/pricing
  */
 
-const RESPONSES_URL = 'https://api.openai.com/v1/responses';
-const IMAGES_URL = 'https://api.openai.com/v1/images/generations';
+const OPENAI_BASE_URL = 'https://api.openai.com';
+
+/**
+ * Where this process sends generation calls, and who it says it is.
+ *
+ * One adapter serves OpenAI directly and any OpenAI-compatible gateway in
+ * front of it — today LiteLLM. What changes between them is the base URL, the
+ * key, and **what may be claimed**: a gateway's capabilities depend on the
+ * model configured behind it, so they are resolved here from configuration
+ * rather than assumed from the fact that the API shape matches.
+ */
+interface CompatibleEndpoint {
+  /** Recorded on every usage row, so the ledger says which door the call went through. */
+  provider: string;
+  baseUrl: string;
+  apiKey: string;
+  organization: string | undefined;
+  /** Whether the hosted web-search tool may be asked for. */
+  webSearch: boolean;
+  /** Eurocents per million tokens, when configuration supplies them. */
+  price: ModelPrice | undefined;
+  /** Euro per US dollar, for reading a gateway's own cost header. */
+  usdToEur: number | undefined;
+}
+
+function endpointFor(env: ServerEnv): CompatibleEndpoint {
+  if (env.AI_PROVIDER === 'litellm') {
+    if (env.LITELLM_BASE_URL === undefined || env.LITELLM_API_KEY === undefined) {
+      throw new Error('AI_PROVIDER=litellm requires LITELLM_BASE_URL and LITELLM_API_KEY.');
+    }
+    return {
+      provider: 'litellm',
+      baseUrl: env.LITELLM_BASE_URL.replace(/\/+$/u, ''),
+      apiKey: env.LITELLM_API_KEY,
+      // The virtual key identifies the caller; an OpenAI organisation header
+      // means nothing to the proxy.
+      organization: undefined,
+      /*
+       * Off unless the operator says otherwise.
+       *
+       * `web_search` is a tool OpenAI hosts. A gateway forwards it only when the
+       * model behind it is one that has it, and asking for it elsewhere fails
+       * the call rather than degrading. The product already refuses discovery
+       * honestly when the provider cannot search (`canDiscover`), so the safe
+       * default is the one that refuses.
+       */
+      webSearch: env.AI_WEB_SEARCH_ENABLED ?? false,
+      price: configuredPrice(env),
+      usdToEur: env.AI_COST_USD_TO_EUR_RATE,
+    };
+  }
+
+  if (env.OPENAI_API_KEY === undefined) {
+    throw new Error('The OpenAI-compatible adapter requires OPENAI_API_KEY.');
+  }
+  return {
+    provider: 'openai',
+    baseUrl: OPENAI_BASE_URL,
+    apiKey: env.OPENAI_API_KEY,
+    organization: env.OPENAI_ORGANIZATION,
+    webSearch: env.AI_WEB_SEARCH_ENABLED ?? true,
+    price: configuredPrice(env),
+    usdToEur: env.AI_COST_USD_TO_EUR_RATE,
+  };
+}
+
+/**
+ * The price an operator configured for the text model, if any.
+ *
+ * A gateway's model name is an alias it defines, so our own table cannot know
+ * it. Both halves are required together: half a price is not a price.
+ */
+function configuredPrice(env: ServerEnv): ModelPrice | undefined {
+  const input = env.AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK;
+  const output = env.AI_TEXT_PRICE_OUTPUT_CENTS_PER_MTOK;
+  return input === undefined || output === undefined ? undefined : { input, output };
+}
 
 /** Eurocents per 1M tokens. Configuration, not fact — see the note above. */
 interface ModelPrice {
@@ -71,6 +149,29 @@ const IMAGE_PRICES: Readonly<Record<string, ModelPrice>> = Object.freeze({
   'gpt-image-1.5': { input: 500, output: 3_200 },
   'gpt-image-1-mini': { input: 200, output: 800 },
 });
+
+/**
+ * The cost a gateway reported for one call, in eurocents.
+ *
+ * LiteLLM sets `x-litellm-response-cost` in **dollars**. Every column in this
+ * product is in eurocents, so the header is only read when a rate has been
+ * configured: a currency conversion nobody chose is a figure nobody can check,
+ * and this value lands in the ledger as an actual cost.
+ */
+function gatewayCostCents(response: Response, usdToEur: number | undefined): number | null {
+  if (usdToEur === undefined) {
+    return null;
+  }
+  const header = response.headers.get('x-litellm-response-cost');
+  if (header === null) {
+    return null;
+  }
+  const dollars = Number(header);
+  if (!Number.isFinite(dollars) || dollars < 0) {
+    return null;
+  }
+  return Math.ceil(dollars * usdToEur * 100);
+}
 
 /** Shape of a Responses API reply, validated before use. */
 const responsesReply = z.object({
@@ -110,23 +211,22 @@ const imagesReply = z.object({
 });
 
 export class OpenAiTextAdapter implements TextGenerationAdapter {
-  public readonly supportsWebSearch = true;
-  public readonly provider = 'openai';
+  public readonly supportsWebSearch: boolean;
+  public readonly provider: string;
   public readonly model: string;
   public readonly isMock = false;
 
-  private readonly apiKey: string;
+  private readonly endpoint: CompatibleEndpoint;
   private readonly timeoutMs: number;
-  private readonly organization: string | undefined;
+  /** The cost the gateway reported for the last call, in eurocents. */
+  private lastGatewayCostCents: number | null = null;
 
   constructor(env: ServerEnv) {
-    if (env.OPENAI_API_KEY === undefined) {
-      throw new Error('OpenAiTextAdapter requires OPENAI_API_KEY.');
-    }
-    this.apiKey = env.OPENAI_API_KEY;
+    this.endpoint = endpointFor(env);
+    this.provider = this.endpoint.provider;
+    this.supportsWebSearch = this.endpoint.webSearch;
     this.model = env.AI_TEXT_MODEL;
     this.timeoutMs = env.AI_REQUEST_TIMEOUT_MS;
-    this.organization = env.OPENAI_ORGANIZATION;
   }
 
   /**
@@ -137,7 +237,9 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
    * actual token counts come back.
    */
   estimateCostCents(inputChars: number, maxOutputTokens: number): number {
-    const price = TEXT_PRICES[this.model];
+    // A configured price wins: behind a gateway the model name is an alias and
+    // the table below cannot know it.
+    const price = this.endpoint.price ?? TEXT_PRICES[this.model];
     if (price === undefined) {
       // Unknown model: reserve a deliberately high placeholder rather than 0,
       // so an unpriced model cannot spend without any budget check.
@@ -181,7 +283,12 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
         store: false,
       };
 
-      const reply = await this.call(RESPONSES_URL, body, responsesReply, request.signal);
+      const reply = await this.call(
+        `${this.endpoint.baseUrl}/v1/responses`,
+        body,
+        responsesReply,
+        request.signal,
+      );
 
       const usage: AiUsage = {
         inputTokens: reply.usage?.input_tokens ?? null,
@@ -201,6 +308,7 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
           request.promptTemplate,
           [`Het antwoord is afgebroken (${reason}).`],
           repairAttempts,
+          reason === 'max_output_tokens',
         );
       }
 
@@ -247,11 +355,26 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
     throw new AiInvalidOutputError(request.promptTemplate, lastIssues, repairAttempts);
   }
 
+  /**
+   * What the call really cost, in eurocents.
+   *
+   * A gateway knows the upstream price better than our table does, so its own
+   * figure wins when it sent one *and* a euro rate makes it convertible. The
+   * header is in dollars; without `AI_COST_USD_TO_EUR_RATE` it is ignored,
+   * because a conversion nobody configured is a number nobody can check.
+   */
   private actualCost(inputTokens: number | null, outputTokens: number | null): number | null {
+    if (this.lastGatewayCostCents !== null) {
+      return this.lastGatewayCostCents;
+    }
+    return this.pricedCost(inputTokens, outputTokens);
+  }
+
+  private pricedCost(inputTokens: number | null, outputTokens: number | null): number | null {
     if (inputTokens === null || outputTokens === null) {
       return null;
     }
-    const price = TEXT_PRICES[this.model];
+    const price = this.endpoint.price ?? TEXT_PRICES[this.model];
     if (price === undefined) {
       // Report no actual cost rather than a made-up one.
       return null;
@@ -283,10 +406,10 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${this.apiKey}`,
-          ...(this.organization === undefined
+          authorization: `Bearer ${this.endpoint.apiKey}`,
+          ...(this.endpoint.organization === undefined
             ? {}
-            : { 'openai-organization': this.organization }),
+            : { 'openai-organization': this.endpoint.organization }),
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -306,6 +429,8 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
     if (!response.ok) {
       throw toUnavailableError(response);
     }
+
+    this.lastGatewayCostCents = gatewayCostCents(response, this.endpoint.usdToEur);
 
     const json: unknown = await response.json();
     const parsed = schema.safeParse(json);
@@ -331,18 +456,18 @@ export class OpenAiTextAdapter implements TextGenerationAdapter {
  */
 export class OpenAiImageAdapter implements ImageGenerationAdapter {
   public readonly quality: string;
-  public readonly provider = 'openai';
+  public readonly provider: string;
   public readonly isMock = false;
 
+  private readonly endpoint: CompatibleEndpoint;
   private readonly apiKey: string;
   public readonly model: string;
   private readonly timeoutMs: number;
 
   constructor(env: ServerEnv) {
-    if (env.OPENAI_API_KEY === undefined) {
-      throw new Error('OpenAiImageAdapter requires OPENAI_API_KEY.');
-    }
-    this.apiKey = env.OPENAI_API_KEY;
+    this.endpoint = endpointFor(env);
+    this.provider = this.endpoint.provider;
+    this.apiKey = this.endpoint.apiKey;
     this.model = env.AI_IMAGE_MODEL;
     this.quality = env.AI_IMAGE_QUALITY;
     if (['xhigh', 'max'].includes(this.quality) && !this.model.startsWith('gpt-image-2.5-')) {
@@ -355,6 +480,11 @@ export class OpenAiImageAdapter implements ImageGenerationAdapter {
     // Conservative budget hold, not a quoted per-image price. Input references
     // and higher quality consume additional tokens.
     return this.quality === 'max' ? 400 : this.quality === 'xhigh' ? 200 : 100;
+  }
+
+  requestDimensions(widthPx: number, heightPx: number): { widthPx: number; heightPx: number } {
+    const [width, height] = nearestSupportedSize(widthPx, heightPx).split('x').map(Number);
+    return { widthPx: width!, heightPx: height! };
   }
 
   async generateImage(input: {
@@ -393,11 +523,12 @@ export class OpenAiImageAdapter implements ImageGenerationAdapter {
         });
         body = form;
       } else headers['content-type'] = 'application/json';
-      response = await fetch(references.length ? IMAGES_URL.replace('/generations', '/edits') : IMAGES_URL, {
+      const images = `${this.endpoint.baseUrl}/v1/images/generations`;
+      response = await fetch(references.length ? images.replace('/generations', '/edits') : images, {
         method: 'POST', headers, body, signal: controller.signal,
       });
     } catch {
-      throw new AiUnavailableError('openai', 'image request failed or timed out', true);
+      throw new AiUnavailableError(this.provider, 'image request failed or timed out', true);
     }
 
     if (!response.ok) {
@@ -499,7 +630,7 @@ function extractText(reply: z.infer<typeof responsesReply>): string | undefined 
 }
 
 export class OpenAiProvider implements AiProvider {
-  public readonly name = 'openai';
+  public readonly name: string;
   public readonly isMock = false;
 
   private readonly textAdapter: OpenAiTextAdapter;
@@ -507,6 +638,9 @@ export class OpenAiProvider implements AiProvider {
 
   constructor(env: ServerEnv) {
     this.textAdapter = new OpenAiTextAdapter(env);
+    // The ledger records which door the call went through, not which API shape
+    // it spoke: `litellm` and `openai` are different suppliers.
+    this.name = this.textAdapter.provider;
     // Image generation costs money per image, so it is opt-in rather than on
     // by default. Without it, images are still produced by the render layer.
     this.imageAdapter = env.AI_IMAGE_ENABLED ? new OpenAiImageAdapter(env) : undefined;

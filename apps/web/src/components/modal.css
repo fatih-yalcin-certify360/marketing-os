@@ -1,0 +1,263 @@
+/*
+ * The dialog shell, and the chooser that first used it (2026-09-15).
+ *
+ * Two large targets rather than a select with two options: the difference
+ * between eight steps and one text is a real decision, and it deserves the
+ * room to say what each side means before it is taken.
+ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--c360-space-5);
+  background: rgb(29 64 67 / 45%);
+}
+
+.modal-panel {
+  width: min(46rem, 100%);
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+  background: var(--c360-surface);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius-lg);
+  box-shadow: 0 24px 60px rgb(29 64 67 / 28%);
+  padding: var(--c360-space-5);
+}
+
+.choice-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--c360-space-3);
+  margin-top: var(--c360-space-4);
+}
+
+.choice-option {
+  display: grid;
+  gap: var(--c360-space-2);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: var(--c360-space-4);
+  background: var(--c360-canvas);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  cursor: pointer;
+}
+
+.choice-option:hover:not(:disabled) {
+  border-color: var(--c360-purple-600);
+  background: var(--c360-purple-050);
+}
+
+.choice-option:focus-visible {
+  outline: 2px solid var(--c360-purple-600);
+  outline-offset: 2px;
+}
+
+.choice-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.choice-option__title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.choice-option__body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c360-text-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-panel {
+    animation: choice-in 120ms ease-out;
+  }
+}
+
+@keyframes choice-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+
+/*
+ * A settings form in a dialog stacks; the toolbar it reuses was written for a
+ * wide panel where the controls and the action share one line.
+ */
+.modal-panel .radar-toolbar {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.modal-panel .radar-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ===================================================================== */
+/* A rendered variant, and what you do with it                           */
+/* ===================================================================== */
+
+.os-asset {
+  margin: 0;
+  max-width: 230px;
+  min-width: 0;
+}
+
+.os-asset__frame {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--n-br);
+  overflow: hidden;
+  background: var(--n-1);
+}
+
+.os-asset__img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * The overlay appears on hover and on keyboard focus, and it is never the only
+ * way to reach the actions: each one is a real link or button in the tab order,
+ * so a keyboard user gets there without a pointer.
+ */
+.os-asset__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: rgb(15 26 34 / 58%);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+
+.os-asset__frame:hover .os-asset__overlay,
+.os-asset__overlay:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  /* No hover to reveal it, so it stays visible along the bottom. */
+  .os-asset__overlay {
+    opacity: 1;
+    align-content: end;
+    background: linear-gradient(to top, rgb(15 26 34 / 72%) 40%, transparent);
+  }
+}
+
+/*
+ * `.os-content a` paints every link in the label's colour, and it loads after
+ * this file — so an anchor in the overlay came out teal on teal and read as an
+ * empty pill. The overlay's own descendant selector wins that fight; the
+ * buttons carry the same rule so the three controls stay one object.
+ */
+.os-asset__overlay .os-asset__action,
+.os-asset__overlay a.os-asset__action:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.os-asset__overlay a.os-asset__action--primary,
+.os-asset__overlay a.os-asset__action--primary:hover {
+  color: var(--lp-on);
+}
+
+.os-asset__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.os-asset__action:hover {
+  background: rgb(255 255 255 / 26%);
+  color: #fff;
+  text-decoration: none;
+}
+
+.os-asset__action--primary {
+  background: var(--lp-solid);
+  border-color: var(--lp-solid);
+  color: var(--lp-on);
+}
+
+.os-asset__action--primary:hover {
+  background: var(--lp-deep);
+  color: var(--lp-on);
+}
+
+/* Under the picture, not inside it: the frame clips its overflow, and a
+   landscape thumbnail has no room for three links and the caveat. */
+.os-asset__share {
+  display: grid;
+  gap: 4px;
+  justify-items: stretch;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.os-asset__sharenote {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--tx-2);
+}
+
+.os-asset__sharelink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-sm);
+  background: var(--n-0);
+  color: var(--tx);
+  padding: 5px 8px;
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.os-asset__sharelink:hover {
+  border-color: var(--lp);
+  color: var(--lp-deep);
+  text-decoration: none;
+}
+
+.os-asset__caption {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--tx-3);
+  line-height: 1.45;
+}

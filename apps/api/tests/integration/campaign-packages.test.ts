@@ -26,6 +26,36 @@ beforeAll(async()=>{
 });
 afterAll(async()=>{await h.close();});
 describe('campaign-first packages',()=>{
+  /*
+   * Recommending and permitting are different acts.
+   *
+   * A form the model did not propose used to be refused here, with a message
+   * telling the person to change an approved briefing if they wanted something
+   * else — a suggestion acting as a lock. The channel plan already settles this
+   * the other way round, and so does this now (2026-09-16).
+   *
+   * Asserted on the rule rather than on what the mock happens to propose: if
+   * the mock recommended all three forms, a test that looked for an unproposed
+   * one would pass while proving nothing.
+   */
+  it('accepts every form once a recommendation run exists, proposed or not',async()=>{
+    const s=h.appContext.services;
+    const all=['blog_faq','fit_check','google_studio'] as const;
+    await expect(
+      s.campaignPackages.assertSelection(h.db,h.currentUser,labelId,campaignId,[...all]),
+    ).resolves.toBeDefined();
+
+    // What still gates: the run that produces the material the package is built
+    // from. A campaign that has had none cannot make one.
+    const other=await s.campaigns.create(h.db,h.currentUser,labelId,createCampaignInput.parse({
+      name:'Zonder voorstelronde',entryMode:'start_from_briefing',
+      courseVersionId:h.seed.pilot.courseVersionId!,objective:'conversion',
+    }));
+    await expect(
+      s.campaignPackages.assertSelection(h.db,h.currentUser,labelId,other.id,['blog_faq']),
+    ).rejects.toMatchObject({code:'gate_not_passed'});
+  });
+
   it('generates from approved brief, ships selected branded assets and separates Studio upload from preview',async()=>{
     const queued=await h.app.inject({method:'POST',url:base,payload:{mode:'generate',interactionStyle:'dilemma',selected:['blog_faq','google_studio']}});
     expect(queued.statusCode,queued.body).toBe(202);
@@ -79,6 +109,11 @@ describe('campaign-first packages',()=>{
     const saved=await h.appContext.services.campaignPackages.generate(h.db,h.currentUser,{labelId,campaignId,jobId:queued.json<{id:string}>().id,attempt:1,mode:'recommend',selected:[]});
     const item=(await h.appContext.services.campaignPackages.list(h.db,h.currentUser,labelId,campaignId)).find(i=>i.id===saved.id)!;
     expect(item.report.content).toBeNull();expect(item.report.recommendations?.items.length).toBeGreaterThan(0);
+    // R-4, first slice: every recommended form names the stage it serves, and
+    // the recommendation is the smallest useful set rather than every form.
+    expect(item.report.recommendations?.items.every(r=>r.stage!==null)).toBe(true);
+    // One form per stage the campaign covers (this campaign has no objective, so a full funnel): the set is bounded by the stages, not by the catalogue.
+    expect(new Set(item.report.recommendations?.items.map(r=>r.stage)).size).toBe(item.report.recommendations?.items.length);
     expect((await h.app.inject({method:'GET',url:`${base}/${saved.id}/file`})).statusCode).toBe(409);
   });
 });

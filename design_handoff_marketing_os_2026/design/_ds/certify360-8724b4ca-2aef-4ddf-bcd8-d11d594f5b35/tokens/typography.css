@@ -1,0 +1,61 @@
+/* Certify360 — Typography tokens (brand fonts, self-hosted — see tokens/fonts.css)
+   Display: At Gambit ....... refined display serif — MAIN headlines only, always at scale (H1–H4)
+   Title:   TT Firs Neue ..... modern sans — smaller titles, labels, tags, buttons, UI (H5–H6)
+   Body:    Plus Jakarta Sans  open humanist sans — all body & long-form copy
+   Mono:    JetBrains Mono .... functional addition for codes/scores (loaded below; not a brand face) */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Families */
+  --font-display: 'At Gambit', Georgia, 'Times New Roman', serif;
+  --font-title:   'TT Firs Neue', ui-sans-serif, system-ui, sans-serif;
+  --font-body:    'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Type scale (rem, 16px base) */
+  --text-2xs: 0.6875rem;  /* 11 */
+  --text-xs:  0.75rem;    /* 12 */
+  --text-sm:  0.875rem;   /* 14 */
+  --text-md:  1rem;       /* 16 */
+  --text-lg:  1.125rem;   /* 18 */
+  --text-xl:  1.375rem;   /* 22 */
+  --text-2xl: 1.75rem;    /* 28 */
+  --text-3xl: 2.25rem;    /* 36 */
+  --text-4xl: 3rem;       /* 48 */
+  --text-5xl: 3.75rem;    /* 60 */
+  --text-6xl: 4.75rem;    /* 76 */
+
+  /* Semantic heading roles — from the brand Type Hierarchy (size / line-height).
+     H1–H4 render in At Gambit; H5–H6 in TT Firs Neue. Sizes in rem at 16px base. */
+  --h1-size: 4.75rem;   --h1-lh: 1.21; /* @kind font */ /* 76 / 92  · At Gambit  */
+  --h2-size: 4rem;      --h2-lh: 1.22; /* @kind font */ /* 64 / 78  · At Gambit  */
+  --h3-size: 2.5rem;    --h3-lh: 1.2;  /* @kind font */ /* 40 / 48  · At Gambit  */
+  --h4-size: 1.75rem;   --h4-lh: 1.21; /* @kind font */ /* 28 / 34  · At Gambit  */
+  --h5-size: 1.5rem;    --h5-lh: 1.25; /* @kind font */ /* 24 / 30  · TT Firs Neue */
+  --h6-size: 1.125rem;  --h6-lh: 1.22; /* @kind font */ /* 18 / 22  · TT Firs Neue */
+  /* Body roles · Plus Jakarta Sans */
+  --body-xl-size: 1.375rem; --body-xl-lh: 1.55; /* @kind font */ /* 22 / 34 — leads & intros */
+  --body-size:    1.125rem; --body-lh:    1.56; /* @kind font */ /* 18 / 28 — default reading size */
+  --body-sm-size: 1rem;     --body-sm-lh: 1.5;  /* @kind font */ /* 16 / 24 — subtle / secondary */
+
+  /* Weights */
+  --fw-light:    300; /* @kind font */ /* At Gambit only */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:     700; /* @kind font */
+  --fw-extra:    700; /* @kind font */ /* At Gambit / TT Firs top out at Bold; kept as alias for legacy usages */
+
+  /* Line heights */
+  --lh-tight:   1.05; /* @kind font */
+  --lh-snug:    1.2; /* @kind font */
+  --lh-normal:  1.5; /* @kind font */
+  --lh-relaxed: 1.65; /* @kind font */
+
+  /* Letter spacing */
+  --ls-tight:  -0.02em; /* @kind font */
+  --ls-snug:   -0.01em; /* @kind font */
+  --ls-normal: 0; /* @kind font */
+  --ls-wide:   0.02em; /* @kind font */
+  --ls-caps:   0.08em; /* @kind font */ /* eyebrows / overlines */
+}

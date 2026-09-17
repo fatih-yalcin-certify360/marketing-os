@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { marketingChannel, type MarketingChannel } from './channels.js';
+import { courseFactField } from './courses.js';
 
 /**
  * The funnel: what a campaign is for, and which channel fits which stage.
@@ -166,9 +167,19 @@ const FIT: Readonly<Record<FunnelStage, Readonly<Record<MarketingChannel, Channe
           'Bereikt vooral de bestaande volgers van het label; werkt als er al een community is, anders ondersteunend.',
       },
       landing_page: {
+        verdict: 'possible',
+        reasonNl:
+          'Oude vorm van het websitekanaal: kies voortaan tussen een wijziging van de opleidingspagina en een blogartikel. Bestaande stukken blijven leesbaar.',
+      },
+      course_page_update: {
+        verdict: 'possible',
+        reasonNl:
+          'De bestemming waar elk ontdekkingsbericht naartoe verwijst. Maar de pagina is één object: plan haar één keer, en zet wat de ontdekfase nodig heeft als aparte wijziging in dát voorstel.',
+      },
+      blog_article: {
         verdict: 'recommended',
         reasonNl:
-          'De bestemming waar elk ontdekkingsbericht naartoe verwijst; zonder pagina landt de nieuwsgierigheid nergens.',
+          'In de ontdekfase zoekt iemand een antwoord op een vraag, niet een opleiding; een artikel geeft dat antwoord en brengt de lezer binnen.',
       },
       email: {
         verdict: 'discouraged',
@@ -208,9 +219,19 @@ const FIT: Readonly<Record<FunnelStage, Readonly<Record<MarketingChannel, Channe
           'Kan inhoud dragen, maar bereikt vooral bestaande volgers; ondersteunend aan de pagina en e-mail.',
       },
       landing_page: {
+        verdict: 'possible',
+        reasonNl:
+          'Oude vorm van het websitekanaal: kies voortaan tussen een wijziging van de opleidingspagina en een blogartikel. Bestaande stukken blijven leesbaar.',
+      },
+      course_page_update: {
         verdict: 'recommended',
         reasonNl:
-          'De plek waar de vergelijking wordt gemaakt: inhoud, doelgroep en werkwijze op één pagina.',
+          'De plek waar de vergelijking wordt gemaakt: inhoud, doelgroep en werkwijze op één pagina. Plan de pagina hier, met de wijzigingen die de andere fases van haar vragen erbij — één voorstel voor één pagina.',
+      },
+      blog_article: {
+        verdict: 'possible',
+        reasonNl:
+          'Een artikel kan een vergelijking verdiepen, maar wie al vergelijkt is op de opleidingspagina zelf beter geholpen.',
       },
       email: {
         verdict: 'recommended',
@@ -250,9 +271,19 @@ const FIT: Readonly<Record<FunnelStage, Readonly<Record<MarketingChannel, Channe
           'Bereik onder volgers op een moment dat geen beslismoment is; de laatste stap wordt elders gezet.',
       },
       landing_page: {
-        verdict: 'recommended',
+        verdict: 'possible',
         reasonNl:
-          'De inschrijving gebeurt hier: data, prijs, voorwaarden en het formulier moeten op één plek kloppen.',
+          'Oude vorm van het websitekanaal: kies voortaan tussen een wijziging van de opleidingspagina en een blogartikel. Bestaande stukken blijven leesbaar.',
+      },
+      course_page_update: {
+        verdict: 'possible',
+        reasonNl:
+          'De inschrijvingsfeiten moeten hier kloppen — data, prijs, voorwaarden, formulier. Maar het is dezelfde pagina: zet die wijziging in het ene voorstel in plaats van de pagina nog een keer te plannen.',
+      },
+      blog_article: {
+        verdict: 'discouraged',
+        reasonNl:
+          'Wie op het punt staat zich in te schrijven heeft geen artikel nodig maar de praktische feiten; een omweg kost hier inschrijvingen.',
       },
       email: {
         verdict: 'recommended',
@@ -360,3 +391,100 @@ export const proposedChannelAdvice = channelAdviceFields
     path: ['advisedVerdict'],
   });
 export type ProposedChannelAdvice = z.infer<typeof proposedChannelAdvice>;
+
+// ---------------------------------------------------------- Stage message ---
+
+/**
+ * The briefing's message for one funnel stage (campaign-flow-design.md, slice 2).
+ *
+ * The brief's single `coreMessage` is the campaign thesis; this is what that
+ * thesis says to a reader in *this* stage, with the kind of call to action the
+ * stage guidance asks for and the confirmed facts the stage may cite as proof.
+ *
+ * `proofFields` names course-card **fields**, not values. The values are read
+ * from the course card at generation time, so a fact confirmed after the brief
+ * was written is quoted correctly and a fact withdrawn since is not quoted at
+ * all. The service removes any field nobody has confirmed and says so in the
+ * brief's review notes — the schema cannot know which facts are confirmed.
+ */
+export const stageMessage = z.object({
+  stage: funnelStage,
+  /** What this stage says, derived from the campaign thesis. */
+  coreMessageNl: z.string().min(10).max(600),
+  /** The call to action for this stage, of the kind the stage guidance asks for. */
+  ctaNl: z.string().min(3).max(200),
+  /** Confirmed course-card fields this stage may cite. Empty is a valid answer. */
+  proofFields: z.array(courseFactField).max(8).default([]),
+});
+export type StageMessage = z.infer<typeof stageMessage>;
+
+/** The message for one stage out of a brief's list, or undefined for a brief without one. */
+export function stageMessageFor(
+  messages: readonly StageMessage[],
+  stage: FunnelStage,
+): StageMessage | undefined {
+  return messages.find((message) => message.stage === stage);
+}
+
+// ------------------------------------------------------------- Measurement ---
+
+/**
+ * What each stage is judged on, editorially (GCS evaluation ladder: inputs →
+ * outputs → outtakes → outcomes). Given to the model when it writes the
+ * measurement plan and shown to the person next to it. Contains no figure and
+ * no forecast: it says *which kind of signal* to read, never what value to
+ * expect. `funnel.test.ts` holds it digit-free.
+ */
+export interface StageIndicatorGuidance {
+  /** The rung of the ladder this stage is read on. */
+  ladderNl: string;
+  /** Signals of that kind a label can actually read off its platforms. */
+  examplesNl: string;
+  /** What must not be used to judge this stage. */
+  notNl: string;
+}
+
+export const FUNNEL_STAGE_INDICATOR_NL: Readonly<Record<FunnelStage, StageIndicatorGuidance>> =
+  Object.freeze({
+    discover: {
+      ladderNl: 'Output en eerste reactie: is de boodschap gezien en herkend?',
+      examplesNl:
+        'Bereik en frequentie per kanaal, videoweergaven, bewaarde of gedeelde berichten, groei van zoekopdrachten op de naam van het label of de opleiding.',
+      notNl: 'Niet beoordelen op inschrijvingen of kosten per inschrijving: die horen bij Beslissen.',
+    },
+    consider: {
+      ladderNl: 'Betrokkenheid en intentie: verdiept iemand zich?',
+      examplesNl:
+        'Bezoekduur en scrolldiepte op de opleidingspagina, voltooide keuzehulpen en de verdeling van de antwoorden, kliks in e-mails, aanvragen van het programma of een gesprek.',
+      notNl: 'Niet beoordelen op bereik alleen: veel bereik zonder verdieping zegt niets over deze fase.',
+    },
+    decide: {
+      ladderNl: 'Uitkomst: wordt de stap gezet?',
+      examplesNl:
+        'Gestarte en afgeronde inschrijvingen, aanmeldingen voor een startdatum, en — alleen als de kosten zijn geregistreerd — kosten per inschrijving.',
+      notNl: 'Geen prognose van inschrijvingen of kosten: alleen wat na afloop is geregistreerd telt.',
+    },
+  });
+
+/**
+ * The measurement plan for one stage, written by the model from the ladder
+ * above and approved with the channel plan.
+ *
+ * ## No field for a target or a forecast
+ *
+ * There is deliberately no `target`, `expectedCtr` or `baseline` field. A
+ * decision rule says what happens *if* a signal moves — "opschalen als de
+ * pagina vaker wordt aangevraagd, stoppen als niemand doorklikt" — and never
+ * predicts that it will. The same control the advertising proposal and the
+ * channel advice have: nowhere to put a number nobody has measured.
+ */
+export const stageMeasurement = z.object({
+  stage: funnelStage,
+  /** The one leading indicator to read for this stage, in words. */
+  indicatorNl: z.string().min(5).max(300),
+  /** Where it is read: which platform report, page or register. */
+  sourceNl: z.string().min(5).max(300),
+  /** After the review moment: opschalen, aanpassen of stoppen als … */
+  decisionRuleNl: z.string().min(10).max(400),
+});
+export type StageMeasurement = z.infer<typeof stageMeasurement>;

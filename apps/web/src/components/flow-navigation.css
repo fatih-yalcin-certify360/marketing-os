@@ -1,1 +1,292 @@
-.flow-navigation{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0;padding:8px;background:#edf1f5;border-radius:14px}.flow-navigation button{font:inherit;border:1px solid transparent;border-radius:9px;padding:12px 16px;cursor:pointer;background:transparent;color:#25364a}.flow-navigation button.is-current{background:white;border-color:#b7c5d5;box-shadow:0 2px 5px #203e5812;font-weight:650}.flow-navigation button:focus-visible{outline:3px solid #6455b7;outline-offset:2px}.flow-check{color:#187747;font-weight:800}.flow-evidence{display:flex;flex-wrap:wrap;gap:12px;padding:16px;background:#f0f7f3;border:1px solid #c9dfd3;border-radius:12px;margin:16px 0}.flow-evidence span{padding:4px 8px}.flow-panel[hidden]{display:none!important}
+/*
+ * Step bar and tab bar. Tokens only: the palette is the Certify360 one,
+ * purple being the single action colour, so the current step reads as "where
+ * you are" without competing with the one primary button below it.
+ *
+ * Two looks from one component (2026 pass): steps are a horizontal stepper
+ * with numbered discs and a connecting rail — done in green, current in
+ * purple, upcoming outlined; tabs are underline tabs.
+ */
+
+/* --------------------------------------------------------------- Steps --- */
+.flow-navigation--steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--c360-space-1);
+  margin: 0;
+  padding: var(--c360-space-3) var(--c360-space-3);
+  background: var(--c360-surface);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius-lg);
+  box-shadow: var(--c360-shadow-card);
+}
+
+.flow-navigation--steps button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c360-space-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-2) var(--c360-space-3) var(--c360-space-2) var(--c360-space-2);
+  cursor: pointer;
+  background: transparent;
+  color: var(--c360-text-muted);
+  white-space: nowrap;
+}
+
+.flow-navigation--steps button:hover {
+  background: var(--c360-canvas);
+  color: var(--c360-text);
+}
+
+.flow-navigation--steps button.is-current {
+  background: var(--c360-purple-050);
+  color: var(--c360-purple-700);
+}
+
+.flow-navigation--steps button.is-done {
+  color: var(--c360-text);
+}
+
+/* The numbered disc. */
+.flow-navigation--steps .flow-step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c360-border-strong);
+  background: var(--c360-surface);
+  color: var(--c360-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.flow-navigation--steps button.is-current .flow-step-number {
+  background: var(--c360-purple-600);
+  border-color: var(--c360-purple-600);
+  color: var(--c360-text-inverse);
+}
+
+.flow-navigation--steps button.is-done .flow-step-number {
+  background: var(--c360-green-050);
+  border-color: var(--c360-green-600);
+  color: var(--c360-green-600);
+}
+
+.flow-navigation--steps button.has-attention .flow-step-number {
+  border-color: var(--c360-amber-700);
+  color: var(--c360-amber-700);
+}
+
+/* A branch beside the chain: separated by a gap and a hairline, not a number. */
+.flow-navigation--steps button.is-branch {
+  margin-left: auto;
+  padding-left: var(--c360-space-4);
+  border-left: 1px solid var(--c360-border);
+  border-radius: 0 var(--c360-radius) var(--c360-radius) 0;
+  color: var(--c360-text-muted);
+}
+
+.flow-navigation--steps button.is-branch.is-current {
+  color: var(--c360-purple-700);
+  background: var(--c360-purple-050);
+}
+
+.flow-check {
+  color: var(--c360-green-600);
+  font-weight: 800;
+}
+
+.flow-attention {
+  color: var(--c360-amber-700);
+  font-weight: 800;
+}
+
+/* ---------------------------------------------------------------- Tabs --- */
+.flow-navigation--tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c360-space-1);
+  margin: 0;
+  border-bottom: 1px solid var(--c360-border);
+}
+
+.flow-navigation--tabs button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  border-radius: var(--c360-radius-sm) var(--c360-radius-sm) 0 0;
+  padding: var(--c360-space-3) var(--c360-space-3);
+  cursor: pointer;
+  background: transparent;
+  color: var(--c360-text-muted);
+}
+
+.flow-navigation--tabs button:hover {
+  color: var(--c360-text);
+  background: var(--c360-canvas);
+}
+
+.flow-navigation--tabs button.is-current {
+  color: var(--c360-purple-700);
+  border-bottom-color: var(--c360-purple-600);
+}
+
+.flow-navigation--tabs .flow-step-number {
+  color: var(--c360-text-muted);
+  font-weight: 600;
+}
+
+.flow-navigation button:focus-visible {
+  outline: 2px solid var(--c360-focus);
+  outline-offset: 2px;
+}
+
+/* Kept for the package panel and the evidence dossier, which still use it. */
+.flow-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c360-space-3);
+  padding: var(--c360-space-4);
+  background: var(--c360-green-050);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  margin: var(--c360-space-4) 0;
+}
+
+.flow-evidence span {
+  padding: var(--c360-space-1) var(--c360-space-2);
+}
+
+.flow-panel[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  .flow-navigation--steps button {
+    white-space: normal;
+  }
+
+  .flow-navigation--steps button.is-branch {
+    margin-left: 0;
+    border-left: 0;
+    padding-left: var(--c360-space-2);
+  }
+}
+
+/* ------------------------------------------------- Rail (tabs, vertical) ---
+ * Eight market-radar views on one horizontal line wrapped into a second row
+ * that read as a separate bar. As a rail each view is a rounded row with its
+ * name, what it holds and how many, and the panel beside it keeps the width.
+ */
+.flow-navigation--rail {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.flow-navigation--rail button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c360-space-2);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: var(--c360-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--c360-radius);
+  background: transparent;
+  color: var(--c360-text);
+  cursor: pointer;
+}
+
+.flow-navigation--rail button:hover {
+  background: var(--c360-surface);
+  border-color: var(--c360-border);
+}
+
+.flow-navigation--rail button.is-current {
+  background: var(--c360-surface);
+  border-color: var(--c360-purple-600);
+  box-shadow: var(--c360-shadow-card);
+}
+
+.flow-rail__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.flow-navigation--rail button.is-current .flow-rail__text {
+  color: var(--c360-purple-700);
+}
+
+.flow-rail__hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c360-text-muted);
+  line-height: 1.35;
+}
+
+.flow-rail__count {
+  min-width: 1.75rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--c360-canvas);
+  border: 1px solid var(--c360-border);
+  color: var(--c360-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.flow-navigation--rail button.is-current .flow-rail__count {
+  background: var(--c360-purple-050);
+  border-color: var(--c360-purple-600);
+  color: var(--c360-purple-700);
+}
+
+/* The bar keeps its own look: no description, the count inline. */
+.flow-navigation--tabs .flow-rail__text,
+.flow-navigation--steps .flow-rail__text {
+  display: inline;
+  font: inherit;
+}
+
+.flow-navigation--tabs .flow-rail__hint,
+.flow-navigation--steps .flow-rail__hint {
+  display: none;
+}
+
+.flow-navigation--tabs .flow-rail__count,
+.flow-navigation--steps .flow-rail__count {
+  border: 0;
+  background: transparent;
+  padding: 0 0 0 4px;
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .flow-navigation--rail {
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  }
+
+  .flow-rail__hint {
+    display: none;
+  }
+}

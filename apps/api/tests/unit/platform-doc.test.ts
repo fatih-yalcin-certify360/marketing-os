@@ -43,8 +43,14 @@ async function indexRepository(): Promise<string[]> {
     }
   }
 
-  for (const root of ['apps', 'packages', 'tools', 'docs', 'infra']) {
-    await walk(root);
+  /*
+   * `reference-banners` holds shipped work we measure our own output against
+   * and the document points at by name, so it has to be indexed like any other
+   * source root. Missing roots are skipped rather than thrown on: a reference
+   * bundle is material somebody may not have checked out.
+   */
+  for (const root of ['apps', 'packages', 'tools', 'docs', 'infra', 'reference-banners']) {
+    await walk(root).catch(() => undefined);
   }
   // Repository-root files the doc names directly.
   paths.push('README.md', 'package.json', 'docker-compose.yml');

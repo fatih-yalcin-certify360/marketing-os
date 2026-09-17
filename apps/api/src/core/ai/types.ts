@@ -104,6 +104,8 @@ export interface ImageGenerationAdapter {
   readonly isMock: boolean;
   /** Pessimistic per-image estimate in eurocents, for budget reservation. */
   estimateCostCents?(): number;
+  /** Native request dimensions, so art direction can account for the final crop. */
+  requestDimensions?(widthPx: number, heightPx: number): { widthPx: number; heightPx: number };
   generateImage(input: {
     references?: readonly { bytes: Buffer; mimeType: string }[] | undefined;
     prompt: string;
@@ -134,6 +136,17 @@ export class AiInvalidOutputError extends Error {
     public readonly promptTemplate: string,
     public readonly issues: readonly string[],
     public readonly repairAttempts: number,
+    /**
+     * Whether the answer was cut off at the output limit.
+     *
+     * Kept apart from every other invalid answer because the person reading the
+     * failure can act on this one and only this one: the setting is ours and it
+     * is one line. Told as "the model produced nonsense" it looks like a reason
+     * to retry, and retrying a template that does not fit the limit fails again
+     * at the same place — which is what happened here for three attempts per
+     * job before anyone looked in the database (2026-09-16).
+     */
+    public readonly truncated = false,
   ) {
     super(
       `Provider output failed schema validation for ${promptTemplate} after ${String(repairAttempts)} repair attempt(s): ${issues.join('; ')}`,

@@ -1,5 +1,7 @@
 import type { RenderSpec } from '@c360/contracts';
 import { escapeMarkup } from './markup.js';
+import { buildCreativeSvg, type CreativeLogoPlate, type TextMeasurer } from './creative-layouts.js';
+export { buildCreativeSvg, creativeTextZone, creativeSourceZones, resolveCreativePalette, CreativeTextOverflowError, CreativeContrastError } from './creative-layouts.js';
 
 /**
  * SVG layout templates.
@@ -167,12 +169,17 @@ function textLines(
  * the moment it wrapped.
  */
 function ctaLineCount(spec: RenderSpec, m: Metrics): number {
+  // No call to action drawn means no lines and no space reserved: on a channel
+  // whose image is not a link, the instruction is left out entirely rather
+  // than shrunk (see `CLICKABLE_IMAGE_CHANNELS`).
+  if (spec.ctaText === null) return 0;
   return wrap(spec.ctaText, m.ctaCharsPerLine, m.ctaMaxLines).length;
 }
 
-/** Total height of the CTA block, from the top of its first line. */
+/** Total height of the CTA block, from the top of its first line. Zero when there is none. */
 function ctaBlockHeight(spec: RenderSpec, m: Metrics): number {
-  return (ctaLineCount(spec, m) - 1) * m.ctaLeading + m.ctaSize;
+  const lines = ctaLineCount(spec, m);
+  return lines === 0 ? 0 : (lines - 1) * m.ctaLeading + m.ctaSize;
 }
 
 /**
@@ -275,6 +282,7 @@ function ctaBlock(spec: RenderSpec, m: Metrics, x: number, baselineY: number): s
   // came out with mismatched weights. A drawn arrow also removes a font
   // dependency from an exported brand asset, which matters more than the
   // handful of bytes it costs.
+  if (spec.ctaText === null) return '';
   const lines = wrap(spec.ctaText, m.ctaCharsPerLine, m.ctaMaxLines);
   const startY = baselineY - (lines.length - 1) * m.ctaLeading;
   const text = textLines(
@@ -320,7 +328,8 @@ function logoBlock(
 }
 
 /** Builds the complete SVG document for a render spec. */
-export function buildSvg(spec: RenderSpec, logoDataUri?: string): string {
+export function buildSvg(spec: RenderSpec, logoDataUri?: string, measure?: TextMeasurer, logoPlate?: CreativeLogoPlate): string {
+  if (spec.creativeBrief) return buildCreativeSvg(spec, undefined, logoDataUri, measure, logoPlate);
   if (logoDataUri && !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/u.test(logoDataUri)) throw new Error('Invalid logo data');
   const m = metricsFor(spec.widthPx, spec.heightPx);
   const body =
@@ -363,7 +372,8 @@ export function layoutsForVariants(
  * Image-led compositions. The photograph/illustration keeps its full frame;
  * text and logo remain deterministic and readable on a solid brand surface.
  */
-export function buildPhotoSvg(spec: RenderSpec, backgroundDataUri: string, logoDataUri?: string): string {
+export function buildPhotoSvg(spec: RenderSpec, backgroundDataUri: string, logoDataUri?: string, measure?: TextMeasurer, logoPlate?: CreativeLogoPlate): string {
+  if (spec.creativeBrief) return buildCreativeSvg(spec, backgroundDataUri, logoDataUri, measure, logoPlate);
   for (const uri of [backgroundDataUri, logoDataUri].filter((x): x is string => !!x)) {
     if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/u.test(uri)) throw new Error('Invalid embedded image');
   }
@@ -389,7 +399,7 @@ export function buildPhotoSvg(spec: RenderSpec, backgroundDataUri: string, logoD
   const sub = textLines(wrap(spec.subline ?? '', Math.floor(textWidth / (subSize * 0.6)), 2), textX, subY, subSize * 1.25,
     `fill="${foreground}" font-family="${esc(spec.bodyFamily)}" font-size="${String(subSize)}"`);
   const ctaSize = Math.round(Math.min(w * 0.024, h * 0.035));
-  const cta = textLines(wrap(spec.ctaText, Math.floor(textWidth / (ctaSize * 0.62)), 2), textX, h - m - ctaSize, ctaSize * 1.15,
+  const cta = spec.ctaText === null ? '' : textLines(wrap(spec.ctaText, Math.floor(textWidth / (ctaSize * 0.62)), 2), textX, h - m - ctaSize, ctaSize * 1.15,
     `fill="${foreground}" font-family="${esc(spec.bodyFamily)}" font-size="${String(ctaSize)}" font-weight="700"`);
   const logoWidth = landscape ? w * 0.26 : w * 0.31;
   const logoHeight = Math.min(h * 0.068, w * 0.085);

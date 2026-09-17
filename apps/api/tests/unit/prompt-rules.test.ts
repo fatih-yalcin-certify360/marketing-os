@@ -43,6 +43,12 @@ const ALL_TEMPLATES = Object.keys(PROMPT_VERSIONS) as (keyof typeof PROMPT_VERSI
  */
 const EXTRACTION: (keyof typeof PROMPT_VERSIONS)[] = [
   'course.extract_from_url',
+  'persona.extract_from_text',
+  // Fills the questionnaire from supplied material, quoting it.
+  'persona.questionnaire',
+  // Reads the same material for where one audience orients, quoting it.
+  'persona.orientation',
+  'banner.screenplay',
   'research.findings',
   'geo.discover',
   'radar.discover',
@@ -50,6 +56,8 @@ const EXTRACTION: (keyof typeof PROMPT_VERSIONS)[] = [
   // Reads supplied public pages and returns findings quoted from them.
   'radar.audience',
   'radar.keywords',
+  // Reads the run's own verified evidence and proposes a reading of it.
+  'radar.synthesize',
 ];
 const CONTENT = ALL_TEMPLATES.filter((template) => !EXTRACTION.includes(template));
 

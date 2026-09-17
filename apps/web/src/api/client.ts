@@ -120,6 +120,33 @@ export const api = {
     request<T>(path, body === undefined ? { method: 'POST' } : { method: 'POST', body }),
   patch: <T>(path: string, body: unknown): Promise<T> =>
     request<T>(path, { method: 'PATCH', body }),
+  /**
+   * A POST whose answer is a file rather than JSON.
+   *
+   * Every other download in the app is a link to a GET, because the file
+   * already exists and has an id. A banner set has neither: it is built from
+   * what the form says, so the request that produces it carries a body, and a
+   * body cannot travel in an href.
+   */
+  postFile: async (path: string, body: unknown): Promise<Blob> => {
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'omit',
+      });
+    } catch {
+      throw new ApiClientError(
+        'network_error',
+        'De verbinding met de server is mislukt. Controleer je netwerk en probeer het opnieuw.',
+        0,
+      );
+    }
+    if (!response.ok) throw await toError(response);
+    return response.blob();
+  },
   // No body: a deletion is identified entirely by its path, and a body would
   // be one more thing for a caller to get wrong.
   remove: <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),

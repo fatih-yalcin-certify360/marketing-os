@@ -1,0 +1,29 @@
+.competitor-registry { min-width: 0; overflow-wrap: anywhere; }
+.competitor-registry__list { margin-top: var(--c360-space-4); }
+.competitor-registry__item { padding: 14px 0; border-top: 1px solid var(--n-2); }
+.competitor-registry__item h3 { margin: 0; font-family: var(--font-title); font-size: 13.5px; font-weight: 700; }
+.competitor-registry__heading, .competitor-registry__links, .competitor-registry__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.competitor-registry__actions { margin-top: 10px; }
+.competitor-registry__links { margin: 8px 0; font-size: 11.5px; }
+.competitor-registry details { margin: 14px 0; }
+.competitor-registry summary { cursor: pointer; font-weight: 600; font-size: 12px; }
+.competitor-registry blockquote { margin: 14px 0; padding-left: 16px; border-left: 3px solid var(--lp-t3); }
+.competitor-registry__editor { padding: 14px; margin-top: 12px; border: 1px solid var(--n-br); border-radius: var(--radius-md); background: var(--n-1); }
+.competitor-registry__editor > fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.competitor-registry__editor label { display: grid; gap: 6px; margin-bottom: 16px; }
+.competitor-registry__editor input, .competitor-registry__editor select, .competitor-registry__editor textarea { min-width: 0; max-width: 100%; }
+.competitor-registry__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.competitor-registry__scope { border: 0; margin: 18px 0; padding: 0; }
+.competitor-registry__scope legend { font-weight: 600; margin-bottom: 10px; }
+.competitor-registry__scope label { display: flex; align-items: baseline; gap: 8px; }
+.competitor-registry__scope input { flex: 0 0 auto; }
+.competitor-registry__message { font-weight: 600; }
+@media (max-width: 640px) {
+  .competitor-registry__fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .competitor-registry__editor { padding: 14px; }
+}
+
+/* The courses a provider is used for: a real list, not one checkbox for
+   whichever course happened to be on screen. */
+.competitor-registry__courses { display: grid; gap: 6px; margin-top: 8px; padding-left: 4px; }
+.competitor-registry__courses label { display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 500; }

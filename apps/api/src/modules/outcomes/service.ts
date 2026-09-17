@@ -188,6 +188,7 @@ export class OutcomeService {
         campaignId,
         publicationRecordId: input.publicationRecordId,
         channel: input.channel,
+        funnelStage: input.funnelStage,
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         impressions: input.impressions,
@@ -257,6 +258,7 @@ interface OutcomeRow {
   campaignId: string;
   publicationRecordId: string | null;
   channel: string;
+  funnelStage?: string | null;
   periodStart: string;
   periodEnd: string;
   impressions: number | null;
@@ -276,6 +278,7 @@ function toOutcome(row: OutcomeRow): OutcomeReport {
     campaignId: row.campaignId,
     publicationRecordId: row.publicationRecordId,
     channel: row.channel as OutcomeReport['channel'],
+    funnelStage: (row.funnelStage ?? null) as OutcomeReport['funnelStage'],
     periodStart: row.periodStart,
     periodEnd: row.periodEnd,
     impressions: row.impressions,

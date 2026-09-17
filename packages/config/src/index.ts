@@ -3,7 +3,9 @@ export {
   AuthMode,
   EnvValidationError,
   loadServerEnv,
+  repositoryRoot,
   resetServerEnvCache,
+  resolveStorageRoot,
   serverEnv,
   serverEnvSchema,
 } from './env.js';

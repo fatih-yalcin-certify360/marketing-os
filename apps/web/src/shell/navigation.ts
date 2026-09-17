@@ -8,14 +8,34 @@ import type { Availability, ModuleAvailability, ProductArea } from '@c360/contra
  * backend has not shipped it.
  */
 export interface NavItem {
+  /** May carry a query, for a sub-item that opens one view of a screen. */
   path: string;
   label: string;
   area: ProductArea;
+  /**
+   * Sub-items shown indented under the parent.
+   *
+   * Marktradar had grown into eight tabs on one screen, and the section a
+   * person actually wanted — the competitor registry — was reachable only by
+   * landing on the radar and hunting for a tab (2026-09-15). A sub-item is a
+   * link to one view, not a separate screen.
+   */
+  children?: readonly NavItem[];
 }
 
 export const PRIMARY_NAV: readonly NavItem[] = Object.freeze([
   { path: '/werkruimte', label: 'Werkruimte', area: 'werkruimte' },
-  { path: '/radar', label: 'Marktradar', area: 'kansen' },
+  {
+    path: '/radar',
+    label: 'Marktradar',
+    area: 'kansen',
+    children: [
+      { path: '/radar?tab=picture', label: 'Marktbeeld', area: 'kansen' },
+      { path: '/radar?tab=saved', label: 'Bewaarde kansen', area: 'kansen' },
+      { path: '/radar?tab=competitors', label: 'Concurrenten', area: 'kansen' },
+      { path: '/radar?tab=keywords', label: 'Zoekvragen', area: 'kansen' },
+    ],
+  },
   { path: '/ai-visibility', label: 'AI Visibility', area: 'kansen' },
   { path: '/campagnes', label: 'Campagnes', area: 'campagnes' },
   { path: '/content', label: 'Content Studio', area: 'content' },
@@ -49,6 +69,10 @@ const IMPLEMENTED_PATHS = new Set([
   '/beheer/labels',
   '/beheer/opleidingen',
   '/beheer/merk',
+  '/beheer/doelgroepen',
+  // Resultaten landed on 2026-09-15: lessons label-wide and the campaigns
+  // whose results are recorded. The calendar stays unavailable until it is built.
+  '/resultaten',
 ]);
 
 export function availabilityFor(
@@ -57,7 +81,7 @@ export function availabilityFor(
 ): { status: Availability; note: string } {
   const module = modules.find((entry) => entry.area === item.area);
 
-  if (IMPLEMENTED_PATHS.has(item.path)) {
+  if (IMPLEMENTED_PATHS.has(item.path.split('?')[0] ?? item.path)) {
     return { status: 'available', note: module?.note ?? '' };
   }
 

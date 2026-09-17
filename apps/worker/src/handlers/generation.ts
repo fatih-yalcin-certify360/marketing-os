@@ -1,5 +1,6 @@
+import {personaTextInput} from '@c360/contracts';
 import { z } from 'zod';
-import { FUNNEL_STAGE_LABEL_NL, geoStartInput, radarScanInput, campaignPackageInput } from '@c360/contracts';
+import { CHANNEL_LABEL_NL, FUNNEL_STAGE_LABEL_NL, geoStartInput, radarScanInput, campaignPackageInput } from '@c360/contracts';
 import type { CurrentUser } from '@c360/contracts';
 import type { Db } from '@c360/api/db';
 import type { GenerationDeps } from '@c360/api/generation-deps';
@@ -41,6 +42,23 @@ const briefPayload = basePayload.extend({
   personaVersionIds: z.array(z.uuid()).min(1).max(3),
 });
 const campaignPayload = basePayload.extend({ campaignId: z.uuid() });
+/**
+ * One piece outside any campaign.
+ *
+ * Everything the generator needs travels in the payload: there is no briefing
+ * and no concept to read it back from, so the requester's own sentence *is* the
+ * instruction and has to survive the hop to the worker intact.
+ */
+const standalonePayload = basePayload.extend({
+  courseVersionId: z.uuid(),
+  channel: z.string().min(1).max(60),
+  stage: z.string().min(1).max(40).nullable(),
+  angleNl: z.string().min(10).max(4_000),
+  originKind: z.string().min(1).max(40),
+  originRefId: z.uuid().nullable(),
+  ctaUrl: z.string().max(2_000).nullable(),
+});
+
 const revisePayload = basePayload.extend({
   assetId: z.uuid(),
   instructionNl: z.string().min(3).max(2_000),
@@ -248,6 +266,91 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
       },
     }),
     defineHandler({
+      type:'persona.extract_from_text',
+      parsePayload:payload=>basePayload.extend({courseVersionId:z.uuid(),...personaTextInput.shape}).parse(payload),
+      run:async(payload,context)=>{
+        const user=await resolveActor(deps,context.db,payload.userId);
+        await step(context,10,'Aangeleverde tekst omzetten naar een personavoorstel',0,1);
+        const draft=await deps.personas.extractFromText(context.db,user,{...payload,jobId:context.jobId,attempt:context.attempt});
+        await step(context,100,'Voorstel klaar om te controleren; nog niet als persona opgeslagen',1,1);
+        return {result:draft,actualCostCents:await context.spentCents()};
+      },
+    }),
+    /*
+     * Where one audience orients, researched on its own.
+     *
+     * A persona written by hand or imported from a document has an empty
+     * orientation list, and the channel plan leans on exactly that field. It
+     * adds and never overwrites, so pressing it twice is harmless.
+     */
+    defineHandler({
+      type: 'persona.fill_orientation',
+      parsePayload: (payload) => basePayload.extend({ personaVersionId: z.uuid() }).parse(payload),
+      run: async (payload, context) => {
+        const user = await resolveActor(deps, context.db, payload.userId);
+        await step(context, 15, 'Oriëntatiegedrag wordt onderzocht uit onderzoek en opleidingskaart', 0, 1);
+        const result = await deps.personas.fillOrientation(context.db, user, {
+          labelId: payload.labelId,
+          personaVersionId: payload.personaVersionId,
+          jobId: context.jobId,
+          attempt: context.attempt,
+        });
+        await step(
+          context,
+          100,
+          result.addedNl.length === 0
+            ? 'Niets gevonden om toe te voegen'
+            : `${String(result.addedNl.length)} uitspraak(en) toegevoegd; versie ${String(result.persona.version)} opgeslagen`,
+          1,
+          1,
+        );
+        return {
+          result: {
+            personaVersionId: result.persona.id,
+            previousVersionId: payload.personaVersionId,
+            addedCount: result.addedNl.length,
+            noteNl: result.noteNl,
+            isMock: result.isMock,
+          },
+          actualCostCents: await context.spentCents(),
+        };
+      },
+    }),
+    defineHandler({
+      type: 'persona.fill_questionnaire',
+      parsePayload: (payload) => basePayload.extend({ personaVersionId: z.uuid() }).parse(payload),
+      run: async (payload, context) => {
+        const user = await resolveActor(deps, context.db, payload.userId);
+        await step(context, 10, 'Open personavragen worden beantwoord uit onderzoek en opleidingskaart', 0, 1);
+        const result = await deps.personas.fillQuestionnaire(context.db, user, {
+          labelId: payload.labelId,
+          personaVersionId: payload.personaVersionId,
+          jobId: context.jobId,
+          attempt: context.attempt,
+        });
+        await step(
+          context,
+          100,
+          result.filledIds.length === 0
+            ? 'Geen open vraag om aan te vullen'
+            : `${String(result.filledIds.length)} vragen aangevuld; versie ${String(result.persona.version)} opgeslagen`,
+          1,
+          1,
+        );
+        return {
+          result: {
+            personaVersionId: result.persona.id,
+            previousVersionId: payload.personaVersionId,
+            filledCount: result.filledIds.length,
+            stillOpenCount: result.stillOpenIds.length,
+            noteNl: result.noteNl,
+            isMock: result.isMock,
+          },
+          actualCostCents: await context.spentCents(),
+        };
+      },
+    }),
+    defineHandler({
       type: 'persona.propose',
       parsePayload: (payload) => personaPayload.parse(payload),
       run: async (payload, context) => {
@@ -267,6 +370,7 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
           result: {
             personaIds: result.personas.map((persona) => persona.id),
             shortfallReasonNl: result.shortfallReasonNl,
+            questionnaireNoteNl: result.questionnaireNoteNl,
             isMock: result.isMock,
           },
           actualCostCents: await context.spentCents(),
@@ -351,7 +455,7 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
       parsePayload: (payload) => campaignPayload.parse(payload),
       run: async (payload, context) => {
         const user = await resolveActor(deps, context.db, payload.userId);
-        await step(context, 20, 'Contentpakket wordt voorgesteld', 0, 1);
+        await step(context, 20, 'Kanaalplan wordt voorgesteld', 0, 1);
 
         const result = await deps.concepts.proposePlan(context.db, user, {
           labelId: payload.labelId,
@@ -360,7 +464,7 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
           attempt: context.attempt,
         });
 
-        await step(context, 100, 'Contentpakket klaar', 1, 1);
+        await step(context, 100, 'Kanaalplan klaar', 1, 1);
         return {
           result: { planId: result.planId, version: result.version },
           actualCostCents: await context.spentCents(),
@@ -390,7 +494,7 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
             await step(
               context,
               20 + Math.round((done / Math.max(1, total)) * 75),
-              `${stage === null ? '' : `${FUNNEL_STAGE_LABEL_NL[stage]} · `}${channel}: tekst en beeld klaar`,
+              `${stage === null ? '' : `${FUNNEL_STAGE_LABEL_NL[stage]} · `}${CHANNEL_LABEL_NL[channel]}: tekst en beeld klaar`,
               done,
               total,
             );
@@ -399,7 +503,55 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
 
         await step(context, 100, `${String(result.assets.length)} contentitems klaar`, 2, 2);
         return {
-          result: { assetIds: result.assets.map((asset) => asset.id), isMock: result.isMock },
+          // The campaign travels back so the notice can link to the step that
+          // now holds the content, rather than to the list of campaigns.
+          result: {
+            campaignId: payload.campaignId,
+            assetIds: result.assets.map((asset) => asset.id),
+            isMock: result.isMock,
+          },
+          actualCostCents: await context.spentCents(),
+        };
+      },
+    }),
+
+    /*
+     * A loose piece, written on the queue.
+     *
+     * It used to be written inside the request, which meant the person sat in
+     * front of a spinner for as long as the model took — and for an image
+     * channel that is two renders on top of the text. The work is the same; the
+     * waiting is not the requester's any more (2026-09-15).
+     */
+    defineHandler({
+      type: 'content.standalone',
+      parsePayload: (payload) => standalonePayload.parse(payload),
+      run: async (payload, context) => {
+        const user = await resolveActor(deps, context.db, payload.userId);
+        await step(context, 15, 'De uiting wordt geschreven', 0, 1);
+
+        const asset = await deps.content.generateStandalone(context.db, user, {
+          labelId: payload.labelId,
+          courseVersionId: payload.courseVersionId,
+          channel: payload.channel as Parameters<typeof deps.content.generateStandalone>[2]['channel'],
+          funnelStage: payload.stage as Parameters<typeof deps.content.generateStandalone>[2]['funnelStage'],
+          angleNl: payload.angleNl,
+          origin: {
+            kind: payload.originKind as Parameters<typeof deps.content.generateStandalone>[2]['origin']['kind'],
+            refId: payload.originRefId,
+          },
+          ctaUrl: payload.ctaUrl,
+          beforeVisual: async () => {
+            if (await context.isCancellationRequested()) throw new JobCancelled();
+          },
+          onProgress: async (percent, message) => {
+            await step(context, percent, message, 0, 1);
+          },
+        });
+
+        await step(context, 100, `${CHANNEL_LABEL_NL[asset.channel]} klaar`, 1, 1);
+        return {
+          result: { assetId: asset.id, channel: asset.channel, hook: asset.copy.hook },
           actualCostCents: await context.spentCents(),
         };
       },

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Certify360 AI-native Marketing Operating System — modular monolith + worker",
+  "description": "Certify360 AI-native Marketing Operating System \u2014 modular monolith + worker",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -30,7 +30,8 @@
     "dev:stack": "npm-run-all --parallel dev:db dev:api dev:worker dev:web",
     "smoke": "tsx tools/ui-smoke/with-stack.ts",
     "audit:gate": "tsx tools/audit-gate/index.ts",
-    "db:verify-restore": "npm run db:verify-restore -w @c360/api"
+    "db:verify-restore": "npm run db:verify-restore -w @c360/api",
+    "banner-fit": "tsx tools/banner-fit/index.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { contentEditInput, contentReviseInput, exportKind } from '@c360/contracts';
+import { attachToCampaignInput, contentEditInput, contentReviseInput, exportKind, standaloneContentInput } from '@c360/contracts';
 import { authenticate, currentUser } from '../../core/http/authenticate.js';
 import { assets } from '../../core/db/schema.js';
 import { AppError } from '../../core/errors/app-error.js';
@@ -73,6 +73,80 @@ export const contentRoutes: FastifyPluginAsync = async (app) => {
         params.assetKey,
       );
       return { items, nextCursor: null };
+    },
+  );
+
+  /**
+   * One piece of content outside any campaign.
+   *
+   * Runs in the request rather than as a background job: it is one piece and
+   * one provider call, and the person who asked for it is waiting for it. A
+   * campaign's content step makes up to twenty-seven and is a job for that
+   * reason (2026-09-15).
+   */
+  app.post('/labels/:labelId/content/standalone', { preHandler: authenticate }, async (request, reply) => {
+    const user = currentUser(request);
+    const { labelId } = labelParams.parse(request.params);
+    const body = standaloneContentInput.parse(request.body);
+
+    /*
+     * Queued rather than written inside the request.
+     *
+     * The requester used to watch a spinner for as long as the model took, and
+     * for an image channel that is two renders on top of the text. They get a
+     * job back, carry on, and are told when it lands (2026-09-15).
+     */
+    const { summary, created } = await services.generationJobs.enqueue(db, user, {
+      labelId,
+      type: 'content.standalone',
+      intent: ['content-standalone', body.courseVersionId, body.channel, body.angleNl.slice(0, 120)],
+      payload: {
+        courseVersionId: body.courseVersionId,
+        channel: body.channel,
+        stage: body.stage,
+        angleNl: body.angleNl,
+        originKind: body.originKind,
+        originRefId: body.originRefId,
+        ctaUrl: body.ctaUrl,
+      },
+      requestId: request.id,
+      clientAddress: request.socket.remoteAddress,
+    });
+    return reply.status(created ? 202 : 200).send(summary);
+  });
+
+  /** Everything this label made outside a campaign. */
+  app.get('/labels/:labelId/content/standalone', { preHandler: authenticate }, async (request) => {
+    const user = currentUser(request);
+    const { labelId } = labelParams.parse(request.params);
+    const items = await services.content.listStandalone(db, user, labelId);
+    return { items, nextCursor: null };
+  });
+
+  /** Gives a standalone piece a campaign, after the fact. */
+  app.post('/labels/:labelId/content/:assetId/campaign', { preHandler: authenticate }, async (request) => {
+    const user = currentUser(request);
+    const { labelId, assetId } = assetParams.parse(request.params);
+    const body = attachToCampaignInput.parse(request.body);
+    return services.content.attachToCampaign(db, user, labelId, assetId, body.campaignId);
+  });
+
+  /**
+   * Withdraws a piece from the campaign.
+   *
+   * `DELETE` because that is what it means to the reader, but nothing is
+   * removed: every version of the piece is archived so approvals and earlier
+   * exports keep pointing at something real. Without this, one piece on a
+   * channel whose specification is not verified blocked every publish-ready
+   * export of the campaign for good (2026-09-15).
+   */
+  app.delete(
+    '/labels/:labelId/campaigns/:campaignId/content/:assetId',
+    { preHandler: authenticate },
+    async (request) => {
+      const user = currentUser(request);
+      const params = campaignParams.extend({ assetId: z.uuid() }).parse(request.params);
+      return services.content.withdraw(db, user, params.labelId, params.campaignId, params.assetId);
     },
   );
 

@@ -130,11 +130,15 @@ describe('export packages', () => {
      * every image entry's byte count is the stored asset's own, and the entry
      * count matches what the content actually has.
      */
-    const images = first.record.manifest.filter((entry) => entry.path.endsWith('.png'));
+    const images = first.record.manifest.filter((entry) => entry.variant !== null);
     expect(images.length).toBeGreaterThan(0);
     for (const image of images) {
       expect(image.bytes).toBeGreaterThan(0);
       expect(image.variant === 'A' || image.variant === 'B').toBe(true);
+      // Social renders are JPEG since 2026-09-15: Instagram's publishing API
+      // accepts nothing else, and the name has to match the bytes or the very
+      // upload it is meant for refuses it.
+      expect(image.path.endsWith('.jpg')).toBe(true);
     }
 
     const onDisk = await stat(join(root, first.storagePath ?? ''));

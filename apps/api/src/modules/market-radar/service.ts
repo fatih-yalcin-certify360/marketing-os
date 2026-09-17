@@ -1,4 +1,12 @@
 import { verifyKeywords } from './keywords.js';
+import {
+  buildDigest,
+  competitorClaims,
+  evidenceForPrompt,
+  evidenceItems,
+  redactReport,
+  verifyInsights,
+} from './synthesis.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { verifyAudience, audienceBrief } from './audience.js';
@@ -13,13 +21,22 @@ import {
   audienceAnalysis,
   radarDiscovery,
   radarReport,
+  radarSynthesis,
   type RadarCard,
   type RadarRun,
+  type RadarScanFocus,
+  type CampaignObjective,
   type CurrentUser,
+  EVIDENCE_STRENGTH_NL,
+  FUNNEL_STAGE_LABEL_NL,
+  OBJECTIVE_LABEL_NL,
+  SOURCE_AGREEMENT_NL,
 } from '@c360/contracts';
 import type { ServerEnv } from '@c360/config';
 import type { Db } from '../../core/db/types.js';
-import { radarRuns, campaigns as campaignRows } from '../../core/db/schema.js';
+import { radarRuns, courseVersions, campaigns as campaignRows } from '../../core/db/schema.js';
+import { listCompetitors } from '../competitors/service.js';
+import { competitorsForCourse, competitorSource, registryContext } from './registered-competitors.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
 import { AppError } from '../../core/errors/app-error.js';
 import {
@@ -140,6 +157,8 @@ export class MarketRadarService {
       courseVersionId: string;
       urls: string[];
       discover: boolean;
+      /** What to look for; `competitors` searches for nothing new. */
+      focus?: RadarScanFocus | undefined;
       includeAds?: boolean;
       includeKeywords?: boolean;
       deliverables?: PackageDeliverable[];
@@ -171,6 +190,21 @@ export class MarketRadarService {
     const previous = (
       await this.list(db, user, input.labelId, input.courseVersionId)
     )[0];
+    const [courseRow] = await db.select({ key: courseVersions.courseKey }).from(courseVersions)
+      .where(and(eq(courseVersions.id, course.id), eq(courseVersions.labelId, input.labelId)));
+    const registry = await listCompetitors(db, input.labelId);
+    const tracked = competitorsForCourse(registry, courseRow!.key);
+    const trackedCompetitors = tracked.flatMap(profile => {
+      const sourceUrl = competitorSource(profile);
+      return sourceUrl ? [{ id: profile.id, name: profile.name, sourceUrl }] : [];
+    });
+    // Registered competitors must not silently fall out of the sample when discovery fills it.
+    if (trackedCompetitors.length > 25) throw new AppError('validation_failed', {
+      publicMessage: 'Er zijn meer dan 25 actieve concurrenten voor deze opleiding. Beperk hun opleidingsselectie of pauzeer enkele concurrenten en scan opnieuw.',
+    });
+    const knownOrganizations = registryContext([
+      ...registry.filter(profile => profile.kind === 'own'), ...tracked,
+    ]);
     const brand = await this.brand.approved(db, input.labelId);
     const common = {
       organizationId: user.organizationId,
@@ -178,11 +212,30 @@ export class MarketRadarService {
       jobId: input.jobId ?? null,
       attempt: input.attempt ?? 0,
     };
-    let urls = [...input.urls];
+    let urls = [...trackedCompetitors.map(profile => profile.sourceUrl), ...input.urls];
     const notes: string[] = [];
     const failures: { url: string; reason: string }[] = [];
-    if (input.discover) {
-      await input.progress?.(10, 'Relevante marktbronnen zoeken');
+
+    /*
+     * What this scan goes looking for.
+     *
+     * `competitors` searches for nothing: it re-reads the registry, which is
+     * what you want once the list of providers is settled and the question is
+     * only what changed on their pages. `providers` spends the whole search on
+     * organisations that teach this course; `market` is the mixed sweep.
+     */
+    const focus: RadarScanFocus = input.focus ?? 'market';
+    const discovering = input.discover && focus !== 'competitors';
+    if (focus === 'competitors') {
+      notes.push(
+        trackedCompetitors.length === 0
+          ? 'Scan beperkt tot de opgeslagen concurrenten, en die zijn er niet voor deze opleiding. Er is niets gelezen; voeg een concurrent toe of kies een bredere scan.'
+          : `Scan beperkt tot de ${String(trackedCompetitors.length)} opgeslagen concurrent(en) van deze opleiding. Er is niet naar nieuwe aanbieders gezocht, dus deze scan zegt niets over wie er nog meer is.`,
+      );
+    }
+
+    if (discovering) {
+      await input.progress?.(10, focus === 'providers' ? 'Aanbieders van deze opleiding zoeken' : 'Relevante marktbronnen zoeken');
       const discovered = await this.generation.generate(db, {
         ...common,
         template: 'radar.discover',
@@ -194,7 +247,9 @@ export class MarketRadarService {
           brand: brand ?? null,
           pageText: JSON.stringify({
             observedAt: new Date().toISOString(),
+            focus,
             startingUrls: urls,
+            registeredOrganizations: knownOrganizations,
           }),
         },
       });
@@ -215,11 +270,26 @@ export class MarketRadarService {
           'Zoeklinks zonder herleidbaar zoekresultaat zijn weggelaten.',
         );
       urls.push(...verified);
-    } else
+      if (focus === 'providers') {
+        notes.push(
+          'Gericht gezocht op organisaties die deze opleiding aanbieden. Dit is een steekproef van het openbare web, geen register: een aanbieder die niet in de zoekresultaten stond, staat hier niet — dat bewijst niet dat die er niet is.',
+        );
+      }
+    } else if (focus !== 'competitors')
       notes.push(
         'Alleen opgegeven bronnen gelezen; geen automatische ontdekking.',
       );
-    urls = [...new Set(urls.map(canonicalUrl))].slice(0, 10);
+    const uniqueUrls = [...new Set(urls.map(canonicalUrl))];
+    // A provider sweep is allowed more pages, because finding providers and
+    // then reading only five of them answers the question badly.
+    const pageLimit =
+      focus === 'providers'
+        ? Math.max(16, trackedCompetitors.length + 10)
+        : Math.max(10, trackedCompetitors.length + 5);
+    urls = uniqueUrls.slice(0, pageLimit);
+    if (uniqueUrls.length > urls.length) notes.push(`${String(uniqueUrls.length - urls.length)} aanvullende bronlinks vallen buiten deze scan. De primaire bronnen van de opgeslagen concurrenten krijgen voorrang.`);
+    if (trackedCompetitors.length) notes.push(`${String(trackedCompetitors.length)} opgeslagen concurrenten meegenomen. Per concurrent lezen we eerst de eerste opleidingslink, anders de website. Sociale links helpen bij herkenning en ontdekking; een opgeslagen profiel is geen bewijs dat alle berichten zijn gelezen.`);
+    if (tracked.length > trackedCompetitors.length) notes.push('Een opgeslagen concurrent heeft nog geen bronlink of domein. Voeg een website of organisatieprofiel toe om deze te onderzoeken.');
     const pages: {
       url: string;
       text: string;
@@ -229,7 +299,7 @@ export class MarketRadarService {
     }[] = [];
     for (const [index, url] of urls.entries()) {
       await input.progress?.(
-        20 + index * 4,
+        20 + Math.floor((index / Math.max(1, urls.length)) * 40),
         `Bron ${String(index + 1)} van ${String(urls.length)} lezen`,
       );
       const result = await this.fetchPage(url, this.options());
@@ -269,13 +339,13 @@ export class MarketRadarService {
             language: 'nl',
             course,
             brand: brand ?? null,
-            pageText: JSON.stringify(
+            pageText: JSON.stringify({ registeredOrganizations: knownOrganizations, pages:
               pages.map(({ url, text, retrievedAt }) => ({
                 url,
                 text,
                 retrievedAt,
               })),
-            ),
+            }),
           },
         })
         .catch((error: unknown) => {
@@ -337,8 +407,23 @@ export class MarketRadarService {
       notes.push(
         'Geen onderbouwde kansen gevonden. Bekijk de bronproblemen of voeg andere links toe en scan opnieuw.',
       );
+    /*
+     * A provider sweep answers one question: who else teaches this.
+     *
+     * So it stops after reading the pages. Audience findings, search questions,
+     * advertisement libraries and the market picture all belong to the broad
+     * scan; running them here would spend five calls and several minutes on
+     * material nobody asked for (2026-09-16).
+     */
+    const providerSweep = focus === 'providers';
+    if (providerSweep) {
+      notes.push(
+        'Gerichte aanbiederszoektocht: doelgroepbevindingen, zoekvragen, advertenties en het marktbeeld zijn overgeslagen. Draai een brede scan als je die ook wilt.',
+      );
+    }
+
     await input.progress?.(76, 'Rollen en doelgroepbewijs onderzoeken');
-    const audience = pages.length
+    const audience = !providerSweep && pages.length
       ? verifyAudience(
           (
             await this.generation
@@ -350,13 +435,13 @@ export class MarketRadarService {
                   language: 'nl',
                   course,
                   brand: brand ?? null,
-                  pageText: JSON.stringify(
+                  pageText: JSON.stringify({ registeredOrganizations: knownOrganizations, pages:
                     pages.map(({ url, text, retrievedAt }) => ({
                       url,
                       text,
                       retrievedAt,
                     })),
-                  ),
+                  }),
                 },
               })
               .catch((error: unknown) => {
@@ -375,17 +460,23 @@ export class MarketRadarService {
           ).value,
           pages,
           course.sourceRef,
+          registry.filter(profile => profile.kind === 'own').flatMap(profile => [
+            ...profile.domains.map(domain => `https://${domain}/`),
+            ...(profile.websiteUrl ? [profile.websiteUrl] : []),
+          ]),
         )
       : verifyAudience(
           {
             findings: [],
-            note: 'Geen leesbare bronnen voor doelgroeponderzoek.',
+            note: providerSweep
+              ? 'Overgeslagen: een gerichte aanbiederszoektocht doet geen doelgroeponderzoek.'
+              : 'Geen leesbare bronnen voor doelgroeponderzoek.',
           },
           pages,
           course.sourceRef,
         );
     await input.progress?.(77, 'Vragen en long-tail zoekvoorstellen onderzoeken');
-    const keywords = input.includeKeywords === false ? null : verifyKeywords(
+    const keywords = providerSweep || input.includeKeywords === false ? null : verifyKeywords(
       pages.length ? (await this.generation.generate(db, {
         ...common, template: 'radar.keywords', schema: keywordAnalysis,
         context: { language: 'nl', course, brand: brand ?? null,
@@ -395,11 +486,12 @@ export class MarketRadarService {
         return { value: null };
       })).value : null, pages);
     const advertising =
-      input.includeAds === false
+      providerSweep || input.includeAds === false
         ? null
         : await collectAdvertisements({
             courseName: course.name,
             competitorUrls: [
+              ...trackedCompetitors.map(profile => profile.sourceUrl),
               ...audience.competitors.map((item) => item.sourceUrl),
               ...cards
                 .filter((card) => card.relationship === 'competitor')
@@ -416,7 +508,60 @@ export class MarketRadarService {
               );
             },
           });
+    /*
+     * Contact details out before anything is stored, exported or copied into
+     * a brief. After the excerpt-in-page checks above, because a redacted
+     * passage would no longer be found in the page; names are refused at the
+     * prompt and remain a documented residual risk.
+     */
+    const partial = { cards, audience, keywords, advertising };
+    const redactions = redactReport(partial);
+    if (redactions > 0) {
+      notes.push(
+        `${String(redactions)} passage(s) bevatten een e-mailadres of telefoonnummer; die zijn weggelaten uit de opgeslagen tekst.`,
+      );
+    }
+
+    /*
+     * The market picture: what the verified items, taken together, mean.
+     *
+     * One more model call, over our own verified evidence rather than the raw
+     * pages, and everything it returns is checked again in code: cited ids
+     * must exist in this run, figures must be quoted, refused words are
+     * refused. Confidence is computed from the cited domains. A model failure
+     * here leaves the rest of the report intact with a note, like the other
+     * extraction steps.
+     */
+    const items = evidenceItems(partial);
+    let insights: ReturnType<typeof verifyInsights>['insights'] = [];
+    if (items.length > 0 && !providerSweep) {
+      await input.progress?.(90, 'Marktbeeld samenstellen');
+      const synthesized = await this.generation
+        .generate(db, {
+          ...common,
+          template: 'radar.synthesize',
+          schema: radarSynthesis,
+          context: {
+            language: 'nl',
+            course,
+            brand: brand ?? null,
+            pageText: JSON.stringify(evidenceForPrompt(items)),
+          },
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof AppError) || error.code !== 'provider_invalid_output') throw error;
+          return { value: null };
+        });
+      const verified = verifyInsights(synthesized.value, items);
+      insights = verified.insights;
+      notes.push(...verified.notes);
+    } else if (!providerSweep) {
+      // Skipping on purpose is already stated once, at the top of the notes.
+      notes.push('Geen marktbeeld: de scan leverde geen geverifieerde onderdelen om samen te lezen.');
+    }
+
     const report = radarReport.parse({
+      trackedCompetitors,
       advertising,
       keywords,
       package: null,
@@ -425,6 +570,9 @@ export class MarketRadarService {
       notes,
       failures,
       isMock: this.generation.isMock,
+      insights,
+      digest: buildDigest(partial, previous),
+      claims: competitorClaims(partial),
     });
     await input.progress?.(95, 'Onderbouwde kansen opslaan');
     const [row] = await db
@@ -500,7 +648,17 @@ export class MarketRadarService {
     await db.update(campaignRows).set({ radarRunId: runId }).where(and(eq(campaignRows.id, campaign.id), eq(campaignRows.labelId, labelId)));
     return this.campaigns.requireById(db, labelId, campaign.id);
   }
-  async campaignFromKeyword(db: Db, user: CurrentUser, labelId: string, runId: string, keywordId: string) {
+  /*
+   * Every hand-off from the radar carries the campaign's objective.
+   *
+   * A campaign created from a finding used to start with `objective: null`
+   * and read "Geen doel vastgelegd" in the eight-step screen — the one
+   * campaign whose reason for existing was the clearest, arriving without
+   * the field that decides its funnel stages. The person chooses the
+   * objective at the hand-off (the screen suggests one from the finding);
+   * `null` is still accepted so older clients keep working.
+   */
+  async campaignFromKeyword(db: Db, user: CurrentUser, labelId: string, runId: string, keywordId: string, objective: CampaignObjective | null = null) {
     requireLabelPermission(user, labelId, 'campaign:write');
     const run = await this.requireRun(db, user, labelId, runId);
     const item = run.report.keywords?.items.find((entry) => entry.id === keywordId);
@@ -508,7 +666,7 @@ export class MarketRadarService {
     const course = await this.courses.requireVersion(db, labelId, run.courseVersionId);
     return this.createLinkedCampaign(db, user, labelId, run.id, {
       name: `${course.name} — ${item.phrase}`.slice(0, 200), courseVersionId: course.id,
-      entryMode: 'start_from_briefing', contentLanguage: 'nl', startDate: null, budgetCents: null,
+      entryMode: 'start_from_briefing', objective, contentLanguage: 'nl', startDate: null, budgetCents: null,
       suppliedBrief: [
         `Doel: potentiële deelnemers helpen bij hun opleidingskeuze. Kanaal: LinkedIn. Creatieve aanleiding: ${item.phrase}`,
         `Bewijssoort: ${item.kind === 'page_question' ? 'letterlijke vraag op een bronpagina' : 'afgeleid zoekvoorstel, nog te toetsen hypothese'}. Geen gemeten zoekvolume of koopintentie.`,
@@ -526,6 +684,7 @@ export class MarketRadarService {
     labelId: string,
     runId: string,
     findingId: string,
+    objective: CampaignObjective | null = null,
   ) {
     requireLabelPermission(user, labelId, 'campaign:write');
     const run = await this.requireRun(db, user, labelId, runId);
@@ -554,6 +713,7 @@ export class MarketRadarService {
       name: `${course.name} — ${qualifiedReference ? 'instroom richting ' : ''}${finding.role}`.slice(0, 200),
       courseVersionId: course.id,
       entryMode: 'start_from_briefing',
+      objective,
       contentLanguage: 'nl',
       startDate: null,
       budgetCents: null,
@@ -572,6 +732,7 @@ export class MarketRadarService {
     labelId: string,
     runId: string,
     adId: string,
+    objective: CampaignObjective | null = null,
   ) {
     requireLabelPermission(user, labelId, 'campaign:write');
     const run = await this.requireRun(db, user, labelId, runId);
@@ -585,6 +746,7 @@ export class MarketRadarService {
     return this.createLinkedCampaign(db, user, labelId, run.id, {
       name: `${course.name} — inspiratie uit ${ad.platform}`.slice(0, 200),
       entryMode: 'start_from_briefing',
+      objective,
       courseVersionId: course.id,
       contentLanguage: 'nl',
       startDate: null,
@@ -601,6 +763,71 @@ export class MarketRadarService {
       ].join('\n\n'),
     });
   }
+  /**
+   * A campaign from an insight: the hand-off the market picture exists for.
+   *
+   * The brief freezes the insight in its own order — what we saw, what it
+   * means, the proposed action, the alternative reading and what the evidence
+   * does not show — with every cited item's source URL and passage, the
+   * computed confidence and the stage. The objective is the person's choice
+   * at the hand-off, defaulting to what the insight suggested, so the campaign
+   * lands in the eight-step screen with its funnel stages already decided.
+   */
+  async campaignFromInsight(
+    db: Db,
+    user: CurrentUser,
+    labelId: string,
+    runId: string,
+    insightId: string,
+    objective: CampaignObjective | null = null,
+  ) {
+    requireLabelPermission(user, labelId, 'campaign:write');
+    const run = await this.requireRun(db, user, labelId, runId);
+    const insight = run.report.insights.find((item) => item.id === insightId);
+    if (!insight) throw AppError.notFoundOrForbidden('radar_insight', insightId);
+    const course = await this.courses.requireVersion(db, labelId, run.courseVersionId);
+    const items = evidenceItems(run.report);
+    const cited = insight.evidence
+      .map((ref) => items.find((item) => item.ref.kind === ref.kind && item.ref.id === ref.id))
+      .filter((item): item is (typeof items)[number] => item !== undefined);
+    const ctaUrl =
+      course.sourceRef && inspectUrl(course.sourceRef, { allowedHostSuffixes: [], allowInsecureHttp: false }).ok
+        ? course.sourceRef
+        : null;
+    const chosen = objective ?? insight.suggestedObjective;
+    const suppliedBrief = [
+      `Campagne voor ${course.name}. Doel: ${OBJECTIVE_LABEL_NL[chosen]}; fase uit het marktbeeld: ${FUNNEL_STAGE_LABEL_NL[insight.stage]}.`,
+      `Inzicht uit Marktradar: ${insight.headlineNl}`,
+      `Wat we zagen: ${insight.observationNl}`,
+      `Wat het betekent: ${insight.meaningNl}`,
+      `Voorgestelde actie: ${insight.nowNl}`,
+      `Andere lezing van hetzelfde bewijs: ${insight.alternativeNl}`,
+      `Wat dit bewijs niet laat zien: ${insight.notShownNl}`,
+      `Zekerheid: ${EVIDENCE_STRENGTH_NL[insight.confidence.evidence]} ${SOURCE_AGREEMENT_NL[insight.confidence.agreement]}; ${String(insight.confidence.independentDomains)} onafhankelijk(e) domein(en).`,
+      ...cited.map(
+        (item) =>
+          `Bewijs (${item.kindNl}, ${item.organization}): ${item.sourceUrl}${item.retrievedAt ? ` (bekeken ${item.retrievedAt})` : ''}. Letterlijke passage: ${item.excerpt}`,
+      ),
+      `Herkomst: radar-run ${run.id}, inzicht ${insight.id}.`,
+      audienceBrief(run),
+      `CTA: Bekijk de opleiding. Doel-URL: ${ctaUrl ?? 'Nog te bepalen; geen URL verzinnen.'}`,
+      'Gebruik uitsluitend gecontroleerde eigen opleidingsfeiten voor cursusclaims. Uitspraken van aanbieders en bronnen zijn externe context, geen feiten of aanbiedingen van onze opleiding. Neem geen namen, aanbiedingen, testimonials of beelden van de bronnen over.',
+    ]
+      .filter((line) => line.length > 0)
+      .join('\n\n')
+      .slice(0, 20_000);
+    return this.createLinkedCampaign(db, user, labelId, run.id, {
+      name: `${course.name} — ${insight.headlineNl}`.slice(0, 200),
+      courseVersionId: course.id,
+      entryMode: 'start_from_briefing',
+      objective: chosen,
+      suppliedBrief,
+      contentLanguage: 'nl',
+      startDate: null,
+      budgetCents: null,
+    });
+  }
+
   async createCampaign(
     db: Db,
     user: CurrentUser,
@@ -608,6 +835,7 @@ export class MarketRadarService {
     runId: string,
     cardId: string,
     approachIndex: number,
+    objective: CampaignObjective | null = null,
   ) {
     requireLabelPermission(user, labelId, 'campaign:write');
     const run = await this.requireRun(db, user, labelId, runId);
@@ -647,6 +875,7 @@ export class MarketRadarService {
       name: `${course.name} — ${approach.title}`.slice(0, 200),
       courseVersionId: course.id,
       entryMode: 'start_from_briefing',
+      objective,
       suppliedBrief,
       contentLanguage: 'nl',
       startDate: null,

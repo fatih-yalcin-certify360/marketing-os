@@ -1,0 +1,61 @@
+/*
+ * The 2026 token layer. Loaded after `design-system.css`, before everything
+ * that paints.
+ *
+ * Two families live here. The `--lp-*` set is the *active label's* palette and
+ * is rewritten at runtime by `LabelTheme`; the values below are the Certify360
+ * house palette, so the first paint is already correct before the brand query
+ * resolves and nothing flashes. The neutral, text and status sets are fixed:
+ * long documents have to keep reading well whatever colour the label brings.
+ *
+ * The one rule that may not be broken: a filled surface that carries text takes
+ * `--lp-solid`, never `--lp`. A brand primary is chosen for print and large
+ * areas — #00A894 on white is 2.99:1 — so `--lp-solid` is the same colour
+ * darkened until 12px type on it passes 4.6:1. See `label-theme.ts`.
+ */
+
+:root {
+  /* --- Label palette (overwritten per label by LabelTheme) ------------- */
+  --lp: #7a69d3;
+  --lp-solid: #6a55c4;
+  --lp-deep: #6a55c4;
+  --lp-accent: #9784fa;
+  --lp-active: #7a69d3;
+  --lp-ink: #183037;
+  --lp-on: #ffffff;
+  --lp-t1: #f5f3fc;
+  --lp-t2: #ece8f9;
+  --lp-t3: #d5cdf1;
+  --lp-shell: #152a30;
+  --lp-shell-2: #2c4149;
+  --lp-shell-tx: #8a9ba1;
+
+  /* --- Neutrals -------------------------------------------------------- */
+  --n-0: #ffffff;
+  --n-1: #f7f8f9;
+  --n-2: #eef0f2;
+  --n-br: #e3e7ea;
+  --n-br2: #cfd6db;
+
+  /* --- Text. `--tx-3` is the smallest legible grey (4.87:1 on white).
+         `--tx-4` is a separator colour and is never used for text. ------ */
+  --tx: #182430;
+  --tx-2: #5d6b78;
+  --tx-3: #65737f;
+  --tx-4: #8695a1;
+
+  /* --- Status ---------------------------------------------------------- */
+  --ok: #1f7a5c;
+  --ok-t: #ecf6f1;
+  --wa: #9a6412;
+  --wa-t: #fdf5e8;
+  --er: #a32f22;
+  --er-t: #fbeeec;
+
+  /* --- Compact shell metrics ------------------------------------------- */
+  --rail-w: 56px;
+  --flyout-w: 232px;
+  --topbar-h: 48px;
+  --steprail-w: 232px;
+  --context-w: 264px;
+}

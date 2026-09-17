@@ -24,7 +24,7 @@ export const competitorEvidence = z.object({
   reason: z.string().min(10).max(350),
 });
 export const audienceAnalysis = z.object({
-  competitors: z.array(competitorEvidence).max(2).default([]),
+  competitors: z.array(competitorEvidence).max(6).default([]),
   findings: z.array(audienceFindingProposal).max(6),
   note: z.string().max(700),
 });

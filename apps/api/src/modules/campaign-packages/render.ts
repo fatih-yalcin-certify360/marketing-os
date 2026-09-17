@@ -8,6 +8,7 @@ import type { Db } from '../../core/db/types.js';
 import { loadBrandResources } from '../../integrations/brand-portal/service.js';
 import { fontFamilyNames, fontFaceStyle } from '../../integrations/brand-portal/font-names.js';
 import { buildMarketPackage } from '../market-radar/package.js';
+import { buildQuizFiles } from './quiz.js';
 import { AppError } from '../../core/errors/app-error.js';
 const esc = (s: string): string => s.replace(/[&<>"']/gu, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const SIZES = [[300,250],[336,280],[300,600]] as const;
@@ -46,10 +47,15 @@ export async function buildCampaignPackage(db: Db, storageRoot: string, report: 
   const css = `${fontCss}\nbody{background:${surface};color:${onSurface};font-family:${JSON.stringify(brand.typography.bodyFamily)},sans-serif}h1,h2,h3,h4{font-family:${JSON.stringify(brand.typography.headingFamily)},sans-serif}main{background:${surface}}a{color:${primary}}.hint{color:${onSurface}}button,.cta{border-color:${primary};color:${onSurface};background:${surface}}button:hover,button:focus-visible,.cta{background:${primary};color:${onPrimary}}button:focus-visible,a:focus-visible{outline-color:${accent}}main{box-shadow:0 18px 60px ${onSurface}12;border-top:6px solid ${primary}}#questions{padding:20px;border:1px solid ${primary}45;border-radius:16px;background:linear-gradient(135deg,${surface},${primary}12)}#questions button{width:100%;transition:transform .15s}#questions button:hover{transform:translateX(3px)}@media(max-width:480px){body{padding:12px}main{padding:20px}#questions{padding:12px}}.brand-logo{background:${logoBackground};padding:10px;border-radius:4px;max-width:190px;max-height:75px;object-fit:contain;display:block;margin-bottom:16px}`;
   const chosen = report.selected.filter((x): x is 'blog_faq' | 'fit_check' => x !== 'google_studio');
   const radar: RadarRun = { id: report.sourceRadarRunId ?? report.campaignId, courseVersionId: report.courseVersionId, createdAt: brand.createdAt,
-    report: { cards: [], notes: [], failures: [], isMock: report.isMock, audience:null, advertising:null, keywords:null,
+    report: { cards: [], notes: [], failures: [], isMock: report.isMock, audience:null, advertising:null, keywords:null, insights: [], digest: null, claims: [],
       ...report.sourceSnapshot, package:{ selected:chosen, status:'draft', brandProfileVersionId:brand.id, confirmedFacts:report.confirmedFacts, content:report.content, courseUrl:report.courseUrl, notes:[] } } };
   const zip = await JSZip.loadAsync(await buildMarketPackage(radar, chosen, report.courseName, ctaLabel));
   zip.remove('manifest.json');
+  // The keuzehulp as a quiz with outcomes (2026-09-15) replaces the reflection list.
+  if (chosen.includes('fit_check')) {
+    const quiz = buildQuizFiles({ content: report.content, courseName: report.courseName, courseUrl: report.courseUrl, ctaLabel, campaignId: report.campaignId, isMock: report.isMock });
+    for (const path of Object.keys(quiz) as (keyof typeof quiz)[]) zip.file(path, quiz[path]);
+  }
   for (const folder of ['blog','keuzehulp']) {
     const page = zip.file(`${folder}/index.html`);
     if (!page) continue;

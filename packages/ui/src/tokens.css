@@ -1,76 +1,94 @@
 /*
- * Certify360 Marketing OS design tokens.
+ * Certify360 Marketing OS — the `--c360-*` names, resolved onto the 2026 layer.
  *
- * Values are sampled from the approved Certify360 Marketing OS interface
- * designs (Werkruimte and Content Studio), so the built application matches the
- * agreed visual language rather than approximating it:
- *   deep teal navigation, purple as the single action colour, an off-white
- *   canvas, white cards with a hairline border, and soft-tinted status pills.
+ * Every token below used to hold a literal. They now forward to
+ * `tokens-2026.css` and `design-system.css`, which means the whole application
+ * — including the screens that were written against the old names — follows the
+ * active label's palette, the brand type and the design-system radii without
+ * each stylesheet being rewritten.
+ *
+ * The forwarding is deliberate, not a shim to clean up later: a screen should
+ * not have to know whether a colour is the house violet or a label's own
+ * primary. It asks for "the action colour" and gets whatever the selected
+ * label's approved brand profile says that is.
+ *
+ * Load order: design-system.css → tokens.css → tokens-2026.css → primitives.css
+ * (`tokens-2026.css` last of the three token files, so a label's runtime values
+ * land on `:root` after the defaults they replace).
  */
 
 :root {
-  /* --- Brand: deep teal (navigation, headings) ------------------------- */
-  --c360-teal-900: #183b3e;
-  --c360-teal-800: #1d4043;
-  --c360-teal-700: #285055;
-  --c360-teal-600: #3c5d61;
-  --c360-teal-400: #567478;
-  --c360-teal-200: #cad6d8;
+  /* --- The dark navigation surfaces, now derived from the label's ink --- */
+  --c360-teal-900: var(--lp-shell);
+  --c360-teal-800: var(--tx);
+  --c360-teal-700: var(--lp-shell-2);
+  --c360-teal-600: var(--tx-2);
+  --c360-teal-400: var(--tx-3);
+  --c360-teal-200: var(--lp-shell-tx);
 
-  /* --- Brand: purple (the one action colour) --------------------------- */
-  --c360-purple-700: #6a55c4;
-  --c360-purple-600: #7762cf;
-  --c360-purple-400: #a793ed;
-  --c360-purple-100: #eee9fa;
-  --c360-purple-050: #f4f0fc;
+  /* --- The one action colour, now the label's own ----------------------
+     `--c360-purple-600` is used for filled surfaces that carry text, so it
+     forwards to `--lp-solid` (darkened until 12px type passes), never to the
+     raw brand primary. Bars and markers that carry no text use `--lp`. --- */
+  --c360-purple-700: var(--lp-deep);
+  --c360-purple-600: var(--lp-solid);
+  --c360-purple-400: var(--lp-t3);
+  --c360-purple-100: var(--lp-t2);
+  --c360-purple-050: var(--lp-t1);
 
   /* --- Status ---------------------------------------------------------- */
-  --c360-green-600: #268070;
-  --c360-green-050: #eef4f2;
-  --c360-amber-700: #a66b13;
-  --c360-amber-050: #fdf4e6;
-  --c360-red-700: #a6402a;
-  --c360-red-050: #fbeeeb;
+  --c360-green-600: var(--ok);
+  --c360-green-050: var(--ok-t);
+  --c360-amber-700: var(--wa);
+  --c360-amber-050: var(--wa-t);
+  --c360-red-700: var(--er);
+  --c360-red-050: var(--er-t);
 
   /* --- Surfaces & text ------------------------------------------------- */
-  --c360-canvas: #f5f6f9;
-  --c360-surface: #ffffff;
-  --c360-border: #e5e9ec;
-  --c360-border-strong: #d3dadd;
-  --c360-text: #183b3e;
-  --c360-text-muted: #657579;
-  --c360-text-inverse: #ffffff;
-  --c360-sidebar-text: #cad6d8;
+  --c360-canvas: var(--n-1);
+  --c360-surface: var(--n-0);
+  --c360-surface-sunken: var(--n-2);
+  --c360-border: var(--n-br);
+  --c360-border-strong: var(--n-br2);
+  --c360-text: var(--tx);
+  --c360-text-muted: var(--tx-3);
+  --c360-text-inverse: var(--lp-on);
+  --c360-sidebar-text: var(--lp-shell-tx);
 
-  /* --- Focus ring: must stay visible on both teal and white ----------- */
-  --c360-focus: #7762cf;
-  --c360-focus-inverse: #a793ed;
+  /* Two names that screens reference but that were never declared; a missing
+     custom property makes the whole declaration invalid, so a border silently
+     disappeared. They are real tokens now. */
+  --c360-color-border: var(--n-br);
+  --c360-danger: var(--er);
+
+  /* --- Focus ring: must stay visible on both the rail and white -------- */
+  --c360-focus: var(--lp-solid);
+  --c360-focus-inverse: var(--lp-accent);
 
   /* --- Shape & motion -------------------------------------------------- */
-  --c360-radius-sm: 6px;
-  --c360-radius: 10px;
-  --c360-radius-lg: 14px;
-  --c360-radius-pill: 999px;
-  --c360-shadow-card: 0 1px 2px rgb(24 59 62 / 6%);
-  --c360-shadow-raised: 0 4px 12px rgb(24 59 62 / 10%);
+  --c360-radius-sm: var(--radius-sm);
+  --c360-radius: var(--radius-md);
+  --c360-radius-lg: var(--radius-lg);
+  --c360-radius-pill: var(--radius-pill);
+  --c360-shadow-card: var(--shadow-xs);
+  --c360-shadow-raised: var(--shadow-md);
 
   /* --- Spacing scale --------------------------------------------------- */
-  --c360-space-1: 4px;
-  --c360-space-2: 8px;
-  --c360-space-3: 12px;
-  --c360-space-4: 16px;
-  --c360-space-5: 24px;
-  --c360-space-6: 32px;
-  --c360-space-7: 48px;
+  --c360-space-1: var(--space-1);
+  --c360-space-2: var(--space-2);
+  --c360-space-3: var(--space-3);
+  --c360-space-4: var(--space-4);
+  --c360-space-5: var(--space-5);
+  --c360-space-6: var(--space-6);
+  --c360-space-7: var(--space-7);
 
   /* --- Typography ------------------------------------------------------ */
-  --c360-font-sans:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
-  --c360-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --c360-font-sans: var(--font-body);
+  --c360-font-title: var(--font-title);
+  --c360-font-mono: var(--font-mono);
 
-  --c360-sidebar-width: 268px;
-  --c360-topbar-height: 80px;
+  --c360-sidebar-width: var(--flyout-w);
+  --c360-topbar-height: var(--topbar-h);
 
   color-scheme: light;
 }
@@ -102,13 +120,38 @@ body {
   padding: 0;
 }
 
+/*
+ * 13px body on 1.45. The interface is dense — eight-step flows, twenty-seven
+ * content pieces, tables of sources — and the design system's reading sizes
+ * (18px body) belong to external communication, not to a working screen.
+ */
 body {
-  background: var(--c360-canvas);
-  color: var(--c360-text);
-  font-family: var(--c360-font-sans);
-  font-size: 14px;
-  line-height: 1.5;
+  background: var(--n-1);
+  color: var(--tx);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * TT Firs Neue leads inside the product: every heading, label, eyebrow,
+ * control and table head. At Gambit is reserved for external communication and
+ * is not loaded here at all.
+ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+button,
+input,
+select,
+textarea,
+label,
+th {
+  font-family: var(--font-title);
 }
 
 /*
@@ -116,9 +159,9 @@ body {
  * operation is a stated requirement, not an optional extra.
  */
 :focus-visible {
-  outline: 2px solid var(--c360-focus);
+  outline: 2px solid var(--lp-solid);
   outline-offset: 2px;
-  border-radius: var(--c360-radius-sm);
+  border-radius: var(--radius-xs);
 }
 
 /* Skip link: first tab stop, visible only once focused. */
@@ -127,18 +170,18 @@ body {
   left: -9999px;
   top: 0;
   z-index: 100;
-  padding: var(--c360-space-3) var(--c360-space-4);
-  background: var(--c360-surface);
-  color: var(--c360-text);
-  border: 1px solid var(--c360-border-strong);
-  border-radius: var(--c360-radius);
+  padding: var(--space-3) var(--space-4);
+  background: var(--n-0);
+  color: var(--tx);
+  border: 1px solid var(--n-br2);
+  border-radius: var(--radius-md);
   text-decoration: none;
   font-weight: 600;
 }
 
 .c360-skip-link:focus {
-  left: var(--c360-space-4);
-  top: var(--c360-space-4);
+  left: var(--space-4);
+  top: var(--space-4);
 }
 
 /* Content visible to assistive technology only. */
@@ -152,4 +195,14 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/*
+ * Figures, versions, times, amounts and domains. Tabular so a column of
+ * numbers lines up and a changing value does not shift its neighbours.
+ */
+.os-num,
+.c360-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }

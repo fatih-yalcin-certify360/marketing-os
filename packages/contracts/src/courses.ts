@@ -76,6 +76,15 @@ export const courseVersion = z.object({
   id: uuid,
   labelId: uuid,
   version: versionNumber,
+  /**
+   * The stable identity of the course across its versions.
+   *
+   * A competitor's scope is a list of these keys, not of version ids — a
+   * provider stays relevant to a course when the card is revised. The screen
+   * that sets that scope needs the key of every course of the label, which is
+   * why it is on the contract since 2026-09-16.
+   */
+  courseKey: z.string().min(1).max(200),
   name: z.string().min(1).max(200),
   /** Free-form external identifier, e.g. a course code. */
   externalCode: z.string().max(80).nullable(),

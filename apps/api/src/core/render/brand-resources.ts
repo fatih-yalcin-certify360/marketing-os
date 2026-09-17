@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { and, eq } from 'drizzle-orm';
 import type { BrandProfileVersion } from '@c360/contracts';
 import type { DbOrTx } from '../db/types.js';
 import { assets } from '../db/schema.js';
 import { AppError } from '../errors/app-error.js';
 import { FileStore } from '../files/storage.js';
-import { loadBrandResources } from '../../integrations/brand-portal/service.js';
+import { loadBrandResources, readStoredFile } from '../../integrations/brand-portal/service.js';
 
 /**
  * The files the renderer composites: brand fonts and the real logo.
@@ -81,7 +80,7 @@ export async function loadRenderResources(
   }
 
   const filename = new FileStore(storageRoot).absolutePathFor(row.storagePath);
-  const bytes = await readFile(filename);
+  const bytes = await readStoredFile(filename, 'logo');
   /*
    * The stored hash decides whether these bytes are the file that was
    * validated. Without it, anything that could alter a file on disk would be

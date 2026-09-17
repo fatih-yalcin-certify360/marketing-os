@@ -7,7 +7,11 @@ Each item is marked **Done**, **Partly done** or left unmarked (not started).
 A "Done" item names the tests that hold it, because that is what makes the claim
 checkable rather than a status.
 
-**Status, 2026-09-10.** Phase 0 is complete. Phase 1 is done except automatic
+**Status, 2026-09-11.** The campaign chain is connected end to end — objective,
+per-stage briefing, audience-aware channel plan with a measurement plan,
+per-stage content, export, results and learnings by stage — on an eight-step
+screen with one numbering (F-1…F-3, R-1…R-3, R-6 done; R-4, R-5, R-7 partly).
+Phase 0 is complete. Phase 1 is done except automatic
 source discovery (the remainder of P1-5) and member
 administration (P1-10). Phase 2 is
 done except the verified Facebook specification (P2-2). The full chain has been
@@ -1150,30 +1154,627 @@ smoke's preview check had to say *which* preview it means. The driver now also
 names the failed requests when a chain stalls, because the first stall read as
 a locator timeout and cost a screenshot and a guess.
 
-### F-2 · Per-stage briefing (slice 2) — M
+### F-2 · Per-stage briefing (slice 2) — M · **Done** (2026-09-11)
 
-The stage block in Stap 3: kernboodschap, CTA and *bewijs* per stage — a
-selection over the course card's fields in which unconfirmed fields are shown
-but not selectable, with the reason. `brief_versions.stage_messages` jsonb,
-`brief.draft` v4, and `content.generate` receiving the stage's own message
-rather than only the generic guidance. The single `coreMessage` becomes the
-campaign thesis that holds the stages together.
+The briefing speaks per stage: `brief_versions.stage_messages` (migration
+`0022_stage_briefing_results`), `stageMessage` in the contract (message, CTA
+kind, confirmed proof *fields*), `brief.draft` v4 with `<bewijsvelden>`, the
+service refusing a message outside the objective and removing unconfirmed
+proof with a review note (`stageMessageProblems`, `confirmedProofOnly`), and
+`content.generate` v6 receiving `<fase_boodschap>` with the proof resolved
+against the course card at generation time. Stap 3 shows the *Boodschap per
+funnelfase* block; Stap 6 groups content under the stage's own message.
 
-### F-3 · Results by stage (slice 3) — S
+**Held by:** `funnel-plan.test.ts` (every stage briefed, confirmed proof only,
+content opens with the stage's message), the browser smoke (three stages
+briefed).
 
-`outcome_reports.funnel_stage` (nullable — a platform report may not split by
-stage), so a learning can say *e-mail in Overwegen* rather than *the campaign*;
-and the calendar sequenced by stage (Ontdekken weeks 1–2, Overwegen 2–3,
-Beslissen 3–4), which finally gives its order a reason.
+### F-3 · Results by stage (slice 3) — S · **Done** (2026-09-11)
+
+`outcome_reports.funnel_stage` (nullable), `outcomeInput.funnelStage`, the
+calendar sequenced by stage (`buildCampaignCalendar`: Ontdekken from week 1,
+Overwegen from week 2, Beslissen from week 3; slots carry their stage), and
+the new Stap 8 *Resultaten & lessen* where publications, figures per channel
+and stage, and learnings are recorded — the first interface the outcomes and
+learnings modules ever had.
+
+**Held by:** `calendar.test.ts` (staged sequencing), `funnel-plan.test.ts`
+(outcome with a stage; refusal outside the vocabulary), the browser smoke
+(calendar in journey order).
 
 - **S** The plan's `count` is still advisory: generation makes one piece per
   cell. Either honour the count (`-1`, `-2` keys) or drop the field.
-- **S** A real-provider run of the new `content.plan` and `content.generate`
-  prompts, to see how often the one-step refinement trips a repair.
+
+## Package, audience research and channel advice — `campaign-package-and-audience-research-design.md`
+
+Design of 2026-09-11, grounded in six web-research angles with opened sources
+and three code maps; the design panel and adversarial verifiers could not run
+(subagent spend limit), so the document says it was synthesised by one author.
+Six decisions are listed in the document with recommended answers.
+
+### R-1 · One vocabulary and honesty fixes — S · **Done** (2026-09-11)
+
+The content-plan gate, stage and messages say *kanaalplan* (the word
+*contentpakket* also named the campaign package and the export ZIP); the
+brief's *Kanalen* row and the worker's progress line use Dutch channel labels;
+the advice panel prints "geen toespitsing op deze doelgroepen — het advies
+volgt de regel" when a reasoning merely repeats the rule, instead of dressing
+the rule up as tailoring.
+
+### R-2 · `content.plan` v3 — M · **Done** (2026-09-11)
+Advice for every producible cell (`channelFit` over stages × `PRODUCIBLE_CHANNELS`),
+the brief's channels marked `<kanalen_uit_briefing>` and the only ones items are
+planned for, a one-step move allowed only on a *grounded* statement in
+`<doelgroep_kanalen>` or a course fact — otherwise the rule stays and the model
+says "geen doelgroepbewijs over dit kanaal" — and approved learnings passed into
+`content.plan` and `content.generate` (`ConceptService` and `ContentAssetService`
+take the learning store). `planProblems` accepts advice on any producible channel
+and checks one measurement per stage. **Held by:** `funnel-plan.test.ts`, the
+browser smoke (eight channels advised).
+
+### R-3 · Persona channel evidence — M · **Done** (2026-09-11)
+`orientationSources` on a persona (statement, channel, grounding or null), the
+`persona.propose` v4 rule mirroring the demographics rule, and server-side
+verification (`verifyOrientationSources`): a cited source the service did not
+hand the model loses its grounding and reads as an assumption. The persona step
+shows every statement with *onderbouwd* or *aanname*, the grounding list and the
+assumptions in full. **Held by:** `persona-orientation.test.ts`.
+- **Open (S):** `research.findings` channel-presence claims and public NL
+  sources (CBS 84888NED, Newcom free report, platform docs) registered per
+  label — today evidence can come only from a label's own findings and
+  confirmed facts.
+
+### R-4 · Model-proposed deliverables from a catalogue — L · **Partly done** (2026-09-11)
+Done: the package prompts (`campaign.deliverables` v3, `campaign.package` v4)
+receive `<campagnedoel>`, `<funnelfasen>`, `<doelgroepen>`, `<fase_boodschappen>`
+and the approved `<kanaalplan>`; every recommended form names the stage it
+serves (`stage` on the recommendation, shown as a badge); the mock proposes one
+form per stage rather than all three. The panel is the branch *Website &
+interactief* beside the eight steps. **Open:** the `deliverableForm` catalogue
+with stage fit, producible flag, *niet gekozen omdat* and hypothesis per form;
+folding the forms into the Kanaalplan grid.
+
+### R-5 · Questions as a research instrument — M · **Partly done** (2026-09-11)
+Done: a brief pinned to a persona version moves to `needs_rereview` when that
+persona gets a new version, the gate says why, and the screen offers a
+re-approval (`PersonaService.createVersion`). **Open:** question-design rules
+in the contract (one concept, first-person situations, no ja/nee), honest
+result rules, aggregate-only `interaction_signals` entered from the host's
+analytics or Studio counters, learnings citing signals, persona hypotheses as
+reviewed draft versions. Thresholds n ≥ 10 / 30 / 100.
+
+### R-6 · Information architecture — M · **Done** (2026-09-11)
+Eight numbered steps from one list (`STEPS` in `CampagneDetailPage.tsx`; the
+step bar numbers by position, every card takes its number from the same list),
+the package as the unnumbered branch *Website & interactief*, one primary
+action per step derived from server state, the *Volgende stap* notice that
+jumps there, `?fase=` written on every change, `FunnelPills` in the header and
+the campaign list, `FlowNavigation` rewritten on tokens, the plan grid's
+argument readable without hover (`CellAdvicePanel`) and cells that deviate from
+the rule marked. Codex was idle, so its files were edited directly.
+
+### R-7 · Measurement without forecasts — M · **Partly done** (2026-09-11)
+Done: `measurementPlan` on the content plan (`stageMeasurement`: indicator,
+source, decision rule per stage, no field for a target or a forecast),
+`FUNNEL_STAGE_INDICATOR_NL` (the evaluation ladder per stage, digit-free),
+`<meetladder>` in `content.plan` v3, the *Meetplan per fase* panel in Stap 5 and
+at the top of Stap 8, the plan text in the export; `outcome_reports.funnel_stage`
+with F-3. **Open:** an experiment spec for paid channels, results as intervals
+with n, a hypothesis block per package deliverable.
+- **S** A real-provider run of the new `brief.draft`, `content.plan` and
+  `content.generate` prompts, to see how often the one-step refinement or the
+  stage-message check trips a repair.
+
+### R-8 · Questionnaire filled from the system's own research — M · **Done** (2026-09-11)
+Proposed personas arrive with their 36-question questionnaire filled, one
+`persona.questionnaire` v1 call per persona over exactly the material the
+system gathered: research findings, confirmed course facts and the campaign
+input. `verifyQuestionnaire` keeps an answer as *provided* only when its quote
+is found literally in that material and stores where (`sourceRef`, `sourceKind`,
+`sourceRetrievedAt`); an untraceable statement becomes an assumption, the
+personal-context questions stay unknown without a stated passage, the
+meta-question needs no quote, conflicting answers stay unknown, and an unusable
+model answer leaves the questionnaire on unknown without failing the persona.
+The job result carries `questionnaireNoteNl`, shown in the Doelgroep step.
+Tests: `persona-questionnaire.test.ts` (unit), `persona-auto-questionnaire.test.ts`.
+**Open:** none in this slice; a real-provider run of the new prompt is the
+user's to trigger, and the counter on the persona card still measures
+completeness, not quality.
+
+## Personas, campaigns list and content quality — `personas-campaigns-content-quality-design.md`
+
+### P · Personas that accumulate and can be corrected — M · **Done** (2026-09-12)
+Run-scoped persona keys, `<bestaande_doelgroepen>` and a duplicate guard in
+`PersonaService.propose`; `personaKey`/`campaignId` on the contract; list
+scopes; promotion to the library; the shared `PersonaEditor` in the Doelgroep
+step and the library page. Tests: `persona-additions.test.ts`. **Open:**
+approve/archive routes for personas; a "Nieuw" badge relies on the job result
+and disappears on reload.
+
+### K · A campaigns list that shows where each campaign stands — M · **Done** (2026-09-12)
+`computeCampaignProgress` in the contracts, used by the list route (grouped
+queries, keyset pagination) and the detail page; the redesigned `/campagnes`.
+Tests: `campaign-progress.test.ts`, `campaign-list-progress.test.ts`.
+**Open:** "Meer laden" in the interface for labels with more than a hundred
+campaigns; `campaign.stage` is still written by the services though no screen
+reads it as a status any more.
+
+### C · Content that is long enough, specific, findable and shareable — L · **Done** (2026-09-12)
+Length rules per channel, the website piece as a page change or an article
+from the live course page, brief keywords from research or derivation,
+hashtags, the quality checks with one repair round, per-piece calls,
+`content.generate` v8, the new asset card. Tests: `content-quality.test.ts`
+(unit and integration). **Open:** a real-provider run; HTML rendering of the
+website piece; a repair for a recited fact (today a stored warning).
+
+### P2 · Personas linked to several courses — S · **Done** (2026-09-14)
+`linkedCourseVersionIds` on the persona, a checkbox dropdown in the editor,
+latest-then-filter listing, links accepted for a campaign on a linked course.
+Tests: `persona-course-links.test.ts`. **Open:** moving a persona's primary
+course; links shown in the campaign step's persona rows.
+
+### B · A briefing a colleague can pick up — M · **Done** (2026-09-14)
+Eight new sections, word floors per section and in total, a role per channel,
+no percentage in goal or measurement, one repair round, `brief.draft` v7, the
+brief as a numbered document with Markdown copy. Tests:
+`brief-problems.test.ts`, `brief-professional.test.ts`. **Open:** a brief
+export file; budget as a section; a real-provider run.
+
+### UI · One interface for every screen — L · **Done** (2026-09-14)
+Page anatomy and components in `packages/ui` (`ui-design-system.md`); the
+stepper; every screen converted; Content Studio and Doelgroepen rewritten.
+**Open:** a mobile navigation drawer; a web component test runner; icons on
+every button.
+
+### C2 · The blog article as researched practice — M · **Done** (2026-09-14)
+Title as the reader's question, direct answer, question headings that stand
+alone, one scenario, cited facts only from handed sources, the course only in
+the bridge and the path, two calls to action, no marketese, no unsourced
+number; `content.generate` v9; `blog-article-practice.md`. **Open:** author
+byline and dates; Article JSON-LD in an HTML export; a real-provider run.
+
+### P3 · Every persona question answered, stored personas completed — M · **Done** (2026-09-14)
+`persona.questionnaire` v2 answers all 36: *uit bron* with quote and reference,
+or *door AI afgeleid* as an assumption with the model's reasoning; personal
+questions answered about relevance, an estimated age replaced by the honest
+sentence; open and conflicting questions become explicit system cells.
+`origin` and `reasoningNl` on every answer; legend and badge per answer in the
+interface. A person can complete a stored persona with one job
+(`persona.fill_questionnaire`): only the open cells change, identity and
+origin stay. Tests: `persona-questionnaire.test.ts`,
+`persona-auto-questionnaire.test.ts`, `persona-fill-questionnaire.test.ts`.
+**Open:** a real-provider run of v2 (the user's to trigger; the fill buttons
+were not pressed against the dev stack); a mechanical guard for
+region/circumstances beyond the prompt rule; a server-side bulk fill.
+
+### S · Showcase readiness: destination, quiz, readable branch — M · **Done** (2026-09-15)
+Every call to action gets a destination (model → radar target → course
+page) in the briefing and in content; a promised keuzehulp is flagged until it
+exists; the keuzehulp is a quiz with signals and three outcomes, played in a
+sandboxed preview on the campaign screen with the embed code; the branch shows
+its four gates as a checklist. `brief.draft` v8, `campaign.package` v6.
+Tests: `quiz.test.ts`, `campaign-package-quiz.test.ts`. **Open:** a
+real-provider run before the showcase (the user's to trigger); font files in
+the preview; a server-side coherence gate that refuses content promising a
+keuzehulp no package has.
+
+### G · Google Ads from Google's documentation — L · **Done** (2026-09-15)
+Sixty-six help pages read on 2026-09-15 (`google-ads-practice.md`); the
+channel verified for its text limits; `googleAdsFrame` per stage with sourced
+objective, type, conversion actions, bidding path and EEA requirements;
+`content.generate` v12 writes a responsive search ad; shape and context checks
+with one repair round; counts and frame in the interface; frame and a hand-off
+CSV in the export. Tests: `google-ads.test.ts` (contracts),
+`google-ads-quality.test.ts`. **Open:** LinkedIn Ads and Meta Ads limits from
+their own documentation; Google Ads Editor's import format; a real-provider
+run; a Demand Gen asset set for Ontdekken.
+
+## Audit van 15 september 2026 — tien onderzoekers
+
+Tien parallelle agents: acht op de markt (Adobe, Optimizely, Wrike, Sprout, Buffer,
+Semrush, HubSpot, Salesforce Education Cloud, Brevo, Frontify, Google, Profound),
+twee op onze eigen code. 95 marktfuncties, 73 integraties, 27 interne bevindingen.
+De drie zwaarste bevindingen zijn daarna met de hand in de code geverifieerd.
+Diagnose als gedeelde pagina: `claude.ai/artifact/FHv9xy3QirepGi7qvRg8Py`.
+Plan voor de manager: `claude.ai/artifact/` (bouwlijst, zelfde datum).
+
+### A-0 · Herstel: wat vandaag stukgaat — S/M elk
+
+**Alle zeven gebouwd op 15 september 2026.** Zie de sectie in `PLATFORM.md`.
+`/kalender` blijft bewust op "nog niet beschikbaar" staan tot de kalender uit
+MVP-1 er is; `/resultaten` is wel gevuld. Daarnaast is de webtypecheck
+gerepareerd: `RadarPage` gaf nog een `run`-prop door aan een component die in
+tweeën was gesplitst.
+
+1. **Een campagne kan niet mee met een nieuwe opleidingskaart.** `campaigns.courseVersionId`
+   wordt bij `create` gezet en nooit meer verplaatst; `CourseService.approve` archiveert elke
+   eerder goedgekeurde versie van dezelfde `courseKey` (service.ts rond regel 548), en de
+   exportpoort leest `campaign.courseVersionId` en eist `reviewState === 'approved'`
+   (exports/service.ts rond regel 84). Gevolg: één goedgekeurde kaartverbetering maakt elke
+   lopende campagne permanent onexporteerbaar, met de melding "De opleidingskaart is nog niet
+   goedgekeurd" — terwijl de gebruiker hem net goedkeurde. **Fix:** een route die de campagne
+   herricht op de nieuwste goedgekeurde versie van dezelfde `courseKey`, en in dezelfde
+   transactie brief en content op `needs_rereview` zet. Zelf geverifieerd.
+2. **`flagStaleForLabel` heeft nul aanroepers** (`content-assets/service.ts` rond regel 1030;
+   grep bevestigt één bestand). Merk- en cursusgoedkeuring markeren dus niets. **Fix:** aanroepen
+   vanuit `CourseService.approve` en `BrandService.approve`, binnen dezelfde transactie.
+3. **Bronwijzigingsanalyse heeft geen scherm.** `GET /labels/:labelId/source-impact` bestaat en
+   wordt nergens getoond. **Fix:** in de Werkruimte onder "Actie nodig", met een link per campagne.
+4. **De briefing is alleen-lezen in de interface.** De PATCH-route bestaat
+   (`campaigns-briefs/routes.ts` rond regel 403) en heeft geen enkele aanroeper in de web-app.
+   **Fix:** `BriefDocument` per sectie bewerkbaar maken; geen API-werk nodig.
+5. **Openstaande onderdelen zijn niet aanklikbaar.** Eigen constatering van de producteigenaar:
+   je ziet dát er iets open staat, niet waar. **Fix:** de melding koppelen aan de stap en het
+   paneel openen bij klik.
+6. **De stappenbalk klopt niet** voor `discover_opportunities` zonder kans en voor campagnes met
+   een `radarRunId` (`computeCampaignProgress`). **Fix:** een campagne met radarherkomst telt als
+   "richting gekozen"; de overslaan-knop in elke instapmodus tonen.
+7. **`/kalender` en `/resultaten` staan in de navigatie als NOG NIET** terwijl stap 8 wel
+   resultaten vastlegt en learnings label-breed bestaan. **Fix:** vullen of weghalen.
+
+### A-0b · Schermindeling — gebouwd op 15 september 2026
+
+Klacht van de producteigenaar: kaarten onder elkaar in plaats van naast elkaar,
+gemaakte content niet gesplitst per kanaal, concurrenten verstopt in een
+tabblad. Gebouwd, gemeten met een volledige schermafdruk op 1440 px, en
+vastgelegd in `PLATFORM.md` (sectie *De schermen opnieuw ingedeeld*).
+
+- Sub-links onder Marktradar: Marktbeeld, Bewaarde kansen, **Concurrenten**, Zoekvragen.
+- `.c360-deck`: één zelfvullend kaartenraster met gelijke hoogte en knoppen op één lijn.
+- Content Studio gegroepeerd per kanaal; campagne-stap 6 van 5660 naar 2463 px.
+- Marktradar-marktbeeld van 4489 naar 3087 px: tellingen vooraan, alleen het gekozen inzicht open.
+- Campagnes opent met vier tellingen die tegelijk het filter zijn.
+- De briefing heeft een sprongindex over zeventien onderdelen.
+- Verholpen: foutzin in een kolom van tien tekens, ongelijke persona-kaarten,
+  dubbel getoonde AI-Visibility-bronnen.
+
+De Marktradar kreeg daarna een tweede ronde: de acht weergaven staan als een
+kolom naast het paneel, elk met één regel uitleg en een telling, en de
+scaninstellingen staan eronder ingeklapt. Zie `PLATFORM.md`, sectie *Marktradar
+als werkbank*.
+
+Nog open uit deze ronde: Content Studio blijft 5622 px bij 27 stukken plus zeven
+pakketten. Dat is de hoeveelheid, niet de indeling; paginering of een
+compactere lijstweergave is de volgende stap.
+
+### A-1 · Vier ontbrekende identiteiten — elk één kleine migratie
+
+- **`course_runs`** — een training bestaat alleen als naamloos element in `course_versions.dates`
+  (jsonb), opnieuw aangemaakt bij elke kaartrevisie. Niets kan naar "de januarigroep" wijzen, dus
+  bezetting kan nergens staan. Nodig: id, `course_key`, start, eind, locatie, vorm, capaciteit,
+  bezet, bijgewerkt-op. **Alleen aantallen, nooit deelnemersgegevens.**
+- **`calendar_entries`** — de planning is een pure functie zonder rij, dus niets is te verzetten,
+  toe te wijzen of te koppelen. Nodig: datum, status, campagne (nullable), asset-sleutel
+  (nullable), verzet-door.
+- **`tasks` + `notifications`** — er is geen enkele uitgaande melding in het systeem (grep op
+  nodemailer/smtp/webhook levert niets op). Nodig: onderwerp, eigenaar, deadline, staat.
+- **Losse content** — `content_asset_versions.campaign_id`, `brief_version_id` en
+  `concept_version_id` zijn alle drie `NOT NULL` (migratie 0006, regels 46/60/61). Nodig: alle drie
+  nullable plus `owner_scope` met een CHECK, en een asset-sleutel die label-breed uniek is.
+  Zelf geverifieerd.
+
+### A-2 · Geen enkele niet-menselijke identiteit
+
+Er is geen API-sleutel, geen serviceprincipal, geen webhook, geen uitgaande gebeurtenis en geen
+planbare taak (`EnqueueInput` kent geen `runAt`, hoewel de claimquery `run_at` al respecteert).
+`outcome_reports` weigert bovendien elk geïmporteerd cijfer via
+`CHECK (source IN ('platform_report','manual_entry'))`. Elke koppeling — analytics, inschrijvingen,
+publiceren — loopt hierop vast. **Fix:** `api_clients` met scopes, een derde auth-adapter,
+`runAt` op de wachtrij, en `connector_import` als toegestane bron.
+
+### A-3 · Eerst te koppelen, op volgorde
+
+Search Console (gratis, eerste partij, geen persoonsgegevens) · ICS-agendafeed (open standaard) ·
+Teams-melding via Power Automate (de oude webhooks verdwijnen in mei 2026) · Buffer (API op alle
+plannen, geen app-review) · GA4 Data API ·
+LinkedIn Community Management API (zelf aan te vragen) · SharePoint via Microsoft Graph met
+`Sites.Selected` (eigen analyse, nog niet tegen documentatie gecontroleerd).
+
+### A-3b · Afgewezen door de producteigenaar (15 september 2026)
+
+**EDU-DEX.** Het onderzoek droeg dit aan als goedkoopste bereikwinst: onze bevestigde
+opleidingskaart doorzetten naar de Nederlandse opleidingsportals. De producteigenaar heeft
+het verworpen — het is een distributiekeuze over waar het aanbod verschijnt, geen
+gereedschapsvraag, en die keuze ligt niet bij dit systeem. Niet inplannen tenzij het
+commercieel alsnog gewenst is.
+
+### A-4 · Twee verplichtingen met een datum
+
+WCAG 2.2 AA via EN 301 549, afdwingbaar sinds 28 juni 2025, en wij leveren HTML zonder enige
+controle — `axe-core` of `Pa11y` past in de bestaande exportpoort. EU AI Act artikel 50 vanaf
+2 augustus 2026: machine-leesbare markering van AI-uitvoer; de Nederlandse Reclame Code vraagt
+bovendien een zichtbare melding in of direct naast het beeld, met een formulering als
+"Deze afbeelding is gegenereerd met AI".
+
+## Featuregaten uit de review — `feature-gap-2026-09-15.md`
+
+Voortgekomen uit het verzoek om de opzet door AI te laten challengen
+(15 september 2026). De volledige lijst met gemotiveerde afwijkingen staat in
+het document; hieronder staat alleen wat als MVP-kandidaat is voorgesteld. Nog
+niet met het team besloten.
+
+### MVP-1 · Kalender — L, in drie stappen
+Uitgebreid op 15 september 2026 na de tweede vraag uit het team: de kalender
+moet ook de startmomenten van de trainingen tonen, met hoeveel deelnemers erin
+zitten, en de momenten die voor de opleiding zelf gelden (herziening van de
+opleiding, sectormomenten zoals Prinsjesdag).
+
+**Stap 1 — tonen (M).** Eén kalender per label met twee banen: de
+startmomenten uit `course.dates` (bestaat al, gecontroleerd en gestructureerd)
+met de bezetting per groep, en daarnaast de berekende contentplanning. Nog
+niets bewerkbaars. Bezetting is een eigen, klein record per groep: plaatsen,
+ingeschreven, wanneer bijgewerkt en door wie — **alleen aantallen, nooit namen
+of deelnemersgegevens**. Een groep heeft een eigen identiteit nodig die een
+nieuwe opleidingskaartversie overleeft.
+
+**Stap 2 — werken (M).** Een verzetbare datum per uiting bovenop de berekende
+planning, met eigenaar en beoordelingsdeadline. Een verzette datum is een
+*afspraak* en wordt bewaard; een nieuw kanaalplan overschrijft die niet, maar
+laat zien welke afspraken afwijken. De bestaande publicatieregistratie wordt
+het afvinkmoment op diezelfde kalender. Raakt
+`packages/contracts/src/calendar.ts`, nu bewust afgeleid en niet opgeslagen.
+
+**Stap 3 — signaleren (M).** Momenten van de opleider, handmatig vast te leggen
+met een notitie; een enkele regelmatige Nederlandse datum mag berekend worden
+(Prinsjesdag is de derde dinsdag van september). Een wijziging van de
+opleidingspagina die de bestaande bronimpactanalyse al detecteert, verschijnt
+als moment. Plus het wervingsvenster: startdatum min een doorlooptijd die het
+label zelf instelt, en de vraag of er in dat venster iets gepland staat. Geen
+prognose, geen verwacht aantal inschrijvingen. Sluit aan op `radar`-slice MR-3
+die de publieke momentenbronnen al voorstelt, en op het scherm `/kalender` dat
+op NOG NIET staat.
+
+### MVP-2 · UTM-conventie per kanaal en campagne — S
+Elke uitgaande link krijgt bron, medium en campagne volgens één afspraak, zoals
+de keuzehulplink dat nu al doet. Zonder dit is handmatig meten niet per kanaal
+uit elkaar te trekken.
+
+### MVP-3 · Notificatie bij een openstaande goedkeuring — S
+Een signaal als iemands goedkeuring openstaat. Er is nu geen enkele uitgaande
+notificatie in het systeem. Eigenaar en deadline zitten in MVP-1 stap 2.
+
+### MVP-4 · JSON-LD en toegankelijkheidscontrole op geproduceerde pagina's — S
+Article-schema op het blogartikel (stond al open bij C2) en een basiscontrole
+op koppenstructuur, taal en contrast in de HTML die wij uitleveren.
+
+### MVP-5 · Authenticatiecontract bevestigen — M
+Blokkeert livegang, niet de pilot. Risico R-01;
+`docs/security/trusted-header-contract.md`.
+
+## Market Radar — senior practice — `market-radar-senior-design.md`
+
+Design of 2026-09-11 from two code maps and one opened research angle (the
+other researchers, the design panel and the judge hit the subagent spend
+limit; the document says so). Five slices.
+
+### MR-1 · Market picture, digest, claims, objective on the hand-off, redaction, screen — L · **Done** (2026-09-11)
+`radar.synthesize` v1 over the run's verified items; `verifyInsights` (cited
+ids must exist, figures only quoted, no percentage/trend/significance, confidence
+from independent domains, single source cannot agree); `buildDigest` change
+notes vs the previous run; `competitorClaims` quoted once; `objective` accepted
+and written on every radar hand-off, `campaignFromInsight` with the insight,
+evidence and confidence frozen in the brief; `redactReport` for e-mail and
+phone after verification; the screen in reading order with Marktbeeld first,
+one primary action, denominators, URL state, tokens; demo cards and a demo
+picture in the mock. **Held by:** `radar-synthesis.test.ts`,
+`market-radar.test.ts`.
+
+### MR-2 · Decision trail — M
+*Opgevolgd / geparkeerd / verworpen* with reason and owner per insight and
+card, shown on later scans (`radar_decisions`, migration ≥ 0023).
+
+### MR-3 · Public Dutch market sources and the moments calendar — M
+CBS StatLine, DUO, CDFD, NRTO, ROA registered per label as citable
+`reference_page` sources with year and licence; PE cycle, exam periods and
+budget cycles as moments the synthesis may cite. Needs the research pass that
+did not run.
+
+### MR-4 · Typed competitor attributes — M
+Format, duration, price, accreditation *as stated*, with the passage per
+attribute, for a positioning table; our side from confirmed facts only.
+
+### MR-5 · Scheduled re-scan with the digest as deliverable — M
+Alerting only on substantive change notes.
+
+## Flowaudit van 15 september 2026 — bruikbare output, gesplitst websitekanaal, losse uitingen
+
+Vijf parallelle onderzoekers; zwaarste bevindingen met de hand geverifieerd.
+Diagnose: `flow-audit-2026-09-15.md`. Volgorde hieronder is de bouwvolgorde.
+
+### FA-0 · Nu meteen: wat stuk is of onwaar — **Gebouwd 15 september 2026**
+
+1. **Goedkeuring op campagne scopen.** `approveBrief` zoekt de briefing op
+   `(id, labelId)` en archiveert daarna op `campaignId`
+   (`campaigns-briefs/service.ts:973`); `concepts.select` heeft dezelfde fout.
+   Een id van campagne B zet campagne A stil terug naar stap 3. Toets die het
+   vastlegt.
+2. **JPEG voor social.** De renderer schrijft altijd PNG
+   (`core/render/renderer.ts:76`), terwijl onze eigen registratie voor Instagram
+   `imageFormats: ['jpeg']` zegt (`channels.ts:320`) en de publicatie-API van
+   Instagram alleen JPEG accepteert. Breedte klemmen op 1440.
+3. **De harde grenzen lezen bij export.** `imageFormats`, `maxImagePixels`,
+   `maxImageBytes` en `altTextMaxChars` staan in `channels.ts` en worden nergens
+   in `apps/` gelezen. De poort controleert of een specificatie geverifieerd is,
+   nooit of het bestand zich eraan houdt.
+4. **Demo-etiket in het pakket.** In ontwikkeling schrijft een publicatieklaar
+   pakket "Alle controles en goedkeuringen zijn afgerond" zonder demovermelding.
+   Productie is veilig; dit is onze eigen labelregel.
+5. **Verwijderroute voor content.** Er bestaat er geen. Eén e-mail of
+   advertentie blokkeert daardoor voor altijd elke publicatieklare export.
+
+### FA-1 · Het plan waarmaken — **Gebouwd 15 september 2026**
+
+6. **`count` produceren of weghalen.** De kalender zet een moment per stuk
+   (`calendar.ts:167`); de generatie maakt er precies één per fase en kanaal.
+   Kies: het aantal echt produceren, of het veld uit het plan halen.
+7. **Exportchecklist eerlijk maken.** Het scherm toont tien poorten, de server
+   vult er vijf; vijf staan altijd open. Toon alleen wat `evaluateGates` vult,
+   en geef de naamloze kanaalweigering een eigen poort-id.
+8. **`hasOutcomes` doorgeven** op het detailscherm, dat het hard op onwaar zet
+   terwijl de lijstroute de echte waarde kent.
+
+### FA-2 · De advertentiekanalen echt maken — **Gebouwd 15 september 2026**
+
+9. Beeld voor `meta_ads` (4:5, 1440 × 1800) en `linkedin_ads` (1,91:1, 1:1 en
+   4:5). Bestemmings-URL verplicht. Koplengtes toetsen: 27 tekens op Facebook,
+   40 op Instagram, 70 op LinkedIn vóór afkapping.
+10. Het hele bericht tellen tegen de kanaalgrens, niet alleen `copy.body`:
+    hook en hashtags zijn gepubliceerde tekst.
+11. Markdown en HTML voor het websitestuk in de ZIP. De renderer bestaat al,
+    maar alleen als kopieerknop in het scherm.
+12. UTM-bouwer. **Geen enkel platform eist het**; LinkedIn noemt
+    trackingparameters uitdrukkelijk optioneel. Dit is onze attributiekeuze.
+
+### FA-3 · Websitekanaal splitsen — **Gebouwd 15 september 2026** (migratie 0028)
+
+`course_page_update` en `blog_article` als eigen kanalen; `landing_page` blijft
+in de woordenlijst maar verlaat `PRODUCIBLE_CHANNELS`. Reden: de helft van de
+bestaande websiterijen draagt geen vorm en is niet automatisch in te delen, en
+er bestaat nog geen enkele rij met `blog_article`.
+
+Lost meteen het conflict op waarin het systeem een artikel bestelt dat het
+daarna weigert: prompt 4 tot 7 secties van 60 tot 320 woorden, poort blokkeert
+boven 6 of onder 120.
+
+Omvang: ongeveer 30 bronbestanden, 11 testbestanden, één migratie. De
+smoke-toets telt hard op acht geadviseerde kanalen en moet mee naar negen.
+Productbeslissingen die erin zitten: zes fase-oordelen in `funnel.ts`, twee
+lengteregimes, en of een briefing voortaan beide websitekanalen moet noemen.
+
+### FA-4 · Losse uitingen — **Gebouwd 15 september 2026** (migratie 0029)
+
+13. **Schema.** `campaign_id`, `brief_version_id` en `concept_version_id`
+    nullable; `owner_scope` met een CHECK die hem aan `campaign_id` bindt;
+    `origin_kind` en `origin_ref_id` voor herkomst. `brand_profile_version_id`
+    en `course_version_id` blijven verplicht: de verankering in opleiding en
+    merk is wat een uiting zonder briefing veilig maakt. De unieke sleutel op
+    `campaign_id` wordt vervangen door twee partiële indexen.
+14. **`generateStandalone`** naast `generate`, zonder de vier campagnepoorten,
+    met een in het geheugen samengesteld plan van één item. Routes
+    `POST` en `GET /labels/:labelId/content/standalone`. Nieuwe taaktypen ook in
+    `IMPLEMENTED_JOB_TYPES`, anders antwoordt de API 501.
+15. **Content Studio wordt ook een maakoppervlak**, met een filter
+    **Zonder campagne**. Geen enkele leverancier documenteert zo'n weergave; dat
+    is precies hoe een los item de dag erna onvindbaar is.
+16. **Keuzescherm bij de overdracht.** De knop "maak campagne van deze kans"
+    wordt een keuze tussen **Volledige campagne** en **Losse uiting**. Dezelfde
+    keuze onder een AI Visibility-bevinding, waar het blogvoorstel vandaag als
+    veld in een JSON-rapport blijft liggen zonder versie of beoordeling.
+17. **Later koppelen, niet exclusief.** Vanuit het item zelf. Nooit zoals
+    HubSpot, waar koppelen aan de ene campagne het uit de andere haalt.
+
+**Nog open uit deze ronde**, uitgesproken in plaats van stil gelaten:
+
+- **Export en publicatieregistratie eisen nog een campagne.** Een losse uiting
+  is te maken, te bewerken, goed te keuren en als Markdown te kopiëren, maar zit
+  nog niet in een ZIP. `exports.campaign_id` en `publication_records.campaign_id`
+  zijn `NOT NULL`.
+- **Beeld bij een losse uiting.** Vraagt de opmaak van het concept en de
+  kernboodschap van de briefing; beeld en video komen uit Edumotion (FA-5).
+- **AI-herziening van een losse uiting** wordt geweigerd met een reden. Met de
+  hand aanpassen werkt wel.
+- **De Werkruimte telt concepten op label**, dus losse uitingen tellen mee in de
+  teller "klaar voor review" zodra ze bestaan. Dat klopt inhoudelijk, maar de
+  link achter die teller wijst naar de Content Studio en niet naar een campagne.
+
+### FA-5 · Video en animatie — koppelen, niet bouwen
+
+**Besluit van de producteigenaar, 15 september 2026:** video en animatie komen
+uit het eigen interne gereedschap (Edumotion). Wij bouwen geen generatie en
+kopen geen clipdienst in.
+
+Wat dat betekent voor de koppeling, wanneer die aan de beurt is: een losse
+uiting van het type video is een verwijzing naar een bestand dat elders is
+gemaakt, met dezelfde beoordeling, versienummering en herkomst als elk ander
+stuk. Twee dingen blijven onze verantwoordelijkheid, hoe het bestand ook tot
+stand komt.
+
+Artikel 50 van de EU-AI-verordening geldt sinds 2 augustus 2026 en verplicht ons
+als gebruiker synthetische video van personen zichtbaar te kenmerken bij de
+eerste blootstelling. C2PA is geen ISO-norm en of de metadata een upload
+overleeft is op geen primaire bron te bevestigen, dus een zichtbare Nederlandse
+regel blijft nodig; ingebedde metadata is geen nalevingsmechanisme. En een
+gefilmde collega als avatar vraagt gedocumenteerde, geïnformeerde en intrekbare
+toestemming, wegens portretrecht en de AVG.
+
+De koppeling zelf vraagt een aparte opdracht en hangt achter FA-4: een video is
+een losse uiting, en die bestaat nog niet.
+
+## Herontwerp van de interface — 15 september 2026
+
+Uit `design_handoff_marketing_os_2026`, volledig gebouwd. De referentie staat in
+`design-system-2026.md`, het codeverhaal in de sectie *De interface volgt het
+label* van `../PLATFORM.md`.
+
+### UI-1 · Tokenlagen, merkletters en het labelthema — **Gebouwd 15 september 2026**
+
+De vier CSS-lagen, de drie zelf gehoste merkletters, `label-theme.ts` met de
+twee contrastregels, en `palette` op `labelSummary` zodat de kleuren met de
+labellijst meereizen. De oude `--c360-*`-namen zetten door naar de nieuwe laag,
+waardoor elk bestaand scherm het label volgt.
+
+### UI-2 · De shell — **Gebouwd 15 september 2026**
+
+Icoonrail van 56px uit de inkt van het label, flyout van 232px, topbalk van 48px
+die niet collapst, labelschakelaar met kleuren per label, en ⌘K om naar een
+scherm te springen.
+
+### UI-3 · Alle elf schermen op drie patronen — **Gebouwd 15 september 2026**
+
+A (overzicht): Werkruimte, Resultaten, Merk & bronnen, Labels & toegang,
+Campagnes, niet-gebouwde gebieden. B (lijst+detail): Content Studio,
+Opleidingen, Doelgroepen. C (rail+werkvlak+context): Campagne, Marktradar, AI
+Visibility. Nieuw in dit werk: de PALET-kolom bij Labels & toegang, de
+bronnentabel met berekende aantallen bij AI Visibility, en het contextpaneel van
+een campagne (buiten kader, merkregels, merkkleuren, bronnen, versies).
+
+### UI-5 · Werk op de achtergrond, en wat je met een beeld doet — **Gebouwd 16 september 2026**
+
+- Een losse uiting gaat de wachtrij in (`content.standalone`) in plaats van in
+  het verzoek te worden geschreven; de aanvrager krijgt een bevestiging en gaat
+  verder.
+- Een beeldkanaal krijgt echt beeld: `storeVersion` neemt een descriptor in
+  plaats van een concept, dus een los stuk kan renderen zonder een
+  `concept_version_id` te verzinnen.
+- De shell meldt rechtsboven wat er is geland, met een link naar het resultaat,
+  en maakt de caches ongeldig die de uitkomst dragen.
+- De Marktradar-scan opent als venster en draait op de wachtrij.
+- Content Studio staat op nieuwste eerst, met datum per rij.
+- Geen call to action in een beeld dat geen klikdoel is
+  (`CLICKABLE_IMAGE_CHANNELS`); op een gerenderde variant staan downloaden en
+  delen bij aanwijzen.
+
+### UI-6 · Persona, oriëntatie en de marktscan — **Gebouwd 16 september 2026**
+
+- `fillOrientation` onderzoekt waar één opgeslagen doelgroep zich oriënteert, uit
+  hetzelfde materiaal als de vragenlijst; het voegt toe en overschrijft nooit, en
+  een bron die niet in dat materiaal zat verliest zijn onderbouwing.
+- Het kanaal per oriëntatie-uitspraak is met de hand instelbaar. Dat was het
+  nooit — de editor schreef altijd `null`, dus een handgeschreven persona kon
+  geen kanaaladvies verschuiven.
+- `PERSONA_CORE_QUESTION_IDS`: de dertien vragen waaruit de persona wordt
+  geschreven, met per vraag de reden dat zij er staat. De overige drieëntwintig
+  blijven open en zijn later te laten invullen.
+- `radarScanFocus`: de hele markt, alleen de aanbieders van deze opleiding, of
+  alleen de opgeslagen concurrenten.
+- Een formulier dat elders op de pagina opengaat, scrolt zichzelf in beeld en zet
+  de focus in het eerste veld (concurrenteneditor).
+
+### UI-4 · Wat open blijft
+
+- **Een echte zoekfunctie.** ⌘K vindt schermen. Campagnes, opleidingen en
+  bronnen doorzoeken vraagt een endpoint dat er niet is; tot die er is, belooft
+  het veld niet meer dan het waarmaakt.
+- **WCAG-doorloop op schermniveau.** De tokens zijn op contrast gemeten en de
+  focusring staat overal, maar een volledige toetsenbord- en
+  schermlezerdoorloop van elf schermen is niet gedaan.
+- **`generated-visuals.test.ts` valt om onder parallelle belasting.** Los draait
+  hij 11/11 groen. Het bestand hoort bij het werk van de andere agent; het is
+  niet door dit herontwerp geraakt.
 
 ## Explicitly not now
 
-M&A workspace, connectors, Market Radar, SEO/GEO, Website Assurance, journeys
+M&A workspace, connectors, SEO/GEO, Website Assurance, journeys
 and cross-sell. Expansion paths are documented in
 `docs/architecture/extension-roadmap.md`.
 
@@ -1185,3 +1786,83 @@ Durum: raporlandı; uygulanmadı. [Veri/API değerlendirmesi](../pilot/platform-
 - Ayrı motor cevabı matrisi: yöntem, ülke/dil, tarih, ham cevap, alıntılar, marka eşleşmeleri, ölçülmedi/engellendi/hata ayrımı. Consumer/API verileri karıştırılmaz.
 - GEO bulgusundan sosyal dağıtım önerileri: kanal gerekçesi, içerik taslağı/brief, CTA, konu/hashtag adayının kaynağı ve belirsizliği, UTM/KPI; normal kampanya ve insan onayı korunur.
 - Veri bağlantılarını sırayla pilotla: site envanteri/GSC/GA4 → kendi sosyal hesapları → seçilmiş SERP/keyword kaynağı → sınırlı çok-motor baseline → gerekirse sosyal dinleme/hashtag verisi. Yeni abonelikten önce toplam maliyet ve çıktı kalitesi karşılaştırılır.
+
+## DB-1 — Fontsubsetting en koptekst als vectorcontouren
+
+Twee problemen, één ingreep. **Subsetting**: de merkletter reist nu mee als heel
+fontbestand, en twee commerciële snedes zijn samen ~74 kB gzip — dat past op
+300x250 en 300x600, maar niet op 320x50, dat daarom terugvalt op een
+systeemletter. Terugbrengen tot de gebruikte glyphs brengt een Latijnse snede
+doorgaans naar enkele kB's en haalt de afweging weg. **Vectorcontouren**: op
+Google Ads mag een fontbestand helemaal niet mee, dus daar is omzetten van de kop
+naar SVG-outlines de enige route; dat vermijdt meteen de vraag of de
+desktoplicentie van de klant herdistributie dekt. Let op de Google Ads-eis dat
+inline SVG expliciete sluittags heeft — of zet de SVG in een eigen bestand.
+
+## DB-1b — Oorspronkelijke notitie over vectorcontouren
+
+De merkletter kan niet als fontbestand mee naar Google Ads en een desktoplicentie
+dekt herdistributie meestal niet. Omzetten van de kop naar SVG-outlines lost
+beide op; het is wat de commerciële platforms doen. Nu valt een niet-Google
+familie terug op een systeemletter met een notitie. Nodig: een font-naar-pad stap
+(opentype.js of gelijkwaardig), met de Google Ads-eis dat inline SVG expliciete
+sluittags heeft — of de SVG in een eigen bestand.
+
+## DB-2 — Tekst meten in plaats van tellen
+
+De regel- en tekenbudgetten in `BANNER_SIZES.fits` zijn arithmetiek op een
+gemiddelde glyphbreedte. Meet de getekende regel in headless Chrome na
+`document.fonts.ready` en bak het resultaat als statische CSS in het bestand;
+dan verdwijnt het gokken én de passing-JS uit de banner. Playwright zit al in de
+repo. Zichtbaar probleem: 160x600 brak een kop van 33 tekens naar vier regels
+terwijl het budget drie regels zei.
+
+## DB-3 — Het bannerpakket als achtergrondtaak en als opgeslagen oplevering
+
+De set wordt nu bij elk verzoek opnieuw gebouwd en nergens bewaard. Dat kan
+omdat de bouw deterministisch is, maar het betekent ook dat een gemaakte set
+niet in de contentbibliotheek staat en niet aan een campagne hangt. Overweeg een
+`banner.render` jobtype (inclusief `IMPLEMENTED_JOB_TYPES`) en een oplevering
+naast de exports.
+
+## DB-4 — Meer bestemmingen
+
+`BANNER_PLATFORM_RULES` kent nu Google Ads en de eigen site. Ad Manager (1 MB,
+altijd SafeFrame, geen SVG-tags binnen HTML), DV360 (100 bestanden, fontbestanden
+wél toegestaan) en CM360 (10 MB) hebben elk eigen regels en een eigen manier om
+de klik af te handelen. Dat is precies de matrix waar de commerciële tools geld
+voor vragen; voeg er pas een toe als er een campagne op wacht.
+
+## DB-5 — Een gegenereerde achtergrond in de banner
+
+De screenplay draagt al een `backgroundBriefEn`, de bouwer accepteert al een
+achtergrondbestand, en het sjabloon heeft de scrim-laag om tekst leesbaar te
+houden. Wat ontbreekt is de koppeling naar `VisualGenerationService` en een
+gezette `AI_IMAGE_ENABLED`. Let op de formaatverhoudingen: één beeld voor zes
+formaten werkt niet — een 160x600 en een 728x90 vragen een andere uitsnede van
+dezelfde scène.
+
+## DB-6 — Een quiz als bannerinhoud
+
+Gevraagd op 2026-09-16: een reeks die eindigt in een uitkomst plus CTA, zoals de
+keuzehulp. Er staat al een quizbouwer in `campaign-packages/quiz.ts` voor de
+site-variant. In een banner gelden andere regels: geen opslag-API, één uitgang,
+en alles binnen het bestandsgewicht. Waarschijnlijk twee vragen, maximaal vier
+antwoorden, uitkomst als eindbeeld.
+
+## DB-7 — De bannerset als opgeslagen oplevering
+
+De set wordt bij elk verzoek opnieuw gebouwd en nergens bewaard; dat kan omdat de
+bouw deterministisch is, maar het betekent ook dat een gemaakte set niet aan de
+campagne hangt en niet in de bibliotheek staat. De provenance (briefing,
+doelgroepen, richting) wordt al teruggegeven maar nergens opgeslagen, dus een
+verouderde banner is nu niet zichtbaar.
+
+## DB-8 — Een eigen korte regel voor de mobiele strip
+
+320x50 heeft ruimte voor ongeveer twintig tekens op één regel tussen logo en
+knop. Een kop die op een 300x250 werkt past daar vrijwel nooit, dus het formaat
+wordt regelmatig geweigerd — met een leesbare reden, maar toch. Een bureau
+schrijft voor dat formaat een eigen regel. Overweeg een korte variant in de
+screenplay (er stond er eerder een als `headlineShort`), of laat de prompt er
+expliciet om vragen.

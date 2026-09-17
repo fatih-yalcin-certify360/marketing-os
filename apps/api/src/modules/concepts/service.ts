@@ -6,13 +6,17 @@ import {
   PRODUCIBLE_CHANNELS,
   plannableContentPlan,
   stagesForObjective,
+  FUNNEL_STAGE_LABEL_NL,
   type ConceptVersion,
   type ContentPlan,
   type CurrentUser,
   type FunnelStage,
+  type LearningWithEvidence,
   type MarketingChannel,
+  type PersonaVersion,
   type ReviewState,
 } from '@c360/contracts';
+import { learningsForPrompt } from '../learnings/service.js';
 import type { Db, DbOrTx } from '../../core/db/types.js';
 import { conceptVersions, contentPlans } from '../../core/db/schema.js';
 import { AppError } from '../../core/errors/app-error.js';
@@ -45,6 +49,18 @@ export class ConceptService {
     private readonly personas: PersonaService,
     private readonly campaigns: CampaignService,
     private readonly approvals: ApprovalService,
+    /**
+     * Approved learnings, when the deployment has them (R-2).
+     *
+     * Optional like it is on personas: a test can build the service without a
+     * learning store, and a call site that only reads or approves a plan needs
+     * no learning wiring. Only *approved* learnings arrive, each with the size
+     * of its evidence, so the plan can lean on a lesson without mistaking a
+     * fortnight for a pattern.
+     */
+    private readonly learnings?: {
+      approvedForPrompt(db: Db, labelId: string): Promise<LearningWithEvidence[]>;
+    },
   ) {}
 
   async list(
@@ -201,6 +217,38 @@ export class ConceptService {
     return row === undefined ? undefined : toConcept(row);
   }
 
+  /**
+   * The same lookup, but the concept must belong to this campaign.
+   *
+   * Resolving on the label alone let a concept id from campaign B be selected
+   * through campaign A's route: A lost its own selection to the clearing step
+   * and B ended up with two, after which `selectedConcept`'s `limit(1)` picked
+   * one arbitrarily (audit 2026-09-15).
+   */
+  async requireForCampaign(
+    db: DbOrTx,
+    labelId: string,
+    campaignId: string,
+    id: string,
+  ): Promise<ConceptVersion> {
+    const rows = await db
+      .select()
+      .from(conceptVersions)
+      .where(
+        and(
+          eq(conceptVersions.id, id),
+          eq(conceptVersions.labelId, labelId),
+          eq(conceptVersions.campaignId, campaignId),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (row === undefined) {
+      throw AppError.notFoundOrForbidden('concept', id);
+    }
+    return toConcept(row);
+  }
+
   async requireById(db: DbOrTx, labelId: string, id: string): Promise<ConceptVersion> {
     const found = await this.findById(db, labelId, id);
     if (found === undefined) {
@@ -221,7 +269,7 @@ export class ConceptService {
     await this.campaigns.requireById(db, labelId, campaignId);
 
     return db.transaction(async (tx) => {
-      await this.requireById(tx, labelId, conceptVersionId);
+      await this.requireForCampaign(tx, labelId, campaignId, conceptVersionId);
       await tx
         .update(conceptVersions)
         .set({ selected: false })
@@ -328,6 +376,7 @@ export class ConceptService {
         brief,
         concept,
         channels,
+        briefChannels: channels,
         objective: campaign.objective,
         funnelStages: stages,
         /*
@@ -335,9 +384,22 @@ export class ConceptService {
          * two-layer reasoning: the rule is ours and deterministic, the model
          * writes the campaign-specific argument on top of it and may move one
          * step with a reason. `proposedChannelAdvice` refuses anything else.
+         *
+         * Every producible channel, not only the brief's: the grid lets the
+         * person tick any cell, and a cell without advice is a choice made
+         * blind. Items are still planned for the brief's channels only.
          */
         channelFit: stages.flatMap((stage) =>
-          channels.map((channel) => ({ stage, channel, ...channelFit(stage, channel) })),
+          PRODUCIBLE_CHANNELS.map((channel) => ({ stage, channel, ...channelFit(stage, channel) })),
+        ),
+        /*
+         * Where the personas orient, with the evidence behind each statement.
+         * This is the only audience evidence on which the model may move a
+         * verdict; assumptions are marked and are not a ground.
+         */
+        orientationSources: orientationSourcesOf(personas),
+        learnings: learningsForPrompt(
+          (await this.learnings?.approvedForPrompt(db, input.labelId)) ?? [],
         ),
       },
     });
@@ -347,9 +409,10 @@ export class ConceptService {
      * exist and a channel to the producible ones, but it does not know which
      * stages *this* objective covers or which channels *this* brief allows.
      * A "Beslissen" item in an awareness campaign is a model that ignored its
-     * instructions, and it fails here rather than being stored.
+     * instructions, and it fails here rather than being stored. Advice may
+     * cover every producible channel; items only the brief's.
      */
-    const problems = planProblems(result.value, stages, channels);
+    const problems = planProblems(result.value, stages, channels, PRODUCIBLE_CHANNELS);
     if (problems.length > 0) {
       throw new AppError('provider_invalid_output', {
         publicMessage: 'Het voorgestelde kanaalplan valt buiten het doel van deze campagne. Probeer opnieuw.',
@@ -375,6 +438,7 @@ export class ConceptService {
           cadenceNl: result.value.cadenceNl,
           rationaleNl: result.value.rationaleNl,
           channelAdvice: result.value.channelAdvice,
+          measurementPlan: result.value.measurementPlan,
           reviewState: 'draft',
           origin: 'ai_generated',
         })
@@ -411,6 +475,7 @@ export class ConceptService {
         cadenceNl: row.cadenceNl,
         rationaleNl: row.rationaleNl,
         channelAdvice: row.channelAdvice,
+        measurementPlan: row.measurementPlan,
       }),
     };
   }
@@ -430,7 +495,7 @@ export class ConceptService {
       const current = await this.latestPlan(tx, campaignId);
       if (current === undefined) {
         throw new AppError('not_found', {
-          publicMessage: 'Er is nog geen contentpakket om goed te keuren.',
+          publicMessage: 'Er is nog geen kanaalplan om goed te keuren.',
         });
       }
 
@@ -452,6 +517,7 @@ export class ConceptService {
           parsed,
           stagesForObjective(campaign.objective ?? 'full_funnel'),
           PRODUCIBLE_CHANNELS,
+          PRODUCIBLE_CHANNELS,
         );
         if (problems.length > 0) {
           throw new AppError('bad_request', { publicMessage: problems.join(' ') });
@@ -468,6 +534,10 @@ export class ConceptService {
             rationaleNl: parsed.rationaleNl,
             channelAdvice:
               parsed.channelAdvice.length > 0 ? parsed.channelAdvice : current.plan.channelAdvice,
+            // The measurement plan travels like the advice: not the person's
+            // to edit here, and the approval binds to what they saw.
+            measurementPlan:
+              parsed.measurementPlan.length > 0 ? parsed.measurementPlan : current.plan.measurementPlan,
             reviewState: 'draft',
             origin: 'user',
           })
@@ -512,7 +582,7 @@ export class ConceptService {
     if (row === undefined) {
       throw new AppError('gate_not_passed', {
         publicMessage:
-          'Het contentpakket is nog niet goedgekeurd. Keur het pakket goed voordat content wordt gemaakt.',
+          'Het kanaalplan is nog niet goedgekeurd. Keur het kanaalplan goed voordat content wordt gemaakt.',
         context: { campaignId, gate: 'content_plan_approved' },
       });
     }
@@ -524,6 +594,7 @@ export class ConceptService {
         cadenceNl: row.cadenceNl,
         rationaleNl: row.rationaleNl,
         channelAdvice: row.channelAdvice,
+        measurementPlan: row.measurementPlan,
       }),
     };
   }
@@ -539,9 +610,11 @@ export class ConceptService {
  * most once — two items for the same cell would collide on one asset key.
  */
 export function planProblems(
-  plan: Pick<ContentPlan, 'items' | 'channelAdvice'>,
+  plan: Pick<ContentPlan, 'items' | 'channelAdvice'> & Partial<Pick<ContentPlan, 'measurementPlan'>>,
   stages: readonly FunnelStage[],
   channels: readonly MarketingChannel[],
+  /** Channels advice may cover; defaults to the item channels. */
+  adviceChannels: readonly MarketingChannel[] = channels,
 ): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
@@ -560,12 +633,69 @@ export function planProblems(
     }
     seen.add(key);
   }
+
+  /*
+   * One page, one plan line.
+   *
+   * The course page is a single object that every stage points at. Planned per
+   * stage it produces three change sets for the same page, and applying them
+   * all leaves the page in whichever state happened to be applied last — the
+   * proposals contradict each other by construction (2026-09-16).
+   *
+   * The per-stage advice is still right: each stage does want something
+   * different from that page. The place for that is several changes inside one
+   * proposal, which is exactly what the deliverable already holds — a list of
+   * changes, each with its own placement and reason.
+   */
+  const pageLines = plan.items.filter((item) => item.channel === 'course_page_update');
+  if (pageLines.length > 1) {
+    problems.push(
+      `De opleidingspagina staat ${String(pageLines.length)} keer in het plan, voor ${pageLines
+        .map((item) => (item.stage === null ? 'geen fase' : FUNNEL_STAGE_LABEL_NL[item.stage]))
+        .join(', ')}. Het is één pagina: plan haar één keer en zet de wijzigingen die de andere fases vragen in datzelfde voorstel.`,
+    );
+  }
   for (const advice of plan.channelAdvice) {
-    if (!stages.includes(advice.stage) || !channels.includes(advice.channel)) {
+    if (!stages.includes(advice.stage) || !adviceChannels.includes(advice.channel)) {
       problems.push(`Het advies voor ${advice.stage}/${advice.channel} valt buiten deze campagne.`);
     }
   }
+  /*
+   * One measurement per stage the plan covers, when a plan carries any. A
+   * plan from before measurement plans existed carries none and passes; a
+   * plan that measures a stage the campaign does not run, or leaves one of
+   * its stages unmeasured, has not answered the question.
+   */
+  const measured = plan.measurementPlan ?? [];
+  if (measured.length > 0) {
+    const stagesMeasured = new Set<FunnelStage>();
+    for (const measurement of measured) {
+      if (!stages.includes(measurement.stage)) {
+        problems.push(
+          `Het meetplan voor ${FUNNEL_STAGE_LABEL_NL[measurement.stage]} hoort niet bij het doel van deze campagne.`,
+        );
+      }
+      if (stagesMeasured.has(measurement.stage)) {
+        problems.push(`De fase ${FUNNEL_STAGE_LABEL_NL[measurement.stage]} heeft meer dan één meetplan.`);
+      }
+      stagesMeasured.add(measurement.stage);
+    }
+    for (const stage of stages) {
+      if (!stagesMeasured.has(stage)) {
+        problems.push(`De fase ${FUNNEL_STAGE_LABEL_NL[stage]} heeft geen meetplan.`);
+      }
+    }
+  }
   return [...new Set(problems)];
+}
+
+/** Every persona's orientation statements, flattened with the persona's name for the prompt. */
+export function orientationSourcesOf(
+  personas: readonly Pick<PersonaVersion, 'name' | 'orientationSources'>[],
+): { persona: string; source: PersonaVersion['orientationSources'][number] }[] {
+  return personas.flatMap((persona) =>
+    persona.orientationSources.map((source) => ({ persona: persona.name, source })),
+  );
 }
 
 interface ConceptRow {

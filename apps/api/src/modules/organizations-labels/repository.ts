@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DbOrTx } from '../../core/db/types.js';
-import { labels } from '../../core/db/schema.js';
+import { brandProfileVersions, labels } from '../../core/db/schema.js';
 
 export interface LabelRecord {
   id: string;
@@ -56,5 +56,33 @@ export class LabelRepository {
   ): Promise<LabelRecord | undefined> {
     const rows = await this.findManyByIds(db, organizationId, [id]);
     return rows[0];
+  }
+
+  /**
+   * The colours of each label's *approved* brand profile, by label id.
+   *
+   * One query for the whole switcher rather than one per label: the interface
+   * colours follow the selected label, so every label in the list needs its
+   * palette to show what picking it will do. A label with no approved profile
+   * is simply absent from the map — the caller reports that as "no profile"
+   * instead of substituting a colour.
+   */
+  async findApprovedColorsByLabelIds(
+    db: DbOrTx,
+    ids: readonly string[],
+  ): Promise<Map<string, unknown>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({ labelId: brandProfileVersions.labelId, colors: brandProfileVersions.colors })
+      .from(brandProfileVersions)
+      .where(
+        and(
+          inArray(brandProfileVersions.labelId, [...ids]),
+          eq(brandProfileVersions.reviewState, 'approved'),
+        ),
+      );
+    return new Map(rows.map((row) => [row.labelId, row.colors]));
   }
 }

@@ -1,0 +1,59 @@
+/*
+ * 2026 token layer. Imported after tokens.css; the c360-* tokens stay so no
+ * existing screen breaks while screens are migrated one at a time.
+ *
+ * Label-dependent tokens (--lp-*) are written at runtime by LabelTheme.tsx.
+ * The values below are the Certify360 house palette, so the first paint is
+ * correct before the brand query resolves.
+ */
+
+:root {
+  /* --- Label palette (overwritten per label) -------------------------- */
+  --lp: #7a69d3;
+  --lp-solid: #6a55c4;
+  --lp-deep: #6a55c4;
+  --lp-accent: #9784fa;
+  --lp-ink: #183037;
+  --lp-on: #ffffff;
+  --lp-t1: #f5f3fc;
+  --lp-t2: #ece8f9;
+  --lp-t3: #d5cdf1;
+  --lp-shell: #152a30;
+  --lp-shell-2: #2c4149;
+  --lp-shell-tx: #8a9ba1;
+
+  /* --- Neutrals -------------------------------------------------------- */
+  --n-0: #ffffff;
+  --n-1: #f7f8f9;
+  --n-2: #eef0f2;
+  --n-br: #e3e7ea;
+  --n-br2: #cfd6db;
+
+  /* --- Text: -3 is the smallest legible grey (4.87:1 on white).
+         Never use -4 for text; it is a separator colour. ---------------- */
+  --tx: #182430;
+  --tx-2: #5d6b78;
+  --tx-3: #65737f;
+  --tx-4: #8695a1;
+
+  /* --- Status ---------------------------------------------------------- */
+  --ok: #1f7a5c;
+  --ok-t: #ecf6f1;
+  --wa: #9a6412;
+  --wa-t: #fdf5e8;
+  --er: #a32f22;
+  --er-t: #fbeeec;
+
+  /* --- Shape: radii come from the design system; these are aliases for
+         the few places that need a literal step ------------------------- */
+  --r: var(--radius-md);
+  --r2: var(--radius-md);
+  --r3: var(--radius-lg);
+
+  /* --- Compact shell metrics ------------------------------------------- */
+  --rail-w: 56px;
+  --flyout-w: 232px;
+  --topbar-h: 48px;
+  --steprail-w: 232px;
+  --context-w: 264px;
+}

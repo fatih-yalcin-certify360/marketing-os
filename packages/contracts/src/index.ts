@@ -1,12 +1,18 @@
 export * from './access.js';
 export * from './brand.js';
 export * from './calendar.js';
+export * from './campaign-progress.js';
 export * from './campaigns.js';
 export * from './channels.js';
+export * from './display-banner-screenplay.js';
+export * from './display-banners.js';
 export * from './content.js';
+export * from './content-markdown.js';
+export * from './utm.js';
 export * from './courses.js';
 export * from './errors.js';
 export * from './funnel.js';
+export * from './google-ads.js';
 export * from './jobs.js';
 export * from './labels.js';
 export * from './pagination.js';
@@ -32,3 +38,8 @@ export * from "./package-quality.js";
 
 export * from "./ai-visibility.js";
 export * from './geo.js';
+
+export * from './persona-questionnaire.js';
+export * from './persona-draft.js';
+export * from './creative-research.js';
+export * from './competitors.js';

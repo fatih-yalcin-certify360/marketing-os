@@ -1,0 +1,102 @@
+/* Certify360 — Color tokens
+   Brand seeds: #9784fa (violet light), #7a69d3 (violet), #183037 (deep teal ink) */
+:root {
+  /* ---- Brand: Violet (primary) ---- */
+  --violet-50:  #f2effe;
+  --violet-100: #e6e1fd;
+  --violet-200: #cfc6fb;
+  --violet-300: #b3a5fa;
+  --violet-400: #9784fa; /* brand light */
+  --violet-500: #8672e4;
+  --violet-600: #7a69d3; /* brand core */
+  --violet-700: #6353ab;
+  --violet-800: #4c4083;
+  --violet-900: #352c5c;
+
+  /* ---- Brand: Teal ink (deep) ---- */
+  --teal-50:  #eef3f4;
+  --teal-100: #d5e0e2;
+  --teal-200: #a8bec2;
+  --teal-300: #7998a0;
+  --teal-400: #4c727c;
+  --teal-500: #2f545d;
+  --teal-600: #21434b;
+  --teal-700: #183037; /* brand ink */
+  --teal-800: #112228;
+  --teal-900: #0a161a;
+
+  /* ---- Neutrals (cool, tuned toward teal ink) ---- */
+  --neutral-0:   #ffffff;
+  --neutral-50:  #f7f8f9;
+  --neutral-100: #eef0f2;
+  --neutral-200: #e0e3e7;
+  --neutral-300: #c9ced4;
+  --neutral-400: #a3abb4;
+  --neutral-500: #7b848f;
+  --neutral-600: #5a636e;
+  --neutral-700: #414952;
+  --neutral-800: #2a3138;
+  --neutral-900: #171c21;
+
+  /* ---- Semantic accents ---- */
+  --success-100: #d9f2e4;
+  --success-500: #1f9d5b;
+  --success-700: #157244;
+  --warning-100: #fdeecd;
+  --warning-500: #d99512;
+  --warning-700: #a06c07;
+  --danger-100:  #fbdedb;
+  --danger-500:  #d84a3b;
+  --danger-700:  #a5342a;
+  --info-100:    #d8e6fb;
+  --info-500:    #3a74d8;
+  --info-700:    #285aac;
+
+  /* ================= SEMANTIC ALIASES ================= */
+  /* Brand */
+  --brand:              var(--violet-600);
+  --brand-hover:        var(--violet-700);
+  --brand-active:       var(--violet-800);
+  --brand-subtle:       var(--violet-50);
+  --brand-subtle-border:var(--violet-200);
+  --brand-contrast:     var(--neutral-0);
+  --accent:             var(--violet-400);
+  --ink:                var(--teal-700);
+
+  /* Text */
+  --text-strong:   var(--teal-800);
+  --text-body:     var(--teal-700);
+  --text-muted:    var(--neutral-600);
+  --text-subtle:   var(--neutral-500);
+  --text-inverse:  var(--neutral-0);
+  --text-on-brand: var(--neutral-0);
+  --text-link:     var(--violet-600);
+  --text-link-hover: var(--violet-700);
+
+  /* Surfaces */
+  --surface-page:    var(--neutral-50);
+  --surface-card:    var(--neutral-0);
+  --surface-sunken:  var(--neutral-100);
+  --surface-inverse: var(--teal-700);
+  --surface-brand:   var(--violet-600);
+  --surface-hover:   var(--neutral-100);
+
+  /* Borders */
+  --border-subtle:  var(--neutral-200);
+  --border-default: var(--neutral-300);
+  --border-strong:  var(--neutral-400);
+  --border-focus:   var(--violet-400);
+
+  /* Feedback surfaces */
+  --success-surface: var(--success-100);
+  --success-fg:      var(--success-700);
+  --warning-surface: var(--warning-100);
+  --warning-fg:      var(--warning-700);
+  --danger-surface:  var(--danger-100);
+  --danger-fg:       var(--danger-700);
+  --info-surface:    var(--info-100);
+  --info-fg:         var(--info-700);
+
+  /* Focus ring */
+  --ring: 0 0 0 3px rgba(151, 132, 250, 0.45);
+}

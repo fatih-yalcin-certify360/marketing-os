@@ -63,6 +63,7 @@ describe('learnings', () => {
     ] as const) {
       const record = await s.outcomes.recordOutcome(db, user, labelId, campaignId, {
         channel: 'linkedin_organic',
+        funnelStage: null,
         publicationRecordId: null,
         periodStart: period[0],
         periodEnd: period[1],

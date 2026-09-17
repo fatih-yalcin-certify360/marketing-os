@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, Card, Notice } from '@c360/ui';
+import { Button, Card, Notice, Skeleton } from '@c360/ui';
 
 /**
  * Shared loading and failure states.
@@ -11,9 +11,7 @@ import { Button, Card, Notice } from '@c360/ui';
 export function LoadingState(props: { label: string }): ReactNode {
   return (
     <Card ariaLabel={props.label}>
-      <p className="c360-card__hint" role="status" aria-live="polite">
-        {props.label}…
-      </p>
+      <Skeleton lines={4} label={`${props.label}…`} />
     </Card>
   );
 }

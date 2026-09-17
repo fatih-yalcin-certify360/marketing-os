@@ -322,6 +322,154 @@ describe('market radar', () => {
     expect(brief.ctaUrl).not.toBe(card.sourceUrl);
   });
 
+  it('synthesises a market picture from verified items, grades it, digests the change and hands an insight off with its objective', async () => {
+    /*
+     * The market picture is one more model call over the run's *verified*
+     * items. The mock here is template-aware: cards for the analysis, a
+     * synthesis citing the stored card for the picture — and one invented id
+     * the service must refuse.
+     */
+    const { radar } = service();
+    const generate = vi
+      .spyOn(h.appContext.services.generation, 'generate')
+      // eslint-disable-next-line @typescript-eslint/require-await -- the real method is async; the stub answers synchronously
+      .mockImplementation(async (_db, request) => {
+        const base = { promptVersion: 'v1', isMock: true, actualCostCents: 0, latencyMs: 0 };
+        if (request.template === 'radar.analyze') return { ...base, value: { cards: [proposal], note: '' } };
+        if (request.template === 'radar.synthesize') {
+          const evidence = JSON.parse(String(request.context.pageText)) as { kind: string; id: string }[];
+          const card = evidence.find((item) => item.kind === 'card');
+          return {
+            ...base,
+            value: {
+              insights: [
+                {
+                  headlineNl: 'Aanbieders openen met een proefles om de opleidingskeuze te verlagen.',
+                  observationNl: 'De bron biedt een proefles aan voor mensen die het vak willen ontdekken.',
+                  meaningNl: 'Voor wie zich nog oriënteert is ervaren vóór het kiezen het moment om op aan te sluiten, in de fase Ontdekken.',
+                  nowNl: 'Werk een Ontdekken-campagne uit rond een herkenbare eerste werksituatie.',
+                  alternativeNl: 'Een proefles kan een verkoopinstrument van deze aanbieder zijn zonder dat de doelgroep erom vraagt.',
+                  notShownNl: 'Geen zoekvolume, geen marktaandeel en geen resultaat van de proefles.',
+                  stage: 'discover',
+                  suggestedObjective: 'awareness',
+                  agreement: 'eens',
+                  evidence: [{ kind: 'card', id: card?.id ?? 'missing' }],
+                },
+                {
+                  headlineNl: 'Een inzicht zonder bewijs uit deze scan.',
+                  observationNl: 'Deze bewering rust op een id dat de scan niet kent, en moet verdwijnen.',
+                  meaningNl: 'Het zou anders een claim zijn die niemand kan controleren.',
+                  nowNl: 'Niets doen met dit inzicht.',
+                  alternativeNl: 'Er is geen alternatieve lezing van niets.',
+                  notShownNl: 'Alles wat een echte bron had kunnen laten zien.',
+                  stage: 'consider',
+                  suggestedObjective: 'consideration',
+                  agreement: 'niet_te_beoordelen',
+                  evidence: [{ kind: 'card', id: '00000000-0000-4000-8000-000000000000' }],
+                },
+              ],
+              note: 'Testnotitie.',
+            },
+          };
+        }
+        return { ...base, value: { findings: [], competitors: [], note: '' } };
+      });
+
+    const first = await radar.scan(h.db, h.currentUser, input());
+    expect(first.report.insights, first.report.notes.join(' | ')).toHaveLength(1);
+    const insight = first.report.insights[0]!;
+    expect(insight.evidence).toEqual([{ kind: 'card', id: first.report.cards[0]!.id }]);
+    // One source, one domain: the grade says so, and a single source cannot claim agreement.
+    expect(insight.confidence).toMatchObject({ evidence: 'beperkt', independentDomains: 1, agreement: 'niet_te_beoordelen' });
+    expect(first.report.notes.join(' ')).toMatch(/geen bewijs uit deze scan/u);
+    expect(first.report.digest).toEqual({ previousRunId: null, previousAt: null, items: [] });
+    expect(first.report.claims.map((claim) => claim.sourceUrl)).toEqual([url]);
+
+    // A second scan of the same course digests what changed: nothing here,
+    // and the digest says which run it compared with.
+    const second = await radar.scan(h.db, h.currentUser, input());
+    expect(second.report.digest?.previousRunId).toBe(first.id);
+    expect(second.report.digest?.items).toEqual([]);
+    generate.mockRestore();
+
+    // The hand-off: the insight's own words, its evidence and its confidence
+    // travel in the brief; the objective is the person's, defaulting to the
+    // insight's suggestion.
+    const defaulted = await radar.campaignFromInsight(h.db, h.currentUser, labelId, first.id, insight.id);
+    expect(defaulted.objective).toBe('awareness');
+    expect(defaulted.radarRunId).toBe(first.id);
+    expect(defaulted.suppliedBrief).toContain(insight.headlineNl);
+    expect(defaulted.suppliedBrief).toContain(url);
+    expect(defaulted.suppliedBrief).toContain('Beperkt bewijs');
+
+    const chosen = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/radar/${first.id}/insights/${insight.id}/campaign`,
+      payload: { objective: 'consideration' },
+    });
+    expect(chosen.statusCode).toBe(201);
+    expect(chosen.json<{ objective: string }>().objective).toBe('consideration');
+
+    const unknown = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/radar/${first.id}/insights/${randomUUID()}/campaign`,
+      payload: {},
+    });
+    expect(unknown.statusCode).toBe(404);
+  });
+
+  it('redacts e-mail addresses and phone numbers from stored passages after verifying them', async () => {
+    const text = `${excerpt} Vragen? Mail naar info@voorbeeld.nl of bel 06-12345678.`;
+    const { radar } = service(text);
+    analysis([{ ...proposal, excerpt: text }]);
+    const run = await radar.scan(h.db, h.currentUser, input());
+    expect(run.report.cards).toHaveLength(1);
+    expect(run.report.cards[0]!.excerpt).not.toMatch(/@|06-1234/u);
+    expect(run.report.cards[0]!.excerpt).toMatch(/\[e-mailadres weggelaten\]/u);
+    expect(run.report.notes.join(' ')).toMatch(/e-mailadres of telefoonnummer/u);
+  });
+
+  it('carries the chosen objective into the campaign it creates, and refuses one outside the vocabulary', async () => {
+    /*
+     * The hand-off is the whole point of the radar, and it used to arrive
+     * without the one field that decides a campaign's funnel stages. The
+     * objective is the person's choice at the hand-off; absent means null,
+     * as it did for older clients.
+     */
+    const generate = analysis();
+    const { radar } = service();
+    const run = await radar.scan(h.db, h.currentUser, input());
+    generate.mockRestore();
+    const card = run.report.cards[0]!;
+
+    const chosen = await radar.createCampaign(h.db, h.currentUser, labelId, run.id, card.id, 0, 'consideration');
+    expect(chosen.objective).toBe('consideration');
+    expect(chosen.radarRunId).toBe(run.id);
+
+    const viaHttp = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/radar/${run.id}/cards/${card.id}/campaign`,
+      payload: { approachIndex: 1, objective: 'awareness' },
+    });
+    expect(viaHttp.statusCode).toBe(201);
+    expect(viaHttp.json<{ objective: string }>().objective).toBe('awareness');
+
+    const legacy = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/radar/${run.id}/cards/${card.id}/campaign`,
+      payload: { approachIndex: 2 },
+    });
+    expect(legacy.statusCode).toBe(201);
+    expect(legacy.json<{ objective: string | null }>().objective).toBeNull();
+
+    const refused = await h.app.inject({
+      method: 'POST',
+      url: `/api/v1/labels/${labelId}/radar/${run.id}/cards/${card.id}/campaign`,
+      payload: { approachIndex: 0, objective: 'growth' },
+    });
+    expect(refused.statusCode).toBe(422);
+  });
+
   it('keeps verified evidence, strips unsupported dates, and preserves the signal in the new campaign', async () => {
     analysis();
     const { radar } = service();
@@ -441,6 +589,30 @@ describe('market radar', () => {
     const result = await radar.scan(h.db, h.currentUser, input());
     expect(result.report.failures).toHaveLength(1);
     expect(result.report.cards).toEqual([]);
+  });
+  /**
+   * The Concurrenten tab has one button that asks one question: who else offers
+   * this course. Answering it does not require a doelgroepanalyse, zoekvragen,
+   * advertenties or a marktbeeld, and running them anyway costs four extra model
+   * calls per sweep for output nobody on that tab asked for (2026-09-16).
+   */
+  it('keeps a provider sweep to the one question it asks, and says what it skipped', async () => {
+    const generate = analysis();
+    const run = await service().radar.scan(h.db, h.currentUser, {
+      ...input(),
+      focus: 'providers',
+    });
+    // The audience report travels on because later steps read its fields; what
+    // must not happen is that it claims there were no readable sources.
+    expect(run.report.audience?.findings).toEqual([]);
+    expect(run.report.audience?.notes.join(' ')).toContain('Overgeslagen');
+    expect(run.report.keywords).toBeNull();
+    expect(run.report.advertising).toBeNull();
+    expect(run.report.insights).toEqual([]);
+    expect(run.report.notes.some((note) => note.includes('overgeslagen'))).toBe(true);
+    // The pages are still read and judged; only the extra analyses are gone.
+    expect(run.report.cards).toHaveLength(1);
+    expect(generate).toHaveBeenCalledTimes(1);
   });
   it('extracts only safe image metadata and normalizes tracking without losing meaningful queries', () => {
     expect(

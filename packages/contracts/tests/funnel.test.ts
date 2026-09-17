@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   FUNNEL_STAGES,
+  MAX_PLAN_ITEMS,
+  PRODUCIBLE_CHANNELS,
   FUNNEL_STAGE_GUIDANCE_NL,
+  FUNNEL_STAGE_INDICATOR_NL,
   campaignObjective,
   channelAdvice,
   channelFit,
@@ -11,6 +14,8 @@ import {
   plannableContentPlan,
   plannableContentPlanItem,
   proposedChannelAdvice,
+  stageMeasurement,
+  stageMessage,
   stagesForObjective,
   type FitVerdict,
 } from '../src/index.js';
@@ -69,10 +74,23 @@ describe('the channel-fit rules', () => {
     // No relationship yet, no mailing.
     expect(channelFit('discover', 'email').verdict).toBe('discouraged');
     expect(channelFit('decide', 'email').verdict).toBe('recommended');
-    // The page is where every stage ends up.
-    for (const stage of FUNNEL_STAGES) {
-      expect(channelFit(stage, 'landing_page').verdict).toBe('recommended');
-    }
+    /*
+     * The page is where every stage ends up — and it is one page.
+     *
+     * It used to be "recommended" in all three stages, which read as sound
+     * advice and produced a contradiction: a full-funnel plan asked for the
+     * same page three times, and applying all three change sets leaves the page
+     * in whichever state was applied last. It is now recommended once, in the
+     * stage where the page does the most work, and possible in the other two —
+     * what those stages need from the page belongs in that one proposal, as
+     * separate changes (2026-09-16).
+     */
+    expect(channelFit('consider', 'course_page_update').verdict).toBe('recommended');
+    expect(channelFit('discover', 'course_page_update').verdict).toBe('possible');
+    expect(channelFit('decide', 'course_page_update').verdict).toBe('possible');
+    expect(
+      FUNNEL_STAGES.filter((stage) => channelFit(stage, 'course_page_update').verdict === 'recommended'),
+    ).toHaveLength(1);
   });
 });
 
@@ -163,6 +181,53 @@ describe('the channel-advice shape', () => {
   });
 });
 
+describe('the stage message shape (slice 2)', () => {
+  it('names course-card fields as proof, never values, and only fields that exist', () => {
+    const ok = stageMessage.safeParse({
+      stage: 'decide',
+      coreMessageNl: 'De praktische stap: wanneer, wat het vraagt en hoe je je inschrijft.',
+      ctaNl: 'Schrijf je in',
+      proofFields: ['price', 'dates'],
+    });
+    expect(ok.success).toBe(true);
+    // A made-up field is refused by the schema; an unconfirmed one is the
+    // service's job, because the schema cannot know what is confirmed.
+    expect(
+      stageMessage.safeParse({ stage: 'decide', coreMessageNl: 'x'.repeat(20), ctaNl: 'Nu', proofFields: ['slagingskans'] })
+        .success,
+    ).toBe(false);
+    // Proof is optional: a stage may cite nothing.
+    expect(stageMessage.parse({ stage: 'discover', coreMessageNl: 'x'.repeat(20), ctaNl: 'Lees meer' }).proofFields).toEqual([]);
+  });
+});
+
+describe('the measurement plan shape (R-7)', () => {
+  it('has no field for a target, a baseline or a forecast', () => {
+    const present = Object.keys(
+      stageMeasurement.parse({
+        stage: 'consider',
+        indicatorNl: 'Bezoekduur op de opleidingspagina.',
+        sourceNl: 'De paginastatistieken van het label.',
+        decisionRuleNl: 'Na drie weken: opschalen als de bezoekduur stijgt, stoppen als niemand doorklikt.',
+      }),
+    ).sort();
+    expect(present).toEqual(['decisionRuleNl', 'indicatorNl', 'sourceNl', 'stage']);
+    for (const field of ['target', 'baseline', 'expectedCtr', 'expectedCpl', 'forecast', 'kpiValue']) {
+      expect(present).not.toContain(field);
+    }
+  });
+
+  it('reads each stage on its own rung of the ladder, without a figure', () => {
+    for (const stage of FUNNEL_STAGES) {
+      const guidance = FUNNEL_STAGE_INDICATOR_NL[stage];
+      expect(`${guidance.ladderNl} ${guidance.examplesNl} ${guidance.notNl}`).not.toMatch(/\d|%/u);
+    }
+    // Enrolment is a Beslissen signal and explicitly not a Ontdekken one.
+    expect(FUNNEL_STAGE_INDICATOR_NL.decide.examplesNl).toMatch(/inschrijving/iu);
+    expect(FUNNEL_STAGE_INDICATOR_NL.discover.notNl).toMatch(/inschrijving/iu);
+  });
+});
+
 describe('plan items and stages', () => {
   it('require a stage when planning and tolerate its absence when reading', () => {
     const legacy = contentPlanItem.parse({ channel: 'linkedin_organic', count: 1, withImage: true });
@@ -183,13 +248,14 @@ describe('plan items and stages', () => {
       rationaleNl: 'Klein gehouden om te kunnen vergelijken.',
     });
     expect(stored.channelAdvice).toEqual([]);
+    expect(stored.measurementPlan).toEqual([]);
   });
 
-  it('hold at most three stages × eight channels', () => {
+  it('hold every stage × every producible channel, and refuse a retired one', () => {
     const items = FUNNEL_STAGES.flatMap((stage) =>
-      CHANNELS.map((channel) => ({ stage, channel, count: 1, withImage: false })),
+      PRODUCIBLE_CHANNELS.map((channel) => ({ stage, channel, count: 1, withImage: false })),
     );
-    expect(items).toHaveLength(24);
+    expect(items).toHaveLength(MAX_PLAN_ITEMS);
     expect(
       plannableContentPlan.safeParse({
         items,
@@ -198,5 +264,22 @@ describe('plan items and stages', () => {
         channelAdvice: [],
       }).success,
     ).toBe(true);
+
+    /*
+     * The vocabulary is one wider than what can be planned.
+     *
+     * `landing_page` carried both website deliverables until 2026-09-15 and
+     * stays in `marketingChannel` so stored rows keep a label and a
+     * specification — but nothing new may be planned on it.
+     */
+    expect(CHANNELS.length).toBe(PRODUCIBLE_CHANNELS.length + 1);
+    expect(
+      plannableContentPlan.safeParse({
+        items: [{ stage: 'discover', channel: 'landing_page', count: 1, withImage: false }],
+        cadenceNl: 'Eén item.',
+        rationaleNl: 'Een kanaal dat niet meer gepland mag worden.',
+        channelAdvice: [],
+      }).success,
+    ).toBe(false);
   });
 });

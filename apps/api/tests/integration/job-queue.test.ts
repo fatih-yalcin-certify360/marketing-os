@@ -335,6 +335,51 @@ describe('job queue', () => {
     expect(reclaimed?.attempt).toBe(2);
   });
 
+  it('lets a deliberate re-run follow a finished job, while an unfinished one still absorbs the click', async () => {
+    /*
+     * The service-level rule behind "Content maken" and "Kanaalplan
+     * voorstellen": the same intent while a job is queued or running is the
+     * same job; the same intent after that job finished — dead or succeeded —
+     * is a new job. Before this, a content job that died left the button
+     * returning the dead row for ever.
+     */
+    const jobsService = harness.appContext.services.jobs;
+    const user = harness.currentUser;
+    const request = {
+      labelId,
+      type: 'demo.echo' as const,
+      payload: { message: 'rerun', steps: 1, failFirstAttempts: 0 },
+      intent: ['rerun', 'fixed-intent'],
+      estimatedCostCents: 0,
+    };
+
+    const first = await jobsService.enqueueForLabel(harness.db, user, request);
+    const duplicate = await jobsService.enqueueForLabel(harness.db, user, request);
+    expect(first.created).toBe(true);
+    expect(duplicate.created).toBe(false);
+    expect(duplicate.summary.id).toBe(first.summary.id);
+
+    const claimed = await queue.claim(harness.db, 'worker-a');
+    await queue.fail(harness.db, claimed!.id, 'worker-a', {
+      kind: 'internal_error',
+      publicMessage: 'Mislukt.',
+    });
+    expect((await queue.findById(harness.db, first.summary.id))?.status).toBe('dead');
+
+    const rerun = await jobsService.enqueueForLabel(harness.db, user, request);
+    expect(rerun.created).toBe(true);
+    expect(rerun.summary.id).not.toBe(first.summary.id);
+    expect(rerun.summary.status).toBe('queued');
+
+    // And the new run absorbs a second click exactly as the first did.
+    const again = await jobsService.enqueueForLabel(harness.db, user, request);
+    expect(again.created).toBe(false);
+    expect(again.summary.id).toBe(rerun.summary.id);
+
+    // The dead row is untouched: history is kept, not rewritten.
+    expect((await queue.findById(harness.db, first.summary.id))?.status).toBe('dead');
+  });
+
   it('refuses to retry a job that succeeded', async () => {
     await enqueue('no-retry-success');
     const claimed = await queue.claim(harness.db, 'worker-a');

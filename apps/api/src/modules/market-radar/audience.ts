@@ -18,6 +18,7 @@ export function verifyAudience(
   value: unknown,
   pages: AudiencePage[],
   ownUrl?: string | null,
+  ownUrls: readonly string[] = [],
 ): AudienceReport {
   const report: AudienceReport = {
     competitors: [],
@@ -43,12 +44,15 @@ export function verifyAudience(
     /* A document reference is not a domain. */
   }
   const competitorHosts = new Set<string>();
+  const ownHosts = [ownHost, ...ownUrls.flatMap(url => {
+    try { return [host(url)]; } catch { return []; }
+  })].filter((value): value is string => value !== null);
   for (const item of parsed.data.competitors) {
     const page = pages.find((p) => p.url === item.sourceUrl);
     if (!page || !normal(page.text).includes(normal(item.excerpt))) continue;
     const domain = host(item.sourceUrl);
     if (
-      (ownHost && (domain === ownHost || domain.endsWith(`.${ownHost}`))) ||
+      ownHosts.some(own => domain === own || domain.endsWith(`.${own}`)) ||
       competitorHosts.has(domain)
     )
       continue;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GOOGLE_RSA } from './google-ads.js';
 
 /**
  * Channel capability registry.
@@ -22,7 +23,19 @@ export const marketingChannel = z.enum([
   'linkedin_organic',
   'instagram_organic',
   'facebook_organic',
+  /**
+   * The website, as one channel, until 2026-09-15.
+   *
+   * It carried two different deliverables — a change proposal for the existing
+   * course page, and a new blog article — with different schemas, different
+   * quality rules, different reviewers and different publication routes. They
+   * are now `course_page_update` and `blog_article`. The old value stays in the
+   * vocabulary because half the stored website rows carry no form at all and
+   * cannot be classified after the fact; it is no longer plannable.
+   */
   'landing_page',
+  'course_page_update',
+  'blog_article',
   'email',
   'linkedin_ads',
   'meta_ads',
@@ -75,7 +88,8 @@ export const SOCIAL_PILOT_CHANNELS = [
  */
 export const PRODUCIBLE_CHANNELS = [
   ...SOCIAL_PILOT_CHANNELS,
-  'landing_page',
+  'course_page_update',
+  'blog_article',
   'email',
   'linkedin_ads',
   'meta_ads',
@@ -137,6 +151,35 @@ export const hardConstraints = z.object({
 });
 export type HardConstraints = z.infer<typeof hardConstraints>;
 
+/**
+ * House-style minimums per channel: how long a piece has to be before it is
+ * worth a reader's time, and how many hashtags belong on it.
+ *
+ * These are **our** editorial rules, not platform limits — a platform caps
+ * length, it never demands any — so they sit apart from the maxima above and
+ * carry no source URL. They exist because the schema alone allowed a
+ * one-character body and zero sections, and a two-line landing page came out
+ * of a real run looking valid. `content-assets/quality.ts` checks them; a
+ * long-form piece that falls short is repaired rather than stored.
+ *
+ * Counted in words, not characters: a writer thinks in words, and the number
+ * is stated to the model in the same unit it is checked in.
+ */
+export const lengthGuidance = z.object({
+  /** Minimum words in `body` for a post; null when the body is an introduction to sections. */
+  minBodyWords: z.number().int().min(0).nullable(),
+  /** Minimum words across body and sections for a page or a mail. */
+  minTotalWords: z.number().int().min(0).nullable(),
+  minSections: z.number().int().min(0).nullable(),
+  maxSections: z.number().int().min(0).nullable(),
+  /** Minimum words per section, when the channel has sections. */
+  minSectionWords: z.number().int().min(0).nullable(),
+  /** Hashtag range; `0`/`0` means the channel carries none. */
+  minHashtags: z.number().int().min(0),
+  maxHashtags: z.number().int().min(0),
+});
+export type LengthGuidance = z.infer<typeof lengthGuidance>;
+
 /** Recommended, not enforced. Produces warnings, never blocks. */
 export const channelGuidance = z.object({
   /** Recommended maximum body/caption length. */
@@ -153,8 +196,34 @@ export const channelGuidance = z.object({
   verification: channelVerification,
   sourceUrl: z.url().nullable(),
   verifiedAt: z.iso.datetime({ offset: true }).nullable(),
+  /** House-style minimums and hashtag range; see `lengthGuidance`. */
+  length: lengthGuidance,
 });
 export type ChannelGuidance = z.infer<typeof channelGuidance>;
+
+/** A channel without house-style minimums: the three advertising channels. */
+const NO_LENGTH_RULES: LengthGuidance = Object.freeze({
+  minBodyWords: null,
+  minTotalWords: null,
+  minSections: null,
+  maxSections: null,
+  minSectionWords: null,
+  minHashtags: 0,
+  maxHashtags: 0,
+});
+
+/** A post: a body with a minimum, hashtags in a range, no sections. */
+function postLength(minBodyWords: number, minHashtags: number, maxHashtags: number): LengthGuidance {
+  return {
+    minBodyWords,
+    minTotalWords: null,
+    minSections: null,
+    maxSections: null,
+    minSectionWords: null,
+    minHashtags,
+    maxHashtags,
+  };
+}
 
 export const channelFormatSpec = z.object({
   channel: marketingChannel,
@@ -239,6 +308,8 @@ const linkedInSingleImage: ChannelFormatSpec = {
     verification: 'verified_against_official_docs',
     sourceUrl: LINKEDIN_TEXT_DOC,
     verifiedAt: CHECKED_AT,
+    // A post worth reading: a few paragraphs, and three to five hashtags.
+    length: postLength(80, 3, 5),
   },
   noteNl:
     'Bij een bericht met media geldt een kortere tekstlimiet (2.000 tekens) dan bij een bericht zonder media (3.000 tekens).',
@@ -280,6 +351,8 @@ const instagramSingleImage: ChannelFormatSpec = {
     verification: 'verified_against_official_docs',
     sourceUrl: INSTAGRAM_CAPTION_DOC,
     verifiedAt: CHECKED_AT,
+    // Short by nature, but never a one-liner; hashtags carry reach here.
+    length: postLength(40, 5, 10),
   },
   noteNl:
     'Instagram kort de tekst in de feed af na circa 125 tekens. Zet de kernboodschap vooraan.',
@@ -325,6 +398,7 @@ const facebookSingleImage: ChannelFormatSpec = {
     verification: 'unverified',
     sourceUrl: null,
     verifiedAt: null,
+    length: postLength(60, 1, 3),
   },
   noteNl:
     'De uploadlimieten van Facebook zijn gecontroleerd tegen de Graph API-documentatie van Meta: maximaal 10 MB per afbeelding. Meta publiceert geen maximale tekstlengte voor een paginabericht, dus daarvoor geldt geen richtlijn. Voor PNG raadt Meta aan onder 1 MB te blijven; onze afbeeldingen zitten daar ruim onder.',
@@ -386,12 +460,29 @@ const emailMessage: ChannelFormatSpec = {
     verification: 'unverified',
     sourceUrl: null,
     verifiedAt: null,
+    // A mail that answers a reader's question: an opening and two to four
+    // titled parts, a few hundred words in all. No hashtags in a mail.
+    length: {
+      minBodyWords: null,
+      minTotalWords: 180,
+      minSections: 2,
+      maxSections: 4,
+      minSectionWords: 30,
+      minHashtags: 0,
+      maxHashtags: 0,
+    },
   },
   noteNl:
     'De weergave en afkaplimieten van e-mailclients (Gmail, Outlook, Apple Mail) zijn niet tegen een primaire bron gecontroleerd. Daarom kan een e-mail wel als concept worden geëxporteerd, maar niet publicatieklaar. De HTML bevat geen scripts en laadt niets van internet; er wordt niets verzonden.',
 };
 
-const landingPage: ChannelFormatSpec = {
+/**
+ * The website, as one channel, until 2026-09-15.
+ *
+ * Kept so stored rows still resolve to a specification and a label. It is out
+ * of `PRODUCIBLE_CHANNELS`, so nothing new is planned on it.
+ */
+const legacyWebsite: ChannelFormatSpec = {
   channel: 'landing_page',
   format: 'text_only',
   hard: {
@@ -404,8 +495,6 @@ const landingPage: ChannelFormatSpec = {
     verifiedAt: null,
   },
   guidance: {
-    // The introduction above the first section; long enough to say who the
-    // page is for, short enough to read before scrolling.
     bodyMaxChars: 1_200,
     bodyMaxCharsWithMedia: null,
     bodyTruncatesAtChars: null,
@@ -414,9 +503,109 @@ const landingPage: ChannelFormatSpec = {
     verification: 'not_platform_constrained',
     sourceUrl: null,
     verifiedAt: null,
+    length: {
+      minBodyWords: null,
+      minTotalWords: 500,
+      minSections: 4,
+      maxSections: 6,
+      minSectionWords: 120,
+      minHashtags: 0,
+      maxHashtags: 0,
+    },
   },
   noteNl:
-    'Een landingspagina staat op je eigen site: er is geen platform dat limieten oplegt. De richtlijnen hier zijn huisstijl, geen platformregels. De pagina wordt als losse secties geleverd, niet als HTML — je plaatst ze zelf in je CMS.',
+    'Oude vorm van het websitekanaal. Sinds 15 september 2026 zijn een wijziging van de opleidingspagina en een blogartikel aparte kanalen; bestaande stukken blijven hier leesbaar en exporteerbaar.',
+};
+
+/**
+ * A change proposal for the existing course page.
+ *
+ * Its unit is the change, not the page: a place, a reason, the passage that is
+ * there now and the text that should replace it. So the page-length rules do
+ * not apply — they never did, the check exempted this form explicitly — but
+ * each proposed passage has to be long enough to stand on the page.
+ */
+const coursePageUpdate: ChannelFormatSpec = {
+  channel: 'course_page_update',
+  format: 'text_only',
+  hard: {
+    imageFormats: [],
+    maxImagePixels: null,
+    maxImageBytes: null,
+    altTextMaxChars: null,
+    verification: 'not_platform_constrained',
+    sourceUrl: null,
+    verifiedAt: null,
+  },
+  guidance: {
+    bodyMaxChars: 1_200,
+    bodyMaxCharsWithMedia: null,
+    bodyTruncatesAtChars: null,
+    headlineMaxChars: 120,
+    images: [],
+    verification: 'not_platform_constrained',
+    sourceUrl: null,
+    verifiedAt: null,
+    // The introduction explains the proposal; the changes carry the words, and
+    // `quality.ts` checks those per change.
+    length: {
+      minBodyWords: null,
+      minTotalWords: null,
+      minSections: null,
+      maxSections: null,
+      minSectionWords: null,
+      minHashtags: 0,
+      maxHashtags: 0,
+    },
+  },
+  noteNl:
+    'Een wijzigingsvoorstel voor de bestaande opleidingspagina: per ingreep de plek, de reden, de huidige passage en de voorgestelde tekst. Je plaatst het zelf in je CMS; het pakket levert het ook als Markdown.',
+};
+
+/**
+ * A blog article: a page in its own right.
+ *
+ * The lengths here are the ones the prompt actually asks for. They used to
+ * come from the shared website specification, which capped sections at six and
+ * demanded 120 words each, while the prompt commissioned four to seven sections
+ * of sixty to 320 words — so the system ordered an article it then refused
+ * (audit 2026-09-15).
+ */
+const blogArticle: ChannelFormatSpec = {
+  channel: 'blog_article',
+  format: 'text_only',
+  hard: {
+    imageFormats: [],
+    maxImagePixels: null,
+    maxImageBytes: null,
+    altTextMaxChars: null,
+    verification: 'not_platform_constrained',
+    sourceUrl: null,
+    verifiedAt: null,
+  },
+  guidance: {
+    bodyMaxChars: 1_200,
+    bodyMaxCharsWithMedia: null,
+    bodyTruncatesAtChars: null,
+    headlineMaxChars: 120,
+    images: [],
+    verification: 'not_platform_constrained',
+    sourceUrl: null,
+    verifiedAt: null,
+    length: {
+      minBodyWords: null,
+      // `MIN_ARTICLE_WORDS` in `quality.ts` holds the same floor for the
+      // article's own body; this is the whole piece.
+      minTotalWords: 800,
+      minSections: 4,
+      maxSections: 7,
+      minSectionWords: 60,
+      minHashtags: 0,
+      maxHashtags: 0,
+    },
+  },
+  noteNl:
+    'Een blogartikel staat op je eigen site: er is geen platform dat limieten oplegt. De richtlijnen hier zijn huisstijl. Het pakket levert het als tekst en als Markdown, met titel, metabeschrijving en veelgestelde vragen.',
 };
 
 /**
@@ -435,59 +624,225 @@ const landingPage: ChannelFormatSpec = {
  * knows: nothing, and go and check. `isPublishable` refuses accordingly, which
  * is the same treatment Facebook and e-mail get and for the same reason.
  */
-function adChannel(channel: 'linkedin_ads' | 'meta_ads' | 'google_search_ads'): ChannelFormatSpec {
-  const platformNl = {
-    linkedin_ads: 'LinkedIn Campaign Manager',
-    meta_ads: 'Meta Ads Manager',
-    google_search_ads: 'Google Ads',
-  }[channel];
+/**
+ * LinkedIn single-image advertisement, read against LinkedIn's own advertising
+ * specification page (2026-09-15).
+ *
+ * The three ratios and their recommended sizes are LinkedIn's, as are the
+ * truncation points: 150 characters of introductory text and 70 of headline
+ * before the platform cuts, with hard maxima of 3.000 and 200. The destination
+ * URL is listed as required, which is why `required_cta_links_present` matters
+ * more here than on an organic post.
+ */
+const LINKEDIN_ADS_DOC =
+  'https://www.linkedin.com/help/lms/answer/a426534/single-image-ads-advertising-specifications';
+const META_ADS_DOC = 'https://www.facebook.com/business/ads-guide/image/facebook-feed/';
+const ADS_CHECKED_AT = '2026-09-15T00:00:00.000Z';
 
+const linkedInAdsSingleImage: ChannelFormatSpec = {
+  channel: 'linkedin_ads',
+  format: 'single_image',
+  hard: {
+    imageFormats: ['jpeg', 'png', 'gif'],
+    maxImagePixels: null,
+    // "Max file size: 5MB".
+    maxImageBytes: 5 * 1_048_576,
+    altTextMaxChars: null,
+    verification: 'verified_against_official_docs',
+    sourceUrl: LINKEDIN_ADS_DOC,
+    verifiedAt: ADS_CHECKED_AT,
+  },
+  guidance: {
+    bodyMaxChars: 3_000,
+    bodyMaxCharsWithMedia: null,
+    // "150 characters to avoid truncation".
+    bodyTruncatesAtChars: 150,
+    // "200 character maximum"; 70 before truncation.
+    headlineMaxChars: 200,
+    images: [
+      { widthPx: 1200, heightPx: 628, aspectRatioLabel: '1.91:1', isDefault: true },
+      { widthPx: 1200, heightPx: 1200, aspectRatioLabel: '1:1', isDefault: false },
+      { widthPx: 720, heightPx: 900, aspectRatioLabel: '4:5', isDefault: false },
+    ],
+    verification: 'verified_against_official_docs',
+    sourceUrl: LINKEDIN_ADS_DOC,
+    verifiedAt: ADS_CHECKED_AT,
+    // No house-style minimum: an advertisement is short by design, and the
+    // platform's own truncation point is the rule that matters.
+    length: NO_LENGTH_RULES,
+  },
+  noteNl:
+    'LinkedIn kapt de inleidende tekst af na 150 tekens en de kop na 70; de harde maxima zijn 3.000 en 200. Een bestemmings-URL is verplicht. Dit systeem levert tekst en beeld, geen advertentieaccount: er worden geen zoekvolumes, klikprijzen of conversieverwachtingen geproduceerd.',
+};
+
+/**
+ * Meta advertisement for the Facebook and Instagram feed, read against Meta's
+ * own advertising guide (2026-09-15).
+ *
+ * The two feeds share the image specification — 4:5 at 1440 × 1800 — and differ
+ * on text: Facebook states a headline of 27 characters and primary text of 50
+ * to 150, Instagram 40 and 125. The tighter of each is used, because one
+ * creative runs on both placements.
+ */
+const metaAdsSingleImage: ChannelFormatSpec = {
+  channel: 'meta_ads',
+  format: 'single_image',
+  hard: {
+    imageFormats: ['jpeg', 'png'],
+    maxImagePixels: null,
+    maxImageBytes: 30 * 1_048_576,
+    altTextMaxChars: null,
+    verification: 'verified_against_official_docs',
+    sourceUrl: META_ADS_DOC,
+    verifiedAt: ADS_CHECKED_AT,
+  },
+  guidance: {
+    bodyMaxChars: null,
+    bodyMaxCharsWithMedia: null,
+    // Instagram's 125 is the tighter of the two placements.
+    bodyTruncatesAtChars: 125,
+    // Facebook's 27 is the tighter of the two placements.
+    headlineMaxChars: 27,
+    images: [{ widthPx: 1440, heightPx: 1800, aspectRatioLabel: '4:5', isDefault: true }],
+    verification: 'verified_against_official_docs',
+    sourceUrl: META_ADS_DOC,
+    verifiedAt: ADS_CHECKED_AT,
+    length: NO_LENGTH_RULES,
+  },
+  noteNl:
+    'Eén creatie draait op de Facebook- én de Instagram-feed, dus geldt telkens de strengste van de twee: een kop van 27 tekens en een primaire tekst die na 125 tekens wordt afgekapt. Dit systeem levert tekst en beeld, geen advertentieaccount: er worden geen zoekvolumes, klikprijzen of conversieverwachtingen geproduceerd.',
+};
+
+/** The text-only form of each, for a plan cell without an image. */
+const linkedInAdsTextOnly: ChannelFormatSpec = {
+  ...linkedInAdsSingleImage,
+  format: 'text_only',
+  guidance: { ...linkedInAdsSingleImage.guidance, images: [] },
+};
+
+const metaAdsTextOnly: ChannelFormatSpec = {
+  ...metaAdsSingleImage,
+  format: 'text_only',
+  guidance: { ...metaAdsSingleImage.guidance, images: [] },
+};
+
+
+/**
+ * Google Search Ads, read against Google's own page on responsive search ads
+ * (2026-09-15): headlines of at most 30 characters, descriptions of at most
+ * 90, display paths of at most 15. Those are hard platform limits, so the
+ * channel is *verified* and a piece that keeps within them — and passes the
+ * copy checks — may go in a publish-ready package. Images are out of scope:
+ * the piece is text. What stays unknown is unchanged: no search volume, no
+ * click price, no conversion expectation is produced anywhere.
+ */
+function googleSearchAdsSpec(): ChannelFormatSpec {
   return {
-    channel,
+    channel: 'google_search_ads',
     format: 'text_only',
     hard: {
       imageFormats: [],
       maxImagePixels: null,
       maxImageBytes: null,
       altTextMaxChars: null,
-      verification: 'unverified',
-      sourceUrl: null,
-      verifiedAt: null,
+      verification: 'verified_against_official_docs',
+      sourceUrl: GOOGLE_RSA.source.url,
+      verifiedAt: GOOGLE_RSA.verifiedAt,
     },
     guidance: {
-      // Deliberately null: see the note above. A guessed limit is worse than
-      // no limit, because it looks like it was checked.
-      bodyMaxChars: null,
+      bodyMaxChars: GOOGLE_RSA.descriptions.maxChars,
       bodyMaxCharsWithMedia: null,
       bodyTruncatesAtChars: null,
-      headlineMaxChars: null,
+      headlineMaxChars: GOOGLE_RSA.headlines.maxChars,
       images: [],
-      verification: 'unverified',
-      sourceUrl: null,
-      verifiedAt: null,
+      verification: 'verified_against_official_docs',
+      sourceUrl: GOOGLE_RSA.source.url,
+      verifiedAt: GOOGLE_RSA.verifiedAt,
+      length: NO_LENGTH_RULES,
     },
-    noteNl: `De tekstlimieten en advertentieregels van ${platformNl} zijn niet tegen een primaire bron gecontroleerd, dus staan hier geen maximale lengtes. Controleer koppen, beschrijvingen en beleid in ${platformNl} zelf voordat je een advertentie aanzet. Dit systeem levert alleen tekstvoorstellen: er worden geen zoekvolumes, klikprijzen of conversieverwachtingen geproduceerd, want daarvoor is een advertentieaccount en een meetperiode nodig.`,
+    noteNl: `Responsieve zoekadvertentie volgens Google's documentatie (gelezen ${GOOGLE_RSA.verifiedAt.slice(0, 10)}): ${String(GOOGLE_RSA.headlines.min)} tot ${String(GOOGLE_RSA.headlines.max)} koppen van maximaal ${String(GOOGLE_RSA.headlines.maxChars)} tekens, ${String(GOOGLE_RSA.descriptions.min)} tot ${String(GOOGLE_RSA.descriptions.max)} beschrijvingen van maximaal ${String(GOOGLE_RSA.descriptions.maxChars)} tekens, twee weergavepaden van maximaal ${String(GOOGLE_RSA.paths.maxChars)} tekens. Dit systeem levert de tekst, de zoektermen als suggestie en het kader per fase; zoekvolumes, klikprijzen, biedingen en conversieverwachtingen komen uit het advertentieaccount en staan hier niet.`,
   };
 }
 
-const linkedInAds = adChannel('linkedin_ads');
-const metaAds = adChannel('meta_ads');
-const googleSearchAds = adChannel('google_search_ads');
+const googleSearchAds = googleSearchAdsSpec();
+
+/**
+ * Channels whose piece carries a rendered image.
+ *
+ * The two paid social channels joined on 2026-09-15. They shipped headlines and
+ * descriptions and no creative at all, which is not an advertisement: a Meta ad
+ * cannot run without an image or a video, and LinkedIn lists the image as
+ * required. Google Search Ads stays out — a search advertisement is text.
+ *
+ * It lives here rather than in the render module because the interface has to
+ * answer the same question before anything is generated: the form that asks for
+ * one loose piece says whether the channel it picked will come back with an
+ * image. Two lists would eventually disagree, and the one the user read would
+ * be the wrong one.
+ */
+/**
+ * Channels where the image itself is the click target.
+ *
+ * This decides whether a call to action belongs *in* the picture. On an organic
+ * post — LinkedIn, Instagram, Facebook — tapping the image opens the post; the
+ * destination lives in the caption, the first comment or the profile. So a
+ * "Bekijk de opleiding →" rendered into an organic image is an instruction the
+ * viewer cannot follow, and the arrow points at nothing. A paid single image is
+ * the click target and the platform puts its own button beside it, so there the
+ * call to action is real.
+ *
+ * An editorial rule of this product, not a quoted platform specification: it is
+ * about what we are willing to draw into a picture, and it is deliberately the
+ * conservative side of the question.
+ */
+export const CLICKABLE_IMAGE_CHANNELS: readonly MarketingChannel[] = Object.freeze([
+  'linkedin_ads',
+  'meta_ads',
+]);
+
+/** Whether a call to action drawn into this channel's image can be followed. */
+export function imageIsClickable(channel: MarketingChannel): boolean {
+  return CLICKABLE_IMAGE_CHANNELS.includes(channel);
+}
+
+export const IMAGE_CHANNELS: readonly MarketingChannel[] = Object.freeze([
+  'linkedin_organic',
+  'instagram_organic',
+  'facebook_organic',
+  'linkedin_ads',
+  'meta_ads',
+]);
+
+export function rendersImage(channel: MarketingChannel): boolean {
+  return IMAGE_CHANNELS.includes(channel);
+}
 
 export const CHANNEL_CONFIG: ChannelConfigVersion = Object.freeze({
   // 4: the landing page joined the set (P3-1).
   // 5: e-mail joined, unverified and therefore draft-only (P3-2).
   // 6: the three advertising channels joined, likewise draft-only (P3-4).
-  version: 6,
+  // 7: house-style minimums and hashtag ranges per channel (`length`), and the
+  //    website piece as a page change or an article (2026-09-12).
+  // 8: Google Search Ads verified against Google's documentation: 30 · 90 · 15
+  //    (google-ads-practice.md, 2026-09-15).
+  // 9: LinkedIn Ads and Meta Ads verified and given images — both shipped copy
+  //    with no creative at all, which is not an advertisement (2026-09-15).
+  // 10: the website split into a course-page change and a blog article, each
+  //    with its own length rules; `landing_page` kept as history (2026-09-15).
+  version: 10,
   formats: Object.freeze([
     linkedInSingleImage,
     linkedInTextOnly,
     instagramSingleImage,
     facebookSingleImage,
-    landingPage,
+    legacyWebsite,
+    coursePageUpdate,
+    blogArticle,
     emailMessage,
-    linkedInAds,
-    metaAds,
+    linkedInAdsSingleImage,
+    linkedInAdsTextOnly,
+    metaAdsSingleImage,
+    metaAdsTextOnly,
     googleSearchAds,
   ]) as ChannelFormatSpec[],
 });
@@ -526,6 +881,65 @@ export function isPublishable(
   );
 }
 
+/**
+ * The house-style minimums of a channel, from whichever format spec carries
+ * them; every format of one channel shares the same rules. The advertising
+ * defaults apply to a channel without a spec, which cannot happen for a
+ * channel in the vocabulary but keeps the return type honest.
+ */
+export function lengthGuidanceFor(
+  channel: MarketingChannel,
+  config: { readonly formats: readonly ChannelFormatSpec[] } = CHANNEL_CONFIG,
+): LengthGuidance {
+  return config.formats.find((item) => item.channel === channel)?.guidance.length ?? NO_LENGTH_RULES;
+}
+
+/**
+ * The platform-enforced constraints of a channel, if it has a spec.
+ *
+ * These were declared and then read nowhere in the API for months: the export
+ * gate checked only whether a spec had been *verified*, never whether the file
+ * obeyed it (audit 2026-09-15). `assertImageWithinChannelLimits` is the caller
+ * that closes that.
+ */
+export function hardConstraintsFor(
+  config: { readonly formats: readonly ChannelFormatSpec[] },
+  channel: MarketingChannel,
+  format: AssetFormat = 'single_image',
+): HardConstraints | undefined {
+  return findChannelSpec(config, channel, format)?.hard;
+}
+
+/** What our renderer can encode. */
+export type ImageEncoding = 'png' | 'jpeg';
+
+export const IMAGE_MIME_TYPE: Readonly<Record<ImageEncoding, string>> = Object.freeze({
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+});
+
+/**
+ * The encoding to render for a channel.
+ *
+ * JPEG wherever the platform accepts it, which is everywhere we publish.
+ * Instagram's publishing API accepts **only** JPEG, so a PNG could not be
+ * uploaded at all; Meta advises keeping a PNG under 1 MB, which a 1080×1350
+ * render is not; and LinkedIn's own help page prefers a high-resolution JPEG.
+ * PNG remains the fallback for a channel with no spec and for the brand
+ * preview, where the file never leaves the tool.
+ */
+export function imageEncodingFor(
+  config: { readonly formats: readonly ChannelFormatSpec[] },
+  channel: MarketingChannel,
+  format: AssetFormat = 'single_image',
+): ImageEncoding {
+  const hard = hardConstraintsFor(config, channel, format);
+  if (hard === undefined) {
+    return 'png';
+  }
+  return hard.imageFormats.includes('jpeg') ? 'jpeg' : 'png';
+}
+
 /** The image size our render layer produces for a channel, if any. */
 export function defaultImageSpec(
   config: { readonly formats: readonly ChannelFormatSpec[] },
@@ -540,7 +954,37 @@ export function defaultImageSpec(
 }
 
 export const channelWarning = z.object({
-  kind: z.enum(['body_too_long', 'body_truncated', 'specs_unverified', 'no_image_spec']),
+  kind: z.enum([
+    'body_too_long',
+    'body_truncated',
+    'specs_unverified',
+    'no_image_spec',
+    // House-style quality checks (content-assets/quality.ts), 2026-09-12.
+    'body_too_short',
+    'sections_missing',
+    'hashtags_missing',
+    'hashtags_invalid',
+    'alt_text_missing',
+    'website_form_missing',
+    'keywords_missing',
+    'copied_fact_sentence',
+    'repeated_across_pieces',
+    'page_excerpt_not_found',
+    'page_unavailable',
+    // Blog-article practice (blog-article-practice.md), 2026-09-14.
+    'article_structure',
+    'marketese',
+    'unverified_number',
+    'unsourced_fact',
+    'course_share',
+    'readability',
+    // Google Ads practice (google-ads-practice.md), 2026-09-15.
+    'ad_headline_too_long',
+    'ad_description_too_long',
+    'ad_assets_missing',
+    'ad_policy_risk',
+    'ad_keyword_missing',
+  ]),
   messageNl: z.string(),
   /** Warnings never block a draft; only `blocksPublishReady` gates the package. */
   blocksPublishReady: z.boolean(),
@@ -623,9 +1067,12 @@ export const CHANNEL_LABEL_NL: Readonly<Record<MarketingChannel, string>> = Obje
   linkedin_organic: 'LinkedIn',
   instagram_organic: 'Instagram',
   facebook_organic: 'Facebook',
-  landing_page: 'Landingspagina',
+  // Kept for stored rows made before the split; not plannable.
+  landing_page: 'Website (oude vorm)',
+  course_page_update: 'Wijziging opleidingspagina',
+  blog_article: 'Blogartikel',
   email: 'E-mail',
   linkedin_ads: 'LinkedIn Ads',
   meta_ads: 'Meta Ads',
-  google_search_ads: 'Google Search Ads',
+  google_search_ads: 'Google Ads (zoekadvertenties)',
 });

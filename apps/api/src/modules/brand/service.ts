@@ -34,6 +34,13 @@ import type { ApprovalService } from '../reviews-approvals/service.js';
 const rulesSchema = z.array(z.object({ kind: z.enum(['must', 'must_not']), text: z.string() }));
 
 export class BrandService {
+  /** Set at wiring time (`server.ts`); see the note on `CourseService`. */
+  private flagStaleContent?: (db: DbOrTx, labelId: string) => Promise<number>;
+
+  useStaleContentFlagger(flag: (db: DbOrTx, labelId: string) => Promise<number>): void {
+    this.flagStaleContent = flag;
+  }
+
   constructor(private readonly approvals: ApprovalService, public readonly portal?: PortalSyncService) {}
 
   /** The approved profile, or undefined when the label has none yet. */
@@ -243,6 +250,10 @@ export class BrandService {
         artefactVersion: target.version,
         noteNl,
       });
+
+      // Content approved under the merkversie just archived has to be looked
+      // at again; flagged in the same commit.
+      await this.flagStaleContent?.(tx, labelId);
 
       const updated = await this.findVersion(tx, labelId, versionId);
       if (updated === undefined) {

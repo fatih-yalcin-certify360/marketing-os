@@ -28,7 +28,7 @@ function VisibilityLabel({label}:{label:LabelSummary}):ReactNode{
  const submit=(event:FormEvent<HTMLFormElement>,fn:(d:FormData,form:HTMLFormElement)=>void)=>{event.preventDefault();fn(values(event.currentTarget),event.currentTarget);};
  const editEntity=overview.data?.entities.find(e=>e.id===editing);
  const prompts=overview.data?.prompts.filter(p=>p.courseVersionId===courseId)??[];
- return <main className="visibility-page"><header><h1>AI Visibility</h1><p>Van een controleerbaar AI-antwoord naar een onderbouwde campagnehypothese.</p></header>
+ return <div className="visibility-page"><div className="c360-section-header"><div className="c360-section-header__text"><h2 className="c360-section-title c360-section-title--sm">Handmatige AI-productmetingen</h2><p className="c360-card__hint">Van een controleerbaar AI-antwoord naar een onderbouwde campagnehypothese.</p></div></div>
  <Notice tone="info">Handmatige metingen. Automatisch ophalen uit AI-consumentenproducten is nog niet beschikbaar. API-antwoorden worden apart gemeten. Vermeldingen bewijzen geen aanbeveling, marktvraag of contentkwaliteit.</Notice>
  <FlowNavigation label="AI Visibility" value={tab} onChange={setTab} items={[{id:'setup',label:'1. Merken',panelId:'visibility-setup'},{id:'prompts',label:'2. Vragen & benchmark',panelId:'visibility-prompts'},{id:'results',label:'3. Metingen & bewijs',panelId:'visibility-results'}]}/>
  {overview.isPending&&<p role="status">Laden…</p>}{(overview.error??run.error??mutation.error??courses.error)&&<Notice tone="warning">{(overview.error??run.error??mutation.error??courses.error)?.userMessage}</Notice>}{message&&<p role="status">{message}</p>}
@@ -47,7 +47,7 @@ function VisibilityLabel({label}:{label:LabelSummary}):ReactNode{
  </Card></section>
  <section hidden={tab!=='results'} id="visibility-results" role="tabpanel" aria-label="Metingen en bewijs"><label>Meetronde<select value={runId} onChange={e=>setRunId(e.target.value)}><option value="">Kies een meetronde</option>{overview.data?.runs.map(r=><option key={r.id} value={r.id}>{r.name} · {new Date(r.created_at).toLocaleString('nl-NL')}</option>)}</select></label>{!overview.data?.runs.length&&<p>Nog geen metingen. Configureer merken, keur vragen goed en maak een meetset.</p>}
  {run.data&&<RunPanel key={run.data.id} run={run.data} write={write} pending={mutation.isPending} onImport={(body,form)=>send(`/runs/${runId}/observations`,body,form)} onCampaign={id=>mutation.mutate({path:`/runs/${runId}/campaigns`,body:{observationId:id},next:'campaign'})}/>}
- </section></main>;
+ </section></div>;
 }
 function RunPanel({run,write,pending,onImport,onCampaign}:{run:VisibilityRun;write:boolean;pending:boolean;onImport:(body:unknown,form:HTMLFormElement)=>void;onCampaign:(id:string)=>void}):ReactNode{
  const [engine,setEngine]=useState<string>(run.engines[0]!);const [kind,setKind]=useState('unbranded');const [status,setStatus]=useState('success');

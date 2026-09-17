@@ -9,6 +9,7 @@ import type {CampaignService} from '../campaigns-briefs/service.js';
 import type {CourseService} from '../courses/service.js';
 import {normalize,matchedEntities,promptKind,canonicalCitation,metrics,similarPrompts,ownDomain} from './analysis.js';
 import {ManualImportAdapter} from './adapters.js';
+import {listCompetitors,assertCompetitorIdentityAvailable} from '../competitors/service.js';
 type Row=Record<string,unknown>;
 const str=(x:unknown):string=>String(x);
 function entity(r:Row):VisibilityEntity{return {id:str(r.id),...visibilityEntityInput.parse({name:r.name,kind:r.kind,aliases:r.aliases,domains:r.domains})};}
@@ -24,10 +25,9 @@ export class VisibilityService {
  async addEntity(db:Db,user:CurrentUser,labelId:string,body:unknown,id?:string){
  requireLabelPermission(user,labelId,'campaign:write');const input=visibilityEntityInput.parse(body);
  return db.transaction(async tx=>{await tx.execute(sql`SELECT id FROM labels WHERE id=${labelId} FOR UPDATE`);
- const existing=(await tx.execute(sql`SELECT * FROM visibility_entities WHERE label_id=${labelId}`)).rows.map(entity);
+ const existing=await listCompetitors(tx,labelId);
  if(id&&!existing.some(e=>e.id===id))throw AppError.notFoundOrForbidden('visibility_entity',id);
- const terms=[input.name,...input.aliases,...input.domains].map(normalize);
- if(new Set(terms).size!==terms.length||existing.filter(e=>e.id!==id).some(e=>[e.name,...e.aliases,...e.domains].some(t=>terms.includes(normalize(t)))||(e.kind==='own'&&input.kind==='own')))throw new AppError('conflict',{publicMessage:'Deze naam/alias bestaat al of er is al een eigen merk. Gebruik ondubbelzinnige namen.'});
+ assertCompetitorIdentityAvailable(existing,input,id);
  await tx.execute(sql`INSERT INTO visibility_entities(id,label_id,name,kind,aliases,domains) VALUES(${id??randomUUID()},${labelId},${input.name},${input.kind},${sql`ARRAY[${sql.join(input.aliases.map(a=>sql`${a}`),sql`, `)}]::text[]`},${sql`ARRAY[${sql.join(input.domains.map(a=>sql`${a}`),sql`, `)}]::text[]`}) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,kind=EXCLUDED.kind,aliases=EXCLUDED.aliases,domains=EXCLUDED.domains`);
  return {saved:true};});
  }

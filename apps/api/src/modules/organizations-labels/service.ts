@@ -1,5 +1,5 @@
-import type { CurrentUser, LabelReadiness, LabelSummary } from '@c360/contracts';
-import { dataOrigin } from '@c360/contracts';
+import type { CurrentUser, LabelPaletteColors, LabelReadiness, LabelSummary } from '@c360/contracts';
+import { dataOrigin, labelPalette } from '@c360/contracts';
 import type { Db } from '../../core/db/types.js';
 import { AppError } from '../../core/errors/app-error.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
@@ -21,6 +21,11 @@ export class LabelService {
       ...roleByLabelId.keys(),
     ]);
 
+    const palettes = await this.repository.findApprovedColorsByLabelIds(
+      db,
+      records.map((record) => record.id),
+    );
+
     const summaries: LabelSummary[] = [];
     for (const record of records) {
       const role = roleByLabelId.get(record.id);
@@ -36,6 +41,7 @@ export class LabelService {
         role,
         isActive: record.isActive,
         createdAt: record.createdAt.toISOString(),
+        palette: paletteOf(palettes.get(record.id)),
       });
     }
     return summaries;
@@ -52,6 +58,7 @@ export class LabelService {
       throw AppError.notFoundOrForbidden('label', labelId);
     }
     const parsedOrigin = dataOrigin.safeParse(record.origin);
+    const palettes = await this.repository.findApprovedColorsByLabelIds(db, [record.id]);
     return {
       id: record.id,
       slug: record.slug,
@@ -60,6 +67,7 @@ export class LabelService {
       role: membership.role,
       isActive: record.isActive,
       createdAt: record.createdAt.toISOString(),
+      palette: paletteOf(palettes.get(record.id)),
     };
   }
 
@@ -85,4 +93,27 @@ export class LabelService {
       assetsNeedingRereviewCount: 0,
     };
   }
+}
+
+/**
+ * The three interface colours of one approved brand profile.
+ *
+ * The stored `colors` object is JSON, so it is parsed rather than trusted: a
+ * profile written before the current shape, or one whose colours were edited
+ * outside the application, yields `null` — and a label without a palette is
+ * shown as "no approved profile" rather than being painted a colour nobody
+ * approved. `onSurface` is the brand's dark text colour and becomes the ink the
+ * navigation rail is derived from.
+ */
+function paletteOf(colors: unknown): LabelPaletteColors | null {
+  if (colors === null || typeof colors !== 'object') {
+    return null;
+  }
+  const { primary, accent, onSurface } = colors as {
+    primary?: unknown;
+    accent?: unknown;
+    onSurface?: unknown;
+  };
+  const parsed = labelPalette.safeParse({ primary, accent, ink: onSurface });
+  return parsed.success ? parsed.data : null;
 }

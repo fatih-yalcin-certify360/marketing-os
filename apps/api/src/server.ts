@@ -1,6 +1,7 @@
 import { GeoService } from './modules/ai-visibility/geo-service.js';
 import { VisibilityService } from './modules/ai-visibility/service.js';
 import { visibilityRoutes } from './modules/ai-visibility/routes.js';
+import { competitorRoutes } from './modules/competitors/routes.js';
 import { CampaignPackageService } from './modules/campaign-packages/service.js';
 import { campaignPackageRoutes } from './modules/campaign-packages/routes.js';
 import { MarketRadarService } from './modules/market-radar/service.js';
@@ -43,7 +44,9 @@ import { CampaignService } from './modules/campaigns-briefs/service.js';
 import { campaignRoutes } from './modules/campaigns-briefs/routes.js';
 import { ConceptService } from './modules/concepts/service.js';
 import { ContentAssetService } from './modules/content-assets/service.js';
+import { fetchCoursePageText } from './modules/content-assets/course-page.js';
 import { contentRoutes } from './modules/content-assets/routes.js';
+import { displayBannerRoutes } from './modules/display-banners/routes.js';
 import { ExportService } from './modules/exports/service.js';
 import { LearningService } from './modules/learnings/service.js';
 import { SourceImpactService } from './modules/source-impact/service.js';
@@ -109,6 +112,7 @@ export function createAppContext({ env, db }: BuildServerOptions): AppContext {
     personas,
     opportunities,
     approvals,
+    audit,
   );
   const concepts = new ConceptService(
     generation,
@@ -117,6 +121,7 @@ export function createAppContext({ env, db }: BuildServerOptions): AppContext {
     personas,
     campaigns,
     approvals,
+    learningService,
   );
   const content = new ContentAssetService(
     generation,
@@ -128,7 +133,19 @@ export function createAppContext({ env, db }: BuildServerOptions): AppContext {
     concepts,
     approvals,
     new VisualGenerationService(provider, env),
+    learningService,
+    // The live course page, read once per content job through the guarded fetch.
+    (courseUrl) => fetchCoursePageText(courseUrl, env),
   );
+  /*
+   * Approving a course card or a brand version archives the previous one, and
+   * everything that quoted it has to be looked at again. The dependency runs
+   * content -> courses/brand, so the flag arrives here as a callback rather
+   * than as a constructor argument. Until 2026-09-15 nothing called it at all.
+   */
+  courses.useStaleContentFlagger((tx, labelId) => content.flagStaleForLabel(tx, labelId));
+  brand.useStaleContentFlagger((tx, labelId) => content.flagStaleForLabel(tx, labelId));
+
   const exportService = new ExportService(
     env.STORAGE_ROOT,
     brand,
@@ -136,6 +153,7 @@ export function createAppContext({ env, db }: BuildServerOptions): AppContext {
     campaigns,
     concepts,
     content,
+    generation.isMock,
   );
 
   const fairUse = FairUseLimiter.fromEnv(env);
@@ -169,7 +187,10 @@ export function createAppContext({ env, db }: BuildServerOptions): AppContext {
       sourceImpact: new SourceImpactService(research),
       uploads,
       research,
-      campaignPackages: new CampaignPackageService(generation, campaigns, courses, brand, env.STORAGE_ROOT),
+      campaignPackages: new CampaignPackageService(generation, campaigns, courses, brand, env.STORAGE_ROOT, {
+        personas,
+        plans: concepts,
+      }),
       geo: new GeoService(generation, courses, brand, env),
       visibility: new VisibilityService(campaigns, courses),
       radar: new MarketRadarService(generation, courses, campaigns, brand, env),
@@ -281,6 +302,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       await api.register(courseRoutes);
       await api.register(campaignRoutes);
       await api.register(contentRoutes);
+      await api.register(displayBannerRoutes);
       await api.register(uploadRoutes);
       await api.register(sourceRoutes);
       await api.register(outcomeRoutes);
@@ -288,6 +310,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       await api.register(sourceImpactRoutes);
       await api.register(radarRoutes);
       await api.register(visibilityRoutes);
+      await api.register(competitorRoutes);
     await api.register(campaignPackageRoutes);
     },
     { prefix: '/api/v1' },

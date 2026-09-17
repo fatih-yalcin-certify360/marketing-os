@@ -139,7 +139,7 @@ appear, because the API never returns them.
 | Liveness / readiness / Prometheus metrics on API **and** worker | Working |
 | Graceful shutdown; in-flight jobs finished or returned to the queue | Working, tested |
 | Measured load behaviour at 100 concurrent users | Measured — see [load assumptions](docs/architecture/load-assumptions.md) |
-| Browser check of the whole chain, asserted, in CI | `npm run smoke` — boots its own stack with the mock provider, drives sixteen steps, asserts ten properties of the finished campaign. No API key, no cost |
+| Browser check of the whole chain, asserted, in CI | `npm run smoke` — boots its own stack with the mock provider, drives the eight numbered steps (nineteen clicks), asserts sixteen properties of the finished campaign. No API key, no cost |
 | Blocking vulnerability gates in CI | Dependencies at high/critical (`npm run audit:gate`), container images at CRITICAL. Acceptances need a reason and an **expiry date**; a lapsed or stale one fails the build |
 
 **Facebook cannot reach a publish-ready export, on purpose.** LinkedIn and
@@ -188,6 +188,24 @@ AI_IMAGE_QUALITY=high           # xhigh/max also supported for GPT Image 2.5
 Nothing else changes: generation already runs as a worker job, so a call taking
 minutes cannot time out a request. A ChatGPT subscription is **not** API access
 — requirement 12 forbids using one that way, and so do the provider's terms.
+
+### Through a LiteLLM gateway
+
+```bash
+AI_PROVIDER=litellm
+LITELLM_BASE_URL=https://llm.internal   # no path; /v1/… is appended
+LITELLM_API_KEY=sk-your-virtual-key
+AI_TEXT_MODEL=team-default              # the alias your proxy defines
+```
+
+Same two endpoints, same adapter. What does **not** come along automatically is
+what the proxy cannot promise on its own: the hosted web-search tool is off
+unless you set `AI_WEB_SEARCH_ENABLED=true`, and market discovery is refused
+honestly while it is off. `AI_TEXT_PRICE_*_CENTS_PER_MTOK` prices your alias for
+the budget reservation, and `AI_COST_USD_TO_EUR_RATE` turns LiteLLM's own
+`x-litellm-response-cost` header into the recorded actual cost. Plain `http://`
+is refused in production. See
+[ADR-0019](docs/decisions/ADR-0019-litellm-gateway.md).
 
 ### Health, readiness and metrics
 

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 /**
@@ -39,8 +42,24 @@ function optionalString<T extends z.ZodType>(schema: T) {
 export const AuthMode = z.enum(['local', 'trusted-header']);
 export type AuthMode = z.infer<typeof AuthMode>;
 
-export const AiProviderName = z.enum(['mock', 'anthropic', 'openai']);
+/**
+ * Which provider serves generation.
+ *
+ * `litellm` is a **gateway**, not a model: the LiteLLM proxy speaks OpenAI's
+ * API in front of whatever is configured behind it (OpenAI, Azure, Anthropic,
+ * Bedrock, Vertex…). It therefore reuses the OpenAI-compatible adapter with a
+ * different base URL and key — and, deliberately, with its capabilities
+ * *declared* rather than assumed, because what the gateway can do depends on
+ * what is behind it. See `AI_WEB_SEARCH_ENABLED`.
+ */
+export const AiProviderName = z.enum(['mock', 'anthropic', 'openai', 'litellm']);
 export type AiProviderName = z.infer<typeof AiProviderName>;
+
+/** Providers that speak OpenAI's HTTP API, and so share one adapter. */
+export const OPENAI_COMPATIBLE_PROVIDERS: readonly AiProviderName[] = Object.freeze([
+  'openai',
+  'litellm',
+]);
 
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -168,6 +187,51 @@ const baseSchema = z.object({
   OPENAI_API_KEY: optionalString(z.string().min(1)),
   /** Optional: bill against a specific OpenAI organisation. */
   OPENAI_ORGANIZATION: optionalString(z.string().min(1)),
+
+  /**
+   * Where the LiteLLM proxy lives, without a path: `http://litellm:4000`.
+   *
+   * The adapter appends `/v1/responses` and `/v1/images/generations`, the same
+   * two endpoints it calls on OpenAI directly.
+   */
+  LITELLM_BASE_URL: optionalString(z.url().max(500)),
+  /** The LiteLLM virtual key (`sk-…`) this deployment calls with. */
+  LITELLM_API_KEY: optionalString(z.string().min(1)),
+
+  /**
+   * Whether the provider offers the hosted web-search tool.
+   *
+   * Unset means "whatever this provider is known to do": OpenAI directly has
+   * it, a gateway does not — a LiteLLM proxy only passes the hosted tool
+   * through when the model behind it is an OpenAI model that supports it, and
+   * claiming it when it is not turns the market scan into a silent failure.
+   * Set it to `true` when your proxy does pass it through; the product then
+   * offers discovery, and refuses it honestly when it does not.
+   */
+  AI_WEB_SEARCH_ENABLED: optionalString(boolish),
+
+  /**
+   * The price of the configured text model, in eurocents per million tokens.
+   *
+   * Needed for a gateway, where `AI_TEXT_MODEL` is an alias the proxy defines
+   * and our own price table cannot know. Unset leaves the existing behaviour:
+   * a known model is priced from the table, an unknown one reserves a
+   * deliberately high placeholder and reports **no** actual cost rather than a
+   * made-up one.
+   */
+  AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK: optionalString(z.coerce.number().min(0).max(1_000_000)),
+  AI_TEXT_PRICE_OUTPUT_CENTS_PER_MTOK: optionalString(z.coerce.number().min(0).max(1_000_000)),
+
+  /**
+   * Euro per US dollar, for reading LiteLLM's own cost header.
+   *
+   * The proxy returns `x-litellm-response-cost` in **dollars**; every column in
+   * this product is in eurocents. Without a rate the header is ignored, because
+   * a conversion nobody configured is a number nobody can check. Set it and the
+   * proxy's figure — which knows the real upstream price — becomes the recorded
+   * actual cost.
+   */
+  AI_COST_USD_TO_EUR_RATE: optionalString(z.coerce.number().gt(0).max(10)),
   /**
    * Text model.
    *
@@ -220,7 +284,19 @@ const baseSchema = z.object({
   /** Uploads are written here and served only through authorised endpoints. */
   BRAND_PORTAL_BASE_URL: z.url().optional(),
   BRAND_PORTAL_API_KEY: z.string().min(1).optional(),
-  STORAGE_ROOT: z.string().min(1).default('./var/storage'),
+  /**
+   * Resolved against the **repository root** when relative, never against the
+   * process's working directory.
+   *
+   * The api and the worker are separate processes that must see the same
+   * files: the api stores an uploaded logo, the worker composites it into an
+   * image. Both are started with `npm run dev -w <workspace>`, whose working
+   * directory is the workspace folder — so a relative `./var/storage` meant
+   * `apps/api/var/storage` for one and `apps/worker/var/storage` for the
+   * other, and the first real content run with a logo died on `ENOENT` in the
+   * worker. An absolute path is left exactly as given.
+   */
+  STORAGE_ROOT: z.string().min(1).default('./var/storage').transform(resolveStorageRoot),
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1024).default(26_214_400),
 
   /** Opt-in escape hatch used only by tests that assert the guards themselves. */
@@ -228,6 +304,42 @@ const baseSchema = z.object({
 });
 
 export type RawServerEnv = z.input<typeof baseSchema>;
+
+/**
+ * The monorepo root: the nearest ancestor of this file whose `package.json`
+ * declares `workspaces`. This package is consumed as source, so the walk starts
+ * at `packages/config/src`; from a built copy it would start one level deeper
+ * and arrive at the same place. Falls back to the working directory when no
+ * such ancestor exists (a deployment that copies only one package), which is
+ * the previous behaviour.
+ */
+export function repositoryRoot(): string {
+  let directory = dirname(fileURLToPath(import.meta.url));
+  for (let depth = 0; depth < 8; depth += 1) {
+    const candidate = resolve(directory, 'package.json');
+    if (existsSync(candidate)) {
+      try {
+        const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as { workspaces?: unknown };
+        if (manifest.workspaces !== undefined) {
+          return directory;
+        }
+      } catch {
+        // An unreadable manifest is not the root; keep walking.
+      }
+    }
+    const parent = dirname(directory);
+    if (parent === directory) {
+      break;
+    }
+    directory = parent;
+  }
+  return process.cwd();
+}
+
+/** A relative storage root becomes absolute under the repository root; an absolute one is untouched. */
+export function resolveStorageRoot(value: string): string {
+  return isAbsolute(value) ? value : resolve(repositoryRoot(), value);
+}
 
 export const serverEnvSchema = baseSchema.superRefine((env, ctx) => {
   const isProduction = env.NODE_ENV === 'production';
@@ -284,12 +396,47 @@ export const serverEnvSchema = baseSchema.superRefine((env, ctx) => {
     });
   }
 
-  if (env.AI_IMAGE_ENABLED && env.AI_PROVIDER !== 'openai') {
+  if (env.AI_PROVIDER === 'litellm' && !env.LITELLM_BASE_URL) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LITELLM_BASE_URL'],
+      message:
+        'AI_PROVIDER=litellm requires LITELLM_BASE_URL, for example http://litellm:4000 (no path; the adapter appends /v1/…).',
+    });
+  }
+
+  if (env.AI_PROVIDER === 'litellm' && !env.LITELLM_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LITELLM_API_KEY'],
+      message: 'AI_PROVIDER=litellm requires LITELLM_API_KEY: the virtual key the proxy issued.',
+    });
+  }
+
+  /*
+   * A gateway over plain HTTP is a prompt, a document and a key in clear text
+   * on the wire. Inside one container network that is a deliberate choice an
+   * operator can make; leaving production is not.
+   */
+  if (
+    isProduction &&
+    env.AI_PROVIDER === 'litellm' &&
+    env.LITELLM_BASE_URL?.startsWith('http://') === true
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LITELLM_BASE_URL'],
+      message:
+        'LITELLM_BASE_URL must use https in production: prompts, documents and the virtual key travel over this connection.',
+    });
+  }
+
+  if (env.AI_IMAGE_ENABLED && !OPENAI_COMPATIBLE_PROVIDERS.includes(env.AI_PROVIDER)) {
     ctx.addIssue({
       code: 'custom',
       path: ['AI_IMAGE_ENABLED'],
       message:
-        'AI_IMAGE_ENABLED requires AI_PROVIDER=openai; no other configured provider generates images.',
+        'AI_IMAGE_ENABLED requires AI_PROVIDER=openai or litellm; no other configured provider generates images.',
     });
   }
 });

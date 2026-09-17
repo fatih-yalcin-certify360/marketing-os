@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { marketingChannel } from './channels.js';
+import { funnelStage } from './funnel.js';
 import { isoTimestamp, uuid, webUrl } from './primitives.js';
 
 /**
@@ -46,6 +47,14 @@ const reportedCount = z.number().int().min(0).max(1_000_000_000).nullable().defa
 export const outcomeInput = z
   .object({
     channel: marketingChannel,
+    /**
+     * Which funnel stage these figures belong to, when the report splits by
+     * stage (campaign-flow-design.md, slice 3). Null when it does not: a
+     * platform report usually covers a channel, not a stage, and forcing a
+     * stage would make a person guess one. With it, a learning can say
+     * "e-mail in Overwegen" rather than "the campaign".
+     */
+    funnelStage: funnelStage.nullable().default(null),
     /** Optional: which publication these figures belong to, when it is one. */
     publicationRecordId: uuid.nullable().default(null),
     periodStart: z.iso.date(),
@@ -81,12 +90,15 @@ export const outcomeInput = z
     },
   );
 export type OutcomeInput = z.infer<typeof outcomeInput>;
+/** What a form may *send*: defaulted fields are optional and filled in by the parse. */
+export type OutcomeInputData = z.input<typeof outcomeInput>;
 
 export const outcomeReport = z.object({
   id: uuid,
   campaignId: uuid,
   publicationRecordId: uuid.nullable(),
   channel: marketingChannel,
+  funnelStage: funnelStage.nullable().default(null),
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   impressions: z.number().int().nullable(),

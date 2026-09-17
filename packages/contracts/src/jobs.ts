@@ -22,11 +22,18 @@ export const jobType = z.enum([
   'geo.research',
   'campaign.package',
   'persona.propose',
+  'persona.extract_from_text',
+  /** Answers the open questions of one stored persona's questionnaire from the system's own material. */
+  'persona.fill_questionnaire',
+  /** Researches where one stored audience orients, and adds what it finds. */
+  'persona.fill_orientation',
   'opportunity.propose',
   'brief.draft',
   'concept.propose',
   'content.plan',
   'content.generate',
+  /** One piece outside any campaign, so the requester can carry on meanwhile. */
+  'content.standalone',
   'content.revise',
   'image.render_variants',
   'export.build_package',
@@ -92,11 +99,15 @@ export const IMPLEMENTED_JOB_TYPES: readonly JobType[] = Object.freeze([
   'geo.research',
   'campaign.package',
   'persona.propose',
+  'persona.extract_from_text',
+  'persona.fill_questionnaire',
+  'persona.fill_orientation',
   'opportunity.propose',
   'brief.draft',
   'concept.propose',
   'content.plan',
   'content.generate',
+  'content.standalone',
   'content.revise',
 ]);
 

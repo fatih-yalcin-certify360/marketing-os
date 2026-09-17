@@ -89,7 +89,7 @@ describe('a landing page and an e-mail in the campaign chain', () => {
      * capability lived in one place and the permission in another.
      */
     const { plan } = await h.appContext.services.concepts.requireApprovedPlan(h.db, campaignId);
-    expect(plan.items.map((item) => item.channel)).toContain('landing_page');
+    expect(plan.items.map((item) => item.channel)).toContain('course_page_update');
   });
 
   it('is produced as sections, with no rendered image', async () => {
@@ -99,7 +99,7 @@ describe('a landing page and an e-mail in the campaign chain', () => {
       labelId,
       campaignId,
     );
-    const page = assets.find((asset) => asset.channel === 'landing_page');
+    const page = assets.find((asset) => asset.channel === 'course_page_update');
     expect(page).toBeDefined();
 
     // Structured sections, each with a heading and prose.
@@ -128,7 +128,7 @@ describe('a landing page and an e-mail in the campaign chain', () => {
      * would be unexportable for ever on a check that can never pass — so the
      * page must contribute **no** blocking warning of its own.
      */
-    expect(isPublishable(CHANNEL_CONFIG, 'landing_page', 'text_only')).toBe(true);
+    expect(isPublishable(CHANNEL_CONFIG, 'course_page_update', 'text_only')).toBe(true);
 
     const assets = await h.appContext.services.content.list(
       h.db,
@@ -136,8 +136,21 @@ describe('a landing page and an e-mail in the campaign chain', () => {
       labelId,
       campaignId,
     );
-    const page = assets.find((asset) => asset.channel === 'landing_page');
-    expect(page?.warnings.filter((warning) => warning.blocksPublishReady)).toEqual([]);
+    /*
+     * Measured on the change proposal's *platform* warnings only.
+     *
+     * Since the website split the piece may also carry `page_unavailable`,
+     * which is a real blocker with a real cause: the test environment reaches
+     * no website, so the current passages were never checked against one. That
+     * is not a missing platform specification, which is what this test is
+     * about.
+     */
+    const page = assets.find((asset) => asset.channel === 'course_page_update');
+    expect(
+      page?.warnings.filter(
+        (warning) => warning.blocksPublishReady && warning.kind !== 'page_unavailable',
+      ),
+    ).toEqual([]);
 
     // The gates still refuse this campaign — unverified demo course facts and
     // unapproved content — and none of the reasons may be about the page's
@@ -393,7 +406,7 @@ describe('a landing page and an e-mail in the campaign chain', () => {
     // The text file, not the folder entry of the same name: a directory reads
     // back as an empty string and every assertion below would pass vacuously.
     const entry = Object.keys(zip.files).find(
-      (name) => name.includes('landing_page') && name.endsWith('.txt'),
+      (name) => name.includes('course_page_update') && name.endsWith('.txt'),
     );
     expect(entry).toBeDefined();
 

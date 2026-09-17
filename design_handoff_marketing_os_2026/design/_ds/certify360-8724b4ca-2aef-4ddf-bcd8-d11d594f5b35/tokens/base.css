@@ -1,0 +1,45 @@
+/* Certify360 — base element defaults (light-touch; opt-in via tokens) */
+:root {
+  color-scheme: light;
+}
+
+/* Links — brand violet by default so editor-added links aren't browser-blue */
+a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Heading defaults — the brand Type Hierarchy. H1–H4 = At Gambit (display),
+   H5–H6 = TT Firs Neue (title). Opt-in surfaces (docs, cards) inherit these. */
+h1,h2,h3,h4 { font-family: var(--font-display); color: var(--text-strong); letter-spacing: var(--ls-snug); margin: 0 0 0.4em; text-wrap: balance; }
+h5,h6 { font-family: var(--font-title); color: var(--text-strong); margin: 0 0 0.4em; }
+h1 { font-size: var(--h1-size); line-height: var(--h1-lh); font-weight: var(--fw-bold); }
+h2 { font-size: var(--h2-size); line-height: var(--h2-lh); font-weight: var(--fw-bold); }
+h3 { font-size: var(--h3-size); line-height: var(--h3-lh); font-weight: var(--fw-regular); }
+h4 { font-size: var(--h4-size); line-height: var(--h4-lh); font-weight: var(--fw-regular); }
+h5 { font-size: var(--h5-size); line-height: var(--h5-lh); font-weight: var(--fw-bold); }
+h6 { font-size: var(--h6-size); line-height: var(--h6-lh); font-weight: var(--fw-bold); }
+
+@keyframes c360-spin { to { transform: rotate(360deg); } }
+@keyframes c360-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Selection */
+::selection {
+  background: var(--violet-200);
+  color: var(--teal-800);
+}
+
+/* Utility base for specimen/kit bodies that opt in via .c360-root */
+.c360-root {
+  font-family: var(--font-body);
+  color: var(--text-body);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

@@ -170,6 +170,44 @@ describe('the campaign calendar', () => {
     expect(calendar.warnings.map((warning) => warning.kind)).toEqual([]);
   });
 
+  it('sequences a staged plan by stage: Ontdekken week 1, Overwegen from week 2, Beslissen from week 3', () => {
+    /*
+     * The journey gives the order its reason (campaign-flow-design.md, slice
+     * 3). One piece per cell: one stage per week. Channels within a stage are
+     * staggered inside the week as before, and numbering stays per channel
+     * across the plan — the Beslissen e-mail is e-mail number two, not a
+     * second "first" e-mail.
+     */
+    const calendar = buildCampaignCalendar({
+      plan: {
+        items: [
+          { stage: 'discover', channel: 'linkedin_organic', count: 1, withImage: true },
+          { stage: 'discover', channel: 'course_page_update', count: 1, withImage: false },
+          { stage: 'consider', channel: 'email', count: 1, withImage: false },
+          { stage: 'consider', channel: 'course_page_update', count: 1, withImage: false },
+          { stage: 'decide', channel: 'email', count: 1, withImage: false },
+        ],
+      },
+      startDate: '2027-01-04',
+      courseDates: [],
+      courseDatesUnconfirmed: false,
+    });
+
+    const byStage = (stage: string) => calendar.slots.filter((slot) => slot.stage === stage);
+    expect(byStage('discover').map((slot) => slot.week)).toEqual([1, 1]);
+    expect(byStage('consider').map((slot) => slot.week)).toEqual([2, 2]);
+    expect(byStage('decide').map((slot) => slot.week)).toEqual([3]);
+    // Staggered inside the week, as before.
+    expect(byStage('discover').map((slot) => slot.offsetDays)).toEqual([0, 2]);
+    // Per-channel numbering across stages.
+    const emails = calendar.slots.filter((slot) => slot.channel === 'email');
+    expect(emails.map((slot) => slot.sequence)).toEqual([1, 2]);
+    expect(emails.map((slot) => slot.date)).toEqual(['2027-01-11', '2027-01-18']);
+    // Sorted by day, then journey order.
+    expect(calendar.slots.map((slot) => slot.stage)).toEqual(['discover', 'discover', 'consider', 'consider', 'decide']);
+    expect(campaignCalendar.safeParse(calendar).success).toBe(true);
+  });
+
   it('produces an empty calendar rather than failing when there is no plan yet', () => {
     const calendar = buildCampaignCalendar({
       plan: null,

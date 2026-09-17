@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/tokens/colors.css">
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/tokens/typography.css">
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/tokens/layout.css">
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/tokens/base.css">
+<link rel="stylesheet" href="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/styles.css">
+<script src="_ds/certify360-8724b4ca-2aef-4ddf-bcd8-d11d594f5b35/_ds_bundle.js"></script>
+<style>
+  :root{
+    --lp:#00A894; --lp-solid:#008473; --lp-deep:#008473; --lp-active:#00A894; --lp-ink:#203E58; --lp-accent:#C5003E;
+    --lp-on:#ffffff; --lp-t1:#f2faf8; --lp-t2:#e2f4f1; --lp-t3:#c9e9e4;
+    --lp-shell:#1b3547; --lp-shell-2:#284559; --lp-shell-tx:#a8bccb;
+    --n-0:#ffffff; --n-1:#f7f8f9; --n-2:#eef0f2; --n-br:#e3e7ea; --n-br2:#cfd6db;
+    --tx:#182430; --tx-2:#5d6b78; --tx-3:#65737f; --tx-4:#8695a1;
+    --ok:#1f7a5c; --ok-t:#ecf6f1; --wa:#9a6412; --wa-t:#fdf5e8; --er:#a32f22; --er-t:#fbeeec;
+    --r:8px; --r2:12px; --r3:16px;
+  }
+  body{margin:0;background:var(--n-1);color:var(--tx);font-family:var(--font-body);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  /* TT Firs Neue is the lead face inside the products: every heading, label,
+     eyebrow and control. At Gambit stays reserved for external headlines. */
+  h1,h2,h3,h4,h5,h6,button,input,label,th{font-family:var(--font-title)}
+  *{box-sizing:border-box}
+  a{color:var(--lp-deep);text-decoration:none}
+  a:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+  button{font:inherit}
+  ::selection{background:var(--lp-t3)}
+  @keyframes fly{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="display:flex; min-height:100vh; background:var(--n-1)">
+
+  <!-- icon rail -->
+  <nav aria-label="Hoofdnavigatie" style="position:sticky; top:0; align-self:flex-start; height:100vh; width:56px; flex:none; background:var(--lp-shell); display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0 12px; z-index:30">
+    <div title="Certify360 Marketing OS" style="width:34px; height:34px; border-radius:var(--radius-md); background:var(--lp-solid); color:var(--lp-on); display:grid; place-items:center; font-weight:700; font-size:13px; letter-spacing:-0.03em; margin-bottom:8px; flex:none">360</div>
+
+    <button type="button" onClick="{{ goHome }}" title="Werkruimte" aria-label="Werkruimte" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M3 13h8V3H3zM13 9h8V3h-8zM13 21h8v-8h-8zM3 21h8v-6H3z"></path></svg>
+      <sc-if value="{{ atHome }}" hint-placeholder-val="{{ true }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goRadar }}" title="Marktradar" aria-label="Marktradar" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
+      <span style="position:absolute; top:6px; right:6px; width:6px; height:6px; border-radius:50%; background:var(--lp-accent)"></span>
+          <sc-if value="{{ atRadar }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goAi }}" title="AI Visibility" aria-label="AI Visibility" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"></path></svg>
+          <sc-if value="{{ atAi }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goCampaign }}" title="Campagnes" aria-label="Campagnes" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M3 11l18-6v12L3 14z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+      <sc-if value="{{ atCampaign }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goStudio }}" title="Content Studio" aria-label="Content Studio" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+      <sc-if value="{{ atStudio }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goKalender }}" title="Kalender &amp; journeys — nog niet beschikbaar" aria-label="Kalender en journeys, nog niet beschikbaar" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); opacity:.55; display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18"></path><path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path></svg>
+          <sc-if value="{{ atKalender }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goResults }}" title="Resultaten" aria-label="Resultaten" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 15v3M12 10v8M17 6v12"></path></svg>
+          <sc-if value="{{ atResults }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; inset:0; border-radius:var(--radius-md); background:rgb(255 255 255 / 12%); box-shadow:inset 0 0 0 1.5px var(--lp-active)"></span></sc-if>
+    </button>
+
+    <button type="button" onClick="{{ goNav }}" title="Kennis &amp; beheer" aria-label="Kennis en beheer" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); display:grid; place-items:center; cursor:pointer; position:relative; flex:none" style-hover="background:var(--lp-shell-2); color:#fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5z"></path><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"></path></svg>
+    </button>
+
+    <div style="margin-top:auto; display:grid; gap:6px; justify-items:center">
+      <button type="button" onClick="{{ toggleRail }}" title="Navigatie uitklappen" aria-label="Navigatie uitklappen" style="width:40px; height:40px; border:0; border-radius:var(--radius-md); background:none; color:var(--lp-shell-tx); cursor:pointer; display:grid; place-items:center" style-hover="background:var(--lp-shell-2); color:#fff">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path></svg>
+      </button>
+      <span title="Lokale Testgebruiker · Labelbeheerder" style="width:28px; height:28px; border-radius:50%; background:var(--lp-solid); color:var(--lp-on); display:grid; place-items:center; font-weight:700; font-size:11px">LT</span>
+    </div>
+  </nav>
+
+  <!-- flyout / expanded panel -->
+  <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:sticky; top:0; align-self:flex-start; height:100vh; width:232px; flex:none; background:var(--lp-shell-2); color:#fff; padding:12px; display:flex; flex-direction:column; gap:10px; animation:fly var(--dur-base) var(--ease-standard); z-index:20">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+        <span style="font-size:10px; font-weight:700; letter-spacing:.14em; color:var(--lp-shell-tx)">MARKETING OS</span>
+        <button type="button" onClick="{{ closeNav }}" aria-label="Sluiten" style="border:0; background:none; color:var(--lp-shell-tx); cursor:pointer; padding:2px; border-radius:var(--radius-sm); display:grid; place-items:center" style-hover="color:#fff">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div style="display:grid; gap:2px">
+        <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+          <div style="display:grid; gap:2px; margin-bottom:10px">
+            <p style="margin:6px 0 4px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-shell-tx)">{{ g.heading }}</p>
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+              <button type="button" onClick="{{ it.go }}" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:0; background:{{ it.bg }}; color:{{ it.fg }}; padding:7px 9px; border-radius:var(--radius-md); font-size:13px; font-weight:600; cursor:pointer" style-hover="background:rgba(255,255,255,.1)">
+                <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ it.label }}</span>
+                <sc-if value="{{ it.soon }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px; font-weight:700; letter-spacing:.04em; color:var(--lp-shell-tx); flex:none">NOG NIET</span></sc-if>
+                <sc-if value="{{ it.count }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; background:rgba(255,255,255,.14); border-radius:var(--radius-pill); padding:1px 7px; flex:none">{{ it.count }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- main -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+
+    <header style="position:sticky; top:0; z-index:15; height:48px; flex:none; background:rgba(255,255,255,.88); backdrop-filter:blur(10px); border-bottom:1px solid var(--n-br); display:flex; align-items:center; gap:12px; padding:0 16px">
+      <ol style="list-style:none; margin:0; padding:0; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--tx-2); min-width:0">
+        <li style="font-weight:600">{{ crumbRoot }}</li>
+        <li aria-hidden="true" style="color:var(--n-br2)">/</li>
+        <li style="font-weight:700; color:var(--tx); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:46ch">{{ crumbLeaf }}</li>
+      </ol>
+
+      <div style="flex:1"></div>
+
+      <button type="button" title="Zoek campagne, opleiding of bron" style="display:flex; align-items:center; gap:7px; height:30px; padding:0 10px; flex:none; white-space:nowrap; border:1px solid var(--n-br); background:var(--n-0); border-radius:var(--radius-pill); color:var(--tx-3); font-size:12px; cursor:pointer" style-hover="border-color:var(--n-br2); color:var(--tx-2)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5"></path></svg>
+        <span>Zoeken</span>
+        <span style="font-family:var(--font-mono); font-size:10px; border:1px solid var(--n-br); border-radius:4px; padding:1px 4px; color:var(--tx-3)">⌘K</span>
+      </button>
+
+      <div style="position:relative; flex:none">
+        <button type="button" onClick="{{ toggleLabels }}" style="display:flex; align-items:center; gap:8px; height:30px; padding:0 8px 0 6px; flex:none; white-space:nowrap; border:1px solid var(--lp-t3); background:var(--lp-t1); border-radius:var(--radius-pill); cursor:pointer; color:var(--lp-ink); font-weight:700; font-size:12px">
+          <span style="width:18px; height:18px; border-radius:var(--radius-xs); background:var(--lp-solid); color:var(--lp-on); display:grid; place-items:center; font-size:9px; font-weight:700; flex:none">{{ labelInitials }}</span>
+          <span style="max-width:15ch; overflow:hidden; text-overflow:ellipsis">{{ labelName }}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" style="flex:none"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+
+        <sc-if value="{{ labelsOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; right:0; top:36px; width:276px; background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); box-shadow:0 12px 32px rgb(24 36 48 / 12%); padding:6px; display:grid; gap:2px; z-index:40">
+            <p style="margin:6px 8px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">LABEL · KLEUR VOLGT HET MERK</p>
+            <sc-for list="{{ labels }}" as="l" hint-placeholder-count="4">
+              <button type="button" onClick="{{ l.pick }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:0; background:{{ l.bg }}; border-radius:var(--radius-md); padding:8px; cursor:pointer" style-hover="background:var(--n-1)">
+                <span style="display:flex; gap:2px; flex:none">
+                  <span style="width:10px; height:18px; border-radius:var(--radius-xs) 0 0 var(--radius-xs); background:{{ l.primary }}"></span>
+                  <span style="width:6px; height:18px; background:{{ l.accent }}"></span>
+                  <span style="width:6px; height:18px; border-radius:0 var(--radius-xs) var(--radius-xs) 0; background:{{ l.ink }}"></span>
+                </span>
+                <span style="flex:1; min-width:0">
+                  <span style="display:block; font-weight:700; font-size:12px; color:var(--tx); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ l.name }}</span>
+                  <span style="display:block; font-size:11px; color:var(--tx-3)">{{ l.note }}</span>
+                </span>
+                <sc-if value="{{ l.current }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--lp-deep); flex:none"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <span title="Lokale testidentiteit · ontwikkelversie" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; flex:none; white-space:nowrap; border-radius:var(--radius-pill); background:var(--wa-t); color:var(--wa); font-size:11px; font-weight:700">
+        <span style="width:5px; height:5px; border-radius:50%; background:currentColor; flex:none"></span>Testidentiteit
+      </span>
+    </header>
+
+    <!-- ================================================= WERKRUIMTE -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <main style="padding:20px; display:grid; gap:16px; align-content:start">
+
+        <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px">
+          <div style="min-width:0">
+            <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">WERKRUIMTE</p>
+            <h1 style="margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em; line-height:1.2">{{ greeting }}</h1>
+            <p style="margin:3px 0 0; color:var(--tx-2); font-size:12px">Zeven dingen wachten op een besluit. De rest loopt.</p>
+          </div>
+          <div style="display:flex; gap:8px">
+            <button type="button" style="height:34px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:7px" style-hover="border-color:var(--lp)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle></svg>Marktradar scannen
+            </button>
+            <button type="button" style="height:34px; padding:0 13px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-weight:700; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:7px; box-shadow:0 1px 2px rgb(24 36 48 / 14%)" style-hover="background:var(--lp-deep)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Nieuwe campagne
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI strip -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(186px,1fr)); gap:10px">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+            <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px 14px; display:grid; gap:6px; position:relative; overflow:hidden">
+              <span style="position:absolute; left:0; top:0; bottom:0; width:3px; background:{{ k.bar }}"></span>
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px">
+                <span style="font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--tx-2)">{{ k.label }}</span>
+                <span style="font-family:var(--font-mono); font-size:24px; font-weight:600; line-height:1; color:{{ k.bar }}">{{ k.value }}</span>
+              </div>
+              <span style="font-size:11px; color:var(--tx-3); line-height:1.4">{{ k.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid; grid-template-columns:minmax(0,1.9fr) minmax(260px,1fr); gap:16px; align-items:start">
+
+          <!-- queue -->
+          <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--n-br)">
+              <div>
+                <h2 style="margin:0; font-size:14px; font-weight:700">Wachtrij</h2>
+                <p style="margin:1px 0 0; font-size:11px; color:var(--tx-3)">Op volgorde van wat een besluit blokkeert.</p>
+              </div>
+              <div style="display:flex; gap:4px; background:var(--n-1); border:1px solid var(--n-br); border-radius:var(--radius-pill); padding:2px">
+                <sc-for list="{{ queueFilters }}" as="f" hint-placeholder-count="3">
+                  <button type="button" onClick="{{ f.pick }}" style="height:24px; padding:0 10px; border:0; border-radius:var(--radius-pill); background:{{ f.bg }}; color:{{ f.fg }}; font-size:11px; font-weight:700; cursor:pointer">{{ f.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-for list="{{ queue }}" as="q" hint-placeholder-count="5">
+              <div style="display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:10px; align-items:start; padding:11px 14px; border-bottom:1px solid var(--n-2)" style-hover="background:var(--lp-t1)">
+                <span style="width:22px; height:22px; border-radius:var(--radius-sm); background:{{ q.tint }}; color:{{ q.ink }}; display:grid; place-items:center; margin-top:1px">
+                  <sc-if value="{{ q.isReview }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                  <sc-if value="{{ q.isSource }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v5M12 8v.5"></path></svg></sc-if>
+                  <sc-if value="{{ q.isFail }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 3l10 18H2L12 3zM12 10v4M12 17.5v.5"></path></svg></sc-if>
+                </span>
+                <div style="min-width:0">
+                  <p style="margin:0; font-size:12.5px; font-weight:700; line-height:1.35"><a href="#">{{ q.title }}</a></p>
+                  <p style="margin:2px 0 0; font-size:11.5px; color:var(--tx-2)">{{ q.sub }}</p>
+                  <sc-if value="{{ q.reason }}" hint-placeholder-val="{{ false }}">
+                    <p style="margin:5px 0 0; font-size:11px; color:var(--wa); background:var(--wa-t); border-radius:var(--radius-sm); padding:5px 8px; line-height:1.4">{{ q.reason }}</p>
+                  </sc-if>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; flex:none">
+                  <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ q.age }}</span>
+                  <button type="button" style="height:26px; padding:0 10px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer" style-hover="border-color:var(--lp); color:var(--lp-deep)">{{ q.action }}</button>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="padding:10px 14px; font-size:11.5px"><a href="#">Alles in Content Studio openen</a></div>
+          </section>
+
+          <!-- side -->
+          <div style="display:grid; gap:12px">
+            <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px">
+              <h2 style="margin:0 0 2px; font-size:13px; font-weight:700">Fundament</h2>
+              <p style="margin:0 0 12px; font-size:11px; color:var(--tx-3)">Wat elke campagne nodig heeft.</p>
+              <sc-for list="{{ foundation }}" as="f" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--n-2)">
+                  <span style="min-width:0">
+                    <span style="display:block; font-size:12px; font-weight:600">{{ f.term }}</span>
+                    <span style="display:block; font-size:11px; color:var(--tx-3)">{{ f.note }}</span>
+                  </span>
+                  <span style="flex:none; display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 9px; border-radius:var(--radius-pill); background:{{ f.tint }}; color:{{ f.ink }}; font-size:11px; font-weight:700">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </section>
+
+            <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px">
+                <h2 style="margin:0; font-size:13px; font-weight:700">AI-budget</h2>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">september</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:6px">
+                <span style="font-family:var(--font-mono); font-size:22px; font-weight:600">€ 486,33</span>
+                <span style="font-size:11px; color:var(--tx-3)">van € 500,00</span>
+              </div>
+              <div style="height:5px; border-radius:var(--radius-pill); background:var(--n-2); overflow:hidden; margin:9px 0 6px"><div style="height:100%; width:3%; background:var(--lp)"></div></div>
+              <p style="margin:0; font-size:11px; color:var(--tx-3)">€ 0,38 gereserveerd · 25 taken deze maand</p>
+            </section>
+
+            <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px">
+                <h2 style="margin:0; font-size:13px; font-weight:700">Achtergrondtaken</h2>
+                <a href="#" style="font-size:11px">Alle 25</a>
+              </div>
+              <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:9px; padding:7px 0; border-top:1px solid var(--n-2)">
+                  <span style="width:6px; height:6px; border-radius:50%; background:{{ j.dot }}; flex:none"></span>
+                  <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600">{{ j.name }}</span>
+                  <span style="flex:none; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ j.time }}</span>
+                </div>
+              </sc-for>
+              <p style="margin:10px 0 0; font-size:11px; color:var(--tx-3); line-height:1.5">Twee taken zijn na drie pogingen gestopt. Er is niets opgeslagen.</p>
+            </section>
+
+            <section style="background:var(--lp-t1); border:1px solid var(--lp-t3); border-radius:var(--radius-lg); padding:14px">
+              <h2 style="margin:0 0 5px; font-size:13px; font-weight:700; color:var(--lp-ink)">Automatisering met controle</h2>
+              <p style="margin:0; font-size:11.5px; color:var(--lp-ink); line-height:1.55">Het systeem onderzoekt, stelt voor en schrijft; een persoon keurt elke stap goed. Er wordt niets automatisch gepubliceerd en geen opleidingsfeit gebruikt dat niet is gecontroleerd.</p>
+            </section>
+          </div>
+        </div>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= CAMPAGNE -->
+    <sc-if value="{{ isCampaign }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:{{ campaignCols }}; align-items:stretch; min-height:0; flex:1">
+
+        <!-- step rail -->
+        <aside style="border-right:1px solid var(--n-br); background:var(--n-0); padding:14px 12px; display:grid; gap:12px; align-content:start; min-width:0; position:sticky; top:48px; align-self:start; max-height:calc(100vh - 48px); overflow-y:auto; overflow-x:hidden">
+          <div style="min-width:0">
+            <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">CAMPAGNE · EIGEN IDEE</p>
+            <p style="margin:0; font-size:13px; font-weight:700; line-height:1.3">Opleiding Casemanager Regie op Verzuim (CROV) – Inschrijving – september 2026</p>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; min-width:0">
+              <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:var(--radius-pill); background:var(--n-2); color:var(--tx-2)">Ontdekken</span>
+              <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:var(--radius-pill); background:var(--n-2); color:var(--tx-2)">Overwegen</span>
+              <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:var(--radius-pill); background:var(--lp-solid); color:var(--lp-on)">Beslissen</span>
+            </div>
+          </div>
+
+          <div style="display:grid; gap:2px">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="8">
+              <button type="button" onClick="{{ s.go }}" style="display:grid; grid-template-columns:20px minmax(0,1fr) auto; gap:9px; align-items:center; width:100%; text-align:left; border:0; background:{{ s.bg }}; border-radius:var(--radius-md); padding:7px 8px; cursor:pointer" style-hover="background:var(--lp-t1)">
+                <span style="width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-family:var(--font-mono); font-size:10.5px; font-weight:600; background:{{ s.numBg }}; color:{{ s.numFg }}; border:1px solid {{ s.numBr }}">{{ s.num }}</span>
+                <span style="min-width:0">
+                  <span style="display:block; font-size:12.5px; font-weight:{{ s.weight }}; color:{{ s.fg }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ s.label }}</span>
+                  <span style="display:block; font-size:10.5px; color:var(--tx-3)">{{ s.state }}</span>
+                </span>
+                <span style="flex:none; display:grid; place-items:center; width:13px; height:13px">
+                  <sc-if value="{{ s.isDone }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" style="color:var(--ok)"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                  <sc-if value="{{ s.isCurrent }}" hint-placeholder-val="{{ false }}"><span style="width:6px; height:6px; border-radius:50%; background:var(--lp-accent)"></span></sc-if>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="border-top:1px solid var(--n-2); padding-top:10px">
+            <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">NAAST DE KETEN</p>
+            <button type="button" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px dashed var(--n-br2); background:none; border-radius:var(--radius-md); padding:7px 9px; font-size:12px; font-weight:600; cursor:pointer; color:var(--tx-2)" style-hover="border-color:var(--lp); color:var(--lp-deep)">Website &amp; interactief</button>
+          </div>
+        </aside>
+
+        <!-- workspace -->
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <div style="display:flex; align-items:center; gap:8px">
+                <span style="width:22px; height:22px; border-radius:50%; background:var(--lp-solid); color:var(--lp-on); display:grid; place-items:center; font-family:var(--font-mono); font-size:11px; font-weight:600">6</span>
+                <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em">Content &amp; beelden</h1>
+                <span style="height:21px; padding:0 8px; border-radius:var(--radius-pill); background:var(--lp-t2); color:var(--lp-ink); font-size:11px; font-weight:700; display:inline-flex; align-items:center">Nu aan zet</span>
+              </div>
+              <p style="margin:5px 0 0; font-size:12px; color:var(--tx-2); max-width:76ch">Één stuk per gepland vakje, geschreven vanuit de boodschap van die fase. Beoordeel elk item, pas de tekst aan of laat het met een instructie herzien.</p>
+            </div>
+            <div style="display:flex; gap:7px; flex:none">
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Content opnieuw maken</button>
+              <sc-if value="{{ contextClosed }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ openContext }}" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px" style-hover="border-color:var(--lp)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16v-4M12 8h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>Context
+                </button>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-md); padding:9px 12px">
+            <span style="font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--lp-deep); flex:none">2 VAN 2</span>
+            <span style="font-size:12px; color:var(--tx-2)">items wachten op beoordeling in deze stap.</span>
+            <div style="flex:1"></div>
+            <div style="height:5px; width:120px; border-radius:var(--radius-pill); background:var(--n-2); overflow:hidden"><div style="height:100%; width:0%; background:var(--lp)"></div></div>
+          </div>
+
+          <!-- item switcher -->
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <sc-for list="{{ assets }}" as="a" hint-placeholder-count="2">
+              <button type="button" onClick="{{ a.pick }}" style="text-align:left; border:1px solid {{ a.br }}; background:{{ a.bg }}; border-radius:var(--radius-md); padding:9px 11px; cursor:pointer; min-width:210px; box-shadow:{{ a.shadow }}">
+                <span style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                  <span style="font-size:12.5px; font-weight:700">{{ a.channel }}</span>
+                  <span style="font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:var(--radius-pill); background:var(--n-2); color:var(--tx-2)">Concept</span>
+                </span>
+                <span style="display:block; font-size:11.5px; color:var(--tx-2); margin-top:3px">{{ a.hook }}</span>
+                <span style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3); margin-top:5px">{{ a.meta }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <!-- detail -->
+          <article style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid var(--n-br)">
+              <div>
+                <h2 style="margin:0; font-size:14px; font-weight:700">E-mail · v6</h2>
+                <p style="margin:1px 0 0; font-size:11px; color:var(--tx-3)">214 woorden · minimaal 180 voor dit kanaal · fase Beslissen</p>
+              </div>
+              <div style="display:flex; gap:6px">
+                <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:11.5px; font-weight:600; cursor:pointer">Tekst aanpassen</button>
+                <button type="button" style="height:28px; padding:0 12px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Goedkeuren</button>
+              </div>
+            </div>
+
+            <div style="padding:14px; display:grid; gap:12px">
+              <div style="display:flex; gap:9px; background:var(--wa-t); border-radius:var(--radius-md); padding:10px 12px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--wa); flex:none; margin-top:1px"><path d="M12 9v4M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>
+                <p style="margin:0; font-size:11.5px; color:var(--wa); line-height:1.55">De weergave en afkaplimieten van e-mailclients zijn niet tegen een primaire bron gecontroleerd. Een e-mail kan als concept worden geëxporteerd, maar niet publicatieklaar. De HTML bevat geen scripts en laadt niets van internet; er wordt niets verzonden.</p>
+              </div>
+
+              <div>
+                <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--tx-3)">HOOK</p>
+                <h3 style="margin:0 0 5px; font-size:15px; font-weight:700">Past CROV bij jouw praktijk?</h3>
+                <p style="margin:0; font-size:12.5px; color:var(--tx); line-height:1.65">Je begeleidt verzuimdossiers en wilt vóór je keuze de praktische punten helder hebben. De Opleiding Casemanager Regie op Verzuim (CROV) is op hbo-niveau en vraagt minimaal Nederlands taalniveau B2. Werk je in verzuim en sociale zekerheid, bijvoorbeeld als casemanager, leidinggevende, HRM-medewerker of arbeidsdeskundige, dan kun je de inhoud en opzet naast je eigen werkpraktijk leggen.</p>
+              </div>
+
+              <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+                <div style="border-top:1px solid var(--n-2); padding-top:10px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                    <h4 style="margin:0; font-size:12.5px; font-weight:700">{{ s.title }}</h4>
+                    <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">SECTIE</span>
+                  </div>
+                  <p style="margin:4px 0 0; font-size:12.5px; color:var(--tx-2); line-height:1.65">{{ s.body }}</p>
+                </div>
+              </sc-for>
+
+              <div style="border-top:1px solid var(--n-2); padding-top:10px; display:grid; gap:6px">
+                <p style="margin:0; font-size:12px"><span style="font-weight:700">Schrijf je in voor CROV.</span> <a href="#">cs-opleidingen.nl/opleidingen/casemanager-regie-op-verzuim-crov</a></p>
+                <p style="margin:0; font-size:11.5px; color:var(--tx-3); line-height:1.55">Zoektermen in de tekst: CROV · sociale zekerheid · leidinggevenden · hrm-medewerkers · arbeidsdeskundigen · e-learningmodules · arbeidsrecht — geen volume, geen positie: er is niets gemeten.</p>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px; padding:11px 14px; border-top:1px solid var(--n-br); background:var(--n-1)">
+              <input type="text" placeholder="Herzieningsinstructie, bijvoorbeeld: maak de opzet concreter" style="flex:1; min-width:0; height:30px; padding:0 10px; border:1px solid var(--n-br2); border-radius:var(--radius-md); background:var(--n-0); font:inherit; font-size:12px; color:var(--tx)">
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="border-color:var(--lp); color:var(--lp-deep)">Herzien met AI</button>
+            </div>
+          </article>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
+            <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">← 5. Kanaalplan</button>
+            <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">7. Export →</button>
+          </div>
+        </section>
+
+        <!-- context panel -->
+        <sc-if value="{{ contextOpen }}" hint-placeholder-val="{{ true }}">
+          <aside style="border-left:1px solid var(--n-br); background:var(--n-0); padding:14px 12px; display:grid; gap:12px; align-content:start; position:sticky; top:48px; align-self:start; max-height:calc(100vh - 48px); overflow:auto">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">CONTEXT</p>
+              <button type="button" onClick="{{ closeContext }}" aria-label="Contextpaneel sluiten" style="border:0; background:none; color:var(--tx-3); cursor:pointer; padding:2px; display:grid; place-items:center" style-hover="color:var(--tx)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <div style="border:1px solid var(--er-t); background:var(--er-t); border-radius:var(--radius-md); padding:10px">
+              <p style="margin:0 0 5px; font-size:11px; font-weight:700; color:var(--er)">BUITEN KADER</p>
+              <p style="margin:0 0 6px; font-size:11.5px; color:var(--er); line-height:1.5">Niet gebruiken tot bevestigd:</p>
+              <ul style="margin:0; padding-left:15px; font-size:11.5px; color:var(--er); line-height:1.6">
+                <li>Toelatingsvoorwaarden</li>
+                <li>Prijs zonder btw-vermelding</li>
+                <li>Slagingspercentage</li>
+              </ul>
+            </div>
+
+            <div>
+              <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">MERKREGELS</p>
+              <div style="display:grid; gap:5px">
+                <sc-for list="{{ brandRules }}" as="b" hint-placeholder-count="3">
+                  <p style="margin:0; font-size:11.5px; color:var(--tx-2); background:var(--n-1); border-radius:var(--radius-md); padding:6px 8px; line-height:1.45">{{ b.text }}</p>
+                </sc-for>
+              </div>
+            </div>
+
+            <div>
+              <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">MERKKLEUREN VAN DIT LABEL</p>
+              <div style="display:grid; gap:5px">
+                <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="3">
+                  <div style="display:flex; align-items:center; gap:8px">
+                    <span style="width:18px; height:18px; border-radius:var(--radius-xs); background:{{ s.hex }}; border:1px solid rgb(24 36 48 / 10%); flex:none"></span>
+                    <span style="flex:1; font-size:11.5px; font-weight:600">{{ s.role }}</span>
+                    <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ s.hex }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div>
+              <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">BRONNEN ONDER DEZE STAP</p>
+              <div style="display:grid; gap:6px">
+                <sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+                  <div style="border:1px solid var(--n-br); border-radius:var(--radius-md); padding:7px 9px">
+                    <p style="margin:0; font-size:11.5px; font-weight:700; line-height:1.35">{{ s.title }}</p>
+                    <p style="margin:2px 0 0; font-family:var(--font-mono); font-size:10px; color:var(--tx-3)">{{ s.meta }}</p>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div>
+              <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">VERSIES</p>
+              <div style="display:grid; gap:0">
+                <sc-for list="{{ versions }}" as="v" hint-placeholder-count="3">
+                  <div style="display:flex; gap:8px; padding:6px 0; border-top:1px solid var(--n-2)">
+                    <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--lp-deep); font-weight:600; flex:none">{{ v.v }}</span>
+                    <span style="flex:1; font-size:11.5px; color:var(--tx-2); line-height:1.4">{{ v.what }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </aside>
+        </sc-if>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= CONTENT STUDIO -->
+    <sc-if value="{{ isStudio }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:minmax(300px,364px) minmax(0,1fr); align-items:stretch; flex:1; min-height:0">
+
+        <!-- list -->
+        <section style="border-right:1px solid var(--n-br); background:var(--n-0); display:flex; flex-direction:column; position:sticky; top:48px; align-self:start; height:calc(100vh - 48px)">
+          <div style="padding:12px; border-bottom:1px solid var(--n-br); display:grid; gap:9px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <h1 style="margin:0; font-size:15px; font-weight:700">Content Studio</h1>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">{{ studioCount }}</span>
+            </div>
+            <input type="text" placeholder="Titel, tekst of campagne" style="height:30px; padding:0 10px; border:1px solid var(--n-br2); border-radius:var(--radius-md); background:var(--n-0); font:inherit; font-size:12px; color:var(--tx)">
+            <div style="display:flex; gap:4px; flex-wrap:wrap">
+              <sc-for list="{{ studioFilters }}" as="f" hint-placeholder-count="5">
+                <button type="button" onClick="{{ f.pick }}" style="height:24px; padding:0 9px; border:1px solid {{ f.br }}; border-radius:var(--radius-pill); background:{{ f.bg }}; color:{{ f.fg }}; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px">{{ f.label }}<span style="font-family:var(--font-mono); font-size:10px; opacity:.75">{{ f.count }}</span></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="overflow:auto; flex:1">
+            <sc-for list="{{ studioItems }}" as="i" hint-placeholder-count="8">
+              <button type="button" onClick="{{ i.pick }}" style="display:grid; grid-template-columns:3px minmax(0,1fr); gap:9px; width:100%; text-align:left; border:0; border-bottom:1px solid var(--n-2); background:{{ i.bg }}; padding:0; cursor:pointer" style-hover="background:var(--lp-t1)">
+                <span style="background:{{ i.marker }}"></span>
+                <span style="display:grid; gap:3px; padding:10px 12px 10px 0">
+                  <span style="display:flex; align-items:center; gap:6px">
+                    <span style="font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--tx-3)">{{ i.channel }}</span>
+                    <span style="flex:1"></span>
+                    <span style="height:18px; padding:0 7px; border-radius:var(--radius-pill); background:{{ i.tint }}; color:{{ i.ink }}; font-size:10px; font-weight:700; display:inline-flex; align-items:center">{{ i.status }}</span>
+                  </span>
+                  <span style="font-size:12.5px; font-weight:700; line-height:1.35; color:var(--tx)">{{ i.title }}</span>
+                  <span style="font-size:11px; color:var(--tx-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ i.campaign }}</span>
+                  <span style="font-family:var(--font-mono); font-size:10px; color:var(--tx-3)">{{ i.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+
+        <!-- detail -->
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">{{ studioChannel }}</p>
+              <h2 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em; line-height:1.25">{{ studioTitle }}</h2>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2)">{{ studioCampaign }}</p>
+            </div>
+            <div style="display:flex; gap:7px; flex:none">
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Tekst aanpassen</button>
+              <button type="button" style="height:30px; padding:0 12px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Goedkeuren</button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:9px">
+            <sc-for list="{{ studioMeta }}" as="m" hint-placeholder-count="4">
+              <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-md); padding:9px 11px">
+                <p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">{{ m.term }}</p>
+                <p style="margin:3px 0 0; font-size:12.5px; font-weight:700">{{ m.value }}</p>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid; grid-template-columns:minmax(0,1.45fr) minmax(220px,1fr); gap:12px; align-items:start">
+            <article style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:9px">
+              <h3 style="margin:0; font-size:14px; font-weight:700">{{ studioHook }}</h3>
+              <p style="margin:0; font-size:12.5px; line-height:1.65; color:var(--tx)">{{ studioBody }}</p>
+              <div style="display:flex; gap:6px; flex-wrap:wrap; border-top:1px solid var(--n-2); padding-top:9px">
+                <sc-for list="{{ studioTags }}" as="t" hint-placeholder-count="4">
+                  <span style="height:21px; padding:0 8px; border-radius:var(--radius-pill); background:var(--lp-t2); color:var(--lp-ink); font-size:10.5px; font-weight:700; display:inline-flex; align-items:center">{{ t.text }}</span>
+                </sc-for>
+              </div>
+            </article>
+
+            <div style="display:grid; gap:10px">
+              <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px">
+                <p style="margin:0 0 8px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">BEELDVARIANTEN</p>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+                  <div style="aspect-ratio:4/5; border-radius:var(--radius-md); background:linear-gradient(150deg, var(--lp-solid) 0%, var(--lp-ink) 100%); display:grid; place-items:end start; padding:9px; color:#fff">
+                    <span style="font-size:10px; font-weight:700; letter-spacing:.06em">VARIANT A</span>
+                  </div>
+                  <div style="aspect-ratio:4/5; border-radius:var(--radius-md); background:var(--lp-t2); border:1px dashed var(--lp-t3); display:grid; place-items:end start; padding:9px; color:var(--lp-ink)">
+                    <span style="font-size:10px; font-weight:700; letter-spacing:.06em">VARIANT B</span>
+                  </div>
+                </div>
+                <p style="margin:8px 0 0; font-size:11px; color:var(--tx-3); line-height:1.5">Zelfde boodschap en CTA, twee uitvoeringen. 1080 × 1350.</p>
+              </div>
+
+              <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px">
+                <p style="margin:0 0 7px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">AANDACHTSPUNTEN</p>
+                <sc-for list="{{ studioFlags }}" as="f" hint-placeholder-count="2">
+                  <p style="margin:0 0 6px; font-size:11.5px; color:var(--wa); background:var(--wa-t); border-radius:var(--radius-md); padding:6px 8px; line-height:1.45">{{ f.text }}</p>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= MARKTRADAR -->
+    <sc-if value="{{ isRadar }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:{{ radarCols }}; align-items:stretch; flex:1; min-height:0">
+
+        <aside style="border-right:1px solid var(--n-br); background:var(--n-0); padding:14px 12px; display:grid; gap:12px; align-content:start; min-width:0; position:sticky; top:48px; align-self:start; max-height:calc(100vh - 48px); overflow-y:auto; overflow-x:hidden">
+          <div style="min-width:0">
+            <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">MARKTRADAR</p>
+            <p style="margin:0; font-size:13px; font-weight:700; line-height:1.3">Opleiding Casemanager Regie op Verzuim (CROV)</p>
+            <p style="margin:4px 0 0; font-size:11px; color:var(--tx-3)">7 gecontroleerde feiten op de opleidingskaart</p>
+          </div>
+
+          <div style="display:grid; gap:2px" role="tablist" aria-label="Marktradar-weergaven">
+            <sc-for list="{{ radarViews }}" as="v" hint-placeholder-count="8">
+              <button type="button" role="tab" aria-selected="{{ v.selected }}" onClick="{{ v.pick }}" style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; width:100%; text-align:left; border:0; background:{{ v.bg }}; border-radius:var(--radius-md); padding:7px 9px; cursor:pointer" style-hover="background:var(--lp-t1)">
+                <span style="min-width:0">
+                  <span style="display:block; font-size:12.5px; font-weight:{{ v.weight }}; color:{{ v.fg }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ v.label }}</span>
+                  <span style="display:block; font-size:10.5px; color:var(--tx-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="{{ v.hint }}">{{ v.hint }}</span>
+                </span>
+                <sc-if value="{{ v.count }}" hint-placeholder-val="{{ true }}"><span style="flex:none; font-family:var(--font-mono); font-size:10.5px; font-weight:600; color:var(--tx-2); background:var(--n-1); border:1px solid var(--n-br); border-radius:var(--radius-pill); padding:1px 7px">{{ v.count }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+
+          <button type="button" style="border:1px dashed var(--n-br2); background:none; border-radius:var(--radius-md); padding:7px 9px; font:inherit; font-size:12px; font-weight:600; color:var(--tx-2); cursor:pointer; text-align:left" style-hover="border-color:var(--lp); color:var(--lp-deep)">Nieuwe scan instellen</button>
+        </aside>
+
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em">{{ radarTitle }}</h1>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:76ch">{{ radarLead }}</p>
+            </div>
+            <div style="display:flex; gap:7px; flex:none; align-items:center">
+              <span style="font-size:11px; color:var(--tx-3)">Scan</span>
+              <button type="button" style="height:30px; padding:0 10px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px">15-9-2026, 15:55<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+            </div>
+          </div>
+
+          <sc-if value="{{ radarIsPicture }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px 14px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap">
+              <h2 style="margin:0; font-size:13px; font-weight:700">Sinds de vorige scan (18)</h2>
+              <span style="font-size:11px; color:var(--tx-3)">Vergeleken met 11-9-2026, 19:21</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:9px">
+              <sc-for list="{{ radarDiff }}" as="d" hint-placeholder-count="4">
+                <span style="display:inline-flex; align-items:baseline; gap:6px; height:26px; padding:0 10px; border-radius:var(--radius-pill); background:var(--n-1); border:1px solid var(--n-br); font-size:11.5px; color:var(--tx-2)"><span style="font-family:var(--font-mono); font-weight:600; color:var(--tx)">{{ d.n }}</span>{{ d.what }}</span>
+              </sc-for>
+            </div>
+            <p style="margin:9px 0 0; font-size:11px; color:var(--tx-3); line-height:1.5">Een gewijzigde bron is een gewijzigde tekst, geen marktbeweging. Wat niet is gevonden, is niet bewezen afwezig.</p>
+          </div>
+
+          <div style="display:grid; gap:9px">
+            <sc-for list="{{ radarInsights }}" as="i" hint-placeholder-count="5">
+              <button type="button" onClick="{{ i.pick }}" style="text-align:left; border:1px solid {{ i.br }}; background:{{ i.bg }}; border-radius:var(--radius-lg); padding:12px 14px; cursor:pointer; display:grid; gap:7px; box-shadow:{{ i.shadow }}" style-hover="border-color:var(--lp-t3)">
+                <span style="display:grid; grid-template-columns:16px minmax(0,1fr); gap:9px; align-items:start">
+                  <span style="width:14px; height:14px; border-radius:50%; border:1px solid {{ i.dotBr }}; background:{{ i.dotBg }}; margin-top:2px; display:grid; place-items:center">
+                    <sc-if value="{{ i.selected }}" hint-placeholder-val="{{ true }}"><span style="width:6px; height:6px; border-radius:50%; background:var(--lp-on)"></span></sc-if>
+                  </span>
+                  <span style="font-size:13px; font-weight:700; line-height:1.4">{{ i.claim }}</span>
+                </span>
+                <span style="display:flex; flex-wrap:wrap; gap:5px; padding-left:25px">
+                  <span style="height:20px; padding:0 8px; border-radius:var(--radius-pill); background:{{ i.phaseBg }}; color:{{ i.phaseFg }}; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center">{{ i.phase }}</span>
+                  <span style="height:20px; padding:0 8px; border-radius:var(--radius-pill); background:{{ i.evBg }}; color:{{ i.evFg }}; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center">{{ i.evidence }}</span>
+                  <span style="height:20px; padding:0 8px; border-radius:var(--radius-pill); background:var(--n-1); border:1px solid var(--n-br); color:var(--tx-2); font-size:10.5px; font-weight:700; display:inline-flex; align-items:center">{{ i.agreement }}</span>
+                </span>
+                <span style="display:block; font-size:12px; color:var(--tx-2); line-height:1.6; padding-left:25px">{{ i.body }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="background:var(--n-0); border:1px solid var(--lp-t3); border-radius:var(--radius-lg); padding:12px 14px; display:grid; gap:9px">
+            <div>
+              <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--tx-3)">DOEL VAN DE CAMPAGNE</p>
+              <p style="margin:0; font-size:12.5px; font-weight:700">Overweging — mensen kennen de behoefte en vergelijken opties.</p>
+              <p style="margin:3px 0 0; font-size:11px; color:var(--tx-3)">Voorgesteld, omdat het gekozen inzicht in de fase Overwegen speelt. Je kunt het wijzigen.</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <button type="button" style="height:32px; padding:0 13px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Iets maken van dit inzicht</button>
+              <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Bewaren als kans</button>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- overige weergaven: één opsomming per soort -->
+          <sc-if value="{{ radarIsList }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid; gap:9px">
+              <sc-for list="{{ radarRows }}" as="r" hint-placeholder-count="4">
+                <article style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px 14px; display:grid; gap:7px">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px">
+                    <div style="min-width:0">
+                      <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--tx-3)">{{ r.eyebrow }}</p>
+                      <h2 style="margin:0; font-size:13.5px; font-weight:700; line-height:1.4">{{ r.title }}</h2>
+                    </div>
+                    <sc-if value="{{ r.badge }}" hint-placeholder-val="{{ true }}"><span style="flex:none; height:21px; padding:0 9px; border-radius:var(--radius-pill); background:{{ r.tint }}; color:{{ r.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center; white-space:nowrap">{{ r.badge }}</span></sc-if>
+                  </div>
+                  <p style="margin:0; font-size:12px; color:var(--tx-2); line-height:1.6">{{ r.body }}</p>
+                  <sc-if value="{{ r.meta }}" hint-placeholder-val="{{ true }}">
+                    <p style="margin:0; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ r.meta }}</p>
+                  </sc-if>
+                </article>
+              </sc-for>
+            </div>
+            <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">{{ radarFoot }}</p>
+          </sc-if>
+        </section>
+
+        <sc-if value="{{ radarContext }}" hint-placeholder-val="{{ true }}">
+          <aside style="border-left:1px solid var(--n-br); background:var(--n-0); padding:14px 12px; display:grid; gap:12px; align-content:start; min-width:0; position:sticky; top:48px; align-self:start; max-height:calc(100vh - 48px); overflow-y:auto; overflow-x:hidden">
+            <p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">AANBIEDERS (GECITEERD)</p>
+            <div style="display:grid; gap:8px">
+              <sc-for list="{{ competitors }}" as="c" hint-placeholder-count="3">
+                <div style="border:1px solid var(--n-br); border-radius:var(--radius-md); padding:8px 9px">
+                  <p style="margin:0 0 3px; font-size:11px; font-weight:700; color:var(--tx-2)">{{ c.name }}</p>
+                  <p style="margin:0; font-size:11.5px; color:var(--tx); line-height:1.5">{{ c.quote }}</p>
+                  <p style="margin:5px 0 0; font-size:11px"><a href="#">Bron bekijken</a></p>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:1px solid var(--n-2); padding-top:10px">
+              <p style="margin:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">ONZE OPLEIDING (GECONTROLEERD)</p>
+              <p style="margin:0; font-size:11.5px; color:var(--tx-2); line-height:1.55">Erkende opleiding tot casemanager CROV waarin deelnemers leren een verzuimdossier te begeleiden. Hbo-niveau, taalniveau B2, circa 140 studiebelasting, 7 lesdagen plus examen.</p>
+              <p style="margin:7px 0 0; font-size:11px; color:var(--tx-3); line-height:1.5">Geen rangorde en geen prijsvergelijking: die staan niet in beide bronnen.</p>
+            </div>
+          </aside>
+        </sc-if>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= AI VISIBILITY -->
+    <sc-if value="{{ isAi }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:232px minmax(0,1fr); align-items:stretch; flex:1; min-height:0">
+
+        <aside style="border-right:1px solid var(--n-br); background:var(--n-0); padding:14px 12px; display:grid; gap:12px; align-content:start; min-width:0; position:sticky; top:48px; align-self:start; max-height:calc(100vh - 48px); overflow-y:auto; overflow-x:hidden">
+          <div style="min-width:0">
+            <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">AI VISIBILITY &amp; GEO</p>
+            <p style="margin:0; font-size:13px; font-weight:700; line-height:1.3">Onderzoek van 11-9-2026, 10:59</p>
+            <p style="margin:4px 0 0; font-size:11px; color:var(--tx-3)">{{ aiSidebarMeta }}</p>
+          </div>
+
+          <div style="display:grid; gap:2px" role="tablist" aria-label="AI Visibility-weergaven">
+            <sc-for list="{{ aiViews }}" as="v" hint-placeholder-count="5">
+              <button type="button" role="tab" aria-selected="{{ v.selected }}" onClick="{{ v.pick }}" style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; width:100%; text-align:left; border:0; background:{{ v.bg }}; border-radius:var(--radius-md); padding:7px 9px; cursor:pointer" style-hover="background:var(--lp-t1)">
+                <span style="min-width:0">
+                  <span style="display:block; font-size:12.5px; font-weight:{{ v.weight }}; color:{{ v.fg }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ v.label }}</span>
+                  <span style="display:block; font-size:10.5px; color:var(--tx-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ v.hint }}</span>
+                </span>
+                <sc-if value="{{ v.count }}" hint-placeholder-val="{{ true }}"><span style="flex:none; font-family:var(--font-mono); font-size:10.5px; font-weight:600; color:var(--tx-2); background:var(--n-1); border:1px solid var(--n-br); border-radius:var(--radius-pill); padding:1px 7px">{{ v.count }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+
+          <button type="button" style="border:1px dashed var(--n-br2); background:none; border-radius:var(--radius-md); padding:7px 9px; font:inherit; font-size:12px; font-weight:600; color:var(--tx-2); cursor:pointer; text-align:left" style-hover="border-color:var(--lp); color:var(--lp-deep)">Nieuw onderzoek starten</button>
+        </aside>
+
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start; max-width:1000px">
+          <div>
+            <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em">{{ aiViewTitle }}</h1>
+            <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:76ch">{{ aiViewLead }}</p>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; background:var(--lp-t1); border:1px solid var(--lp-t3); border-radius:var(--radius-md); padding:10px 12px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" style="color:var(--lp-ink); flex:none"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v5M12 8v.5"></path></svg>
+            <p style="margin:0; font-size:11.5px; color:var(--lp-ink); line-height:1.55">Tekstvoorstellen voor controle, geen goedgekeurde publicaties en geen bewezen zichtbaarheidstoename. CS Opleidingen · land NL · model niet aangeleverd.</p>
+          </div>
+
+          <!-- Zoekvragen & antwoorden -->
+          <sc-if value="{{ aiIsQuestions }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid; gap:10px">
+              <sc-for list="{{ aiQuestions }}" as="q" hint-placeholder-count="3">
+                <article style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:11px 14px; border-bottom:1px solid var(--n-2)">
+                    <div style="min-width:0">
+                      <h2 style="margin:0; font-size:12.5px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; color:var(--tx-2); line-height:1.4">{{ q.question }}</h2>
+                      <p style="margin:3px 0 0; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ q.meta }}</p>
+                    </div>
+                    <span style="flex:none; height:22px; padding:0 9px; border-radius:var(--radius-pill); background:{{ q.tint }}; color:{{ q.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center">{{ q.verdict }}</span>
+                  </div>
+                  <div style="padding:12px 14px; display:grid; gap:9px">
+                    <p style="margin:0; font-size:12.5px; color:var(--tx); line-height:1.65">{{ q.answer }}</p>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--n-2); padding-top:9px">
+                      <span style="font-size:11px; color:var(--tx-3)">{{ q.sources }}</span>
+                      <button type="button" onClick="{{ aiToSources }}" style="height:26px; padding:0 10px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer" style-hover="border-color:var(--lp); color:var(--lp-deep)">Bronnen bekijken</button>
+                      <button type="button" onClick="{{ aiToPages }}" style="height:26px; padding:0 10px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer" style-hover="border-color:var(--lp); color:var(--lp-deep)">Paginavoorstel openen</button>
+                    </div>
+                  </div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- Genoemde bronnen -->
+          <sc-if value="{{ aiIsSources }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+              <div style="display:grid; grid-template-columns:minmax(0,1.5fr) 84px 68px minmax(0,1fr) 104px; gap:12px; padding:9px 14px; border-bottom:1px solid var(--n-br); background:var(--n-1)">
+                <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">BRON</span>
+                <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">IN VRAGEN</span>
+                <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">GENOEMD</span>
+                <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">SOORT</span>
+                <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3); text-align:right">KOPPELING</span>
+              </div>
+              <sc-for list="{{ aiSources }}" as="s" hint-placeholder-count="6">
+                <div style="display:grid; grid-template-columns:minmax(0,1.5fr) 84px 68px minmax(0,1fr) 104px; gap:12px; padding:10px 14px; border-bottom:1px solid var(--n-2); align-items:center">
+                  <span style="min-width:0">
+                    <span style="display:block; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="{{ s.name }}">{{ s.name }}</span>
+                    <span style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ s.domain }}</span>
+                  </span>
+                  <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--tx-2)">{{ s.inQuestions }}</span>
+                  <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--tx-2)">{{ s.mentions }}</span>
+                  <span style="font-size:11.5px; color:var(--tx-2)">{{ s.kind }}</span>
+                  <span style="justify-self:end"><span style="height:21px; padding:0 9px; border-radius:var(--radius-pill); background:{{ s.tint }}; color:{{ s.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center; white-space:nowrap">{{ s.link }}</span></span>
+                </div>
+              </sc-for>
+              <div style="padding:11px 14px">
+                <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">Citaatkoppelingen zijn niet aangeleverd: een genoemde zoekbron bewijst geen koppeling met een specifieke zin in het antwoord.</p>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Paginavoorstellen -->
+          <sc-if value="{{ aiIsPages }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid; gap:10px">
+              <sc-for list="{{ aiPages }}" as="p" hint-placeholder-count="3">
+                <article style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:13px 14px; display:grid; gap:8px">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px">
+                    <div style="min-width:0">
+                      <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--tx-3)">{{ p.target }}</p>
+                      <h2 style="margin:0; font-size:14px; font-weight:700; line-height:1.35">{{ p.title }}</h2>
+                    </div>
+                    <span style="flex:none; height:22px; padding:0 9px; border-radius:var(--radius-pill); background:{{ p.tint }}; color:{{ p.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center">{{ p.status }}</span>
+                  </div>
+                  <p style="margin:0; font-size:12.5px; color:var(--tx-2); line-height:1.6">{{ p.why }}</p>
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--n-2); padding-top:9px">
+                    <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ p.meta }}</span>
+                    <div style="flex:1"></div>
+                    <button type="button" style="height:28px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:11.5px; font-weight:600; cursor:pointer">Voorstel lezen</button>
+                    <button type="button" onClick="{{ goStudio }}" style="height:28px; padding:0 12px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Naar Content Studio</button>
+                  </div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- Onderzoeksnotities -->
+          <sc-if value="{{ aiIsNotes }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+              <sc-for list="{{ aiNotes }}" as="n" hint-placeholder-count="4">
+                <div style="padding:11px 14px; border-bottom:1px solid var(--n-2)">
+                  <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">{{ n.term }}</p>
+                  <p style="margin:0; font-size:12.5px; color:var(--tx); line-height:1.6">{{ n.value }}</p>
+                </div>
+              </sc-for>
+              <div style="padding:11px 14px">
+                <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">Wat hier niet staat, is niet gemeten. Er is geen positie, geen aandeel en geen trend over tijd: één onderzoek is één momentopname van één antwoord.</p>
+              </div>
+            </div>
+          </sc-if>
+        </section>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= RESULTATEN -->
+    <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+      <main style="padding:20px; display:grid; gap:14px; align-content:start; max-width:1180px">
+        <div>
+          <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">RESULTATEN</p>
+          <h1 style="margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em">Wat we hebben geleerd</h1>
+          <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:80ch">De lessen die dit label heeft vastgelegd, en de campagnes waarvan resultaten zijn genoteerd. Het systeem meet niets zelf: bij elk cijfer staat hoe iemand eraan kwam.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(186px,1fr)); gap:10px">
+          <sc-for list="{{ resultKpis }}" as="k" hint-placeholder-count="4">
+            <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:12px 14px; display:grid; gap:6px; position:relative; overflow:hidden">
+              <span style="position:absolute; left:0; top:0; bottom:0; width:3px; background:{{ k.bar }}"></span>
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px">
+                <span style="font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--tx-2)">{{ k.label }}</span>
+                <span style="font-family:var(--font-mono); font-size:24px; font-weight:600; line-height:1; color:{{ k.bar }}">{{ k.value }}</span>
+              </div>
+              <span style="font-size:11px; color:var(--tx-3); line-height:1.4">{{ k.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex; gap:2px; border-bottom:1px solid var(--n-br)">
+          <span style="padding:9px 12px; font-size:12.5px; font-weight:700; color:var(--lp-deep); border-bottom:2px solid var(--lp); margin-bottom:-1px">Lessen <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">0</span></span>
+          <span style="padding:9px 12px; font-size:12.5px; font-weight:600; color:var(--tx-2)">Campagnes met resultaten <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">0</span></span>
+        </div>
+
+        <div style="background:var(--n-0); border:1px dashed var(--n-br2); border-radius:var(--radius-lg); padding:32px 24px; display:grid; justify-items:center; text-align:center; gap:8px">
+          <span style="width:40px; height:40px; border-radius:50%; background:var(--lp-t2); color:var(--lp-ink); display:grid; place-items:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"></path></svg>
+          </span>
+          <h2 style="margin:4px 0 0; font-size:14px; font-weight:700">Nog geen lessen vastgelegd</h2>
+          <p style="margin:0; max-width:56ch; font-size:12px; color:var(--tx-2); line-height:1.6">Leg aan het eind van een campagne vast wat je zag en wat je daaruit afleidt. Een goedgekeurde les kleurt daarna elk volgend voorstel — en verandert geen persona en geen merkregel.</p>
+          <button type="button" style="margin-top:6px; height:32px; padding:0 13px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Naar campagnes</button>
+        </div>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= OPLEIDINGEN -->
+    <sc-if value="{{ isCourses }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:minmax(260px,300px) minmax(0,1fr); align-items:stretch; flex:1; min-height:0">
+
+        <section style="border-right:1px solid var(--n-br); background:var(--n-0); display:flex; flex-direction:column; position:sticky; top:48px; align-self:start; height:calc(100vh - 48px)">
+          <div style="padding:12px; border-bottom:1px solid var(--n-br); display:grid; gap:9px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <h1 style="margin:0; font-size:15px; font-weight:700">Opleidingen</h1>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">1 kaart</span>
+            </div>
+            <button type="button" style="height:30px; padding:0 11px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; justify-content:center" style-hover="background:var(--lp-deep)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Opleidingskaart toevoegen
+            </button>
+          </div>
+          <div style="overflow:auto; flex:1">
+            <div style="display:grid; grid-template-columns:3px minmax(0,1fr); gap:9px; border-bottom:1px solid var(--n-2); background:var(--lp-t1)">
+              <span style="background:var(--lp)"></span>
+              <span style="display:grid; gap:3px; padding:10px 12px 10px 0">
+                <span style="display:flex; align-items:center; gap:6px">
+                  <span style="font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--tx-3)">CROV · V2</span>
+                  <span style="flex:1"></span>
+                  <span style="height:18px; padding:0 7px; border-radius:var(--radius-pill); background:var(--ok-t); color:var(--ok); font-size:10px; font-weight:700; display:inline-flex; align-items:center">Goedgekeurd</span>
+                </span>
+                <span style="font-size:12.5px; font-weight:700; line-height:1.35">Opleiding Casemanager Regie op Verzuim (CROV)</span>
+                <span style="font-family:var(--font-mono); font-size:10px; color:var(--tx-3)">7 van 8 velden gecontroleerd</span>
+              </span>
+            </div>
+          </div>
+          <div style="padding:10px 12px; border-top:1px solid var(--n-br)">
+            <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.5">Een kaart maak je uit een opleidingspagina, een Word-document of een PDF. Een intern adres wordt geweigerd voordat er werk in de wachtrij komt.</p>
+          </div>
+        </section>
+
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">KENNIS &amp; BEHEER · OPLEIDINGSKAART V2</p>
+              <h2 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em; line-height:1.25">Opleiding Casemanager Regie op Verzuim (CROV)</h2>
+              <p style="margin:4px 0 0; font-size:11.5px"><a href="#">cs-opleidingen.nl/opleidingen/casemanager-regie-op-verzuim-crov</a></p>
+            </div>
+            <div style="display:flex; gap:7px; flex:none">
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Bronnen &amp; onderzoek</button>
+              <button type="button" style="height:30px; padding:0 12px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Bevestig 1 veld</button>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-md); padding:9px 12px">
+            <span style="font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--lp-deep); flex:none">7 VAN 8</span>
+            <span style="font-size:12px; color:var(--tx-2)">velden gecontroleerd. Wat niet is gecontroleerd, wordt nooit in content gebruikt en blokkeert een publicatieklaar pakket.</span>
+            <div style="flex:1"></div>
+            <div style="height:5px; width:110px; border-radius:var(--radius-pill); background:var(--n-2); overflow:hidden; flex:none"><div style="height:100%; width:87.5%; background:var(--lp)"></div></div>
+          </div>
+
+          <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+            <sc-for list="{{ courseFields }}" as="f" hint-placeholder-count="8">
+              <div style="display:grid; grid-template-columns:150px minmax(0,1fr) 116px; gap:12px; padding:11px 14px; border-bottom:1px solid var(--n-2); align-items:start">
+                <span style="font-size:11.5px; font-weight:700; color:var(--tx); padding-top:1px">{{ f.field }}</span>
+                <span style="min-width:0">
+                  <span style="display:block; font-size:12.5px; color:{{ f.valueColor }}; line-height:1.6">{{ f.value }}</span>
+                  <sc-if value="{{ f.remark }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:block; margin-top:5px; font-size:11.5px; color:var(--er); background:var(--er-t); border-radius:var(--radius-md); padding:6px 8px; line-height:1.5">{{ f.remark }}</span>
+                  </sc-if>
+                </span>
+                <span style="justify-self:end; height:22px; padding:0 9px; border-radius:var(--radius-pill); background:{{ f.tint }}; color:{{ f.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center; white-space:nowrap">{{ f.status }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:11px 14px">
+              <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">Per veld staat wie het heeft gecontroleerd. Een veld dat leeg blijft, zoals <span style="font-weight:700">Data</span>, wordt niet geraden: het systeem leest geen opleidingsdatum uit de prozatekst van de pagina.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= DOELGROEPEN -->
+    <sc-if value="{{ isPersonas }}" hint-placeholder-val="{{ false }}">
+      <main style="display:grid; grid-template-columns:minmax(280px,340px) minmax(0,1fr); align-items:stretch; flex:1; min-height:0">
+
+        <section style="border-right:1px solid var(--n-br); background:var(--n-0); display:flex; flex-direction:column; position:sticky; top:48px; align-self:start; height:calc(100vh - 48px)">
+          <div style="padding:12px; border-bottom:1px solid var(--n-br); display:grid; gap:9px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <h1 style="margin:0; font-size:15px; font-weight:700">Doelgroepen</h1>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-3)">{{ personaCount }}</span>
+            </div>
+            <input type="text" placeholder="Naam of beschrijving" style="height:30px; padding:0 10px; border:1px solid var(--n-br2); border-radius:var(--radius-md); background:var(--n-0); font:inherit; font-size:12px; color:var(--tx)">
+            <div style="display:flex; gap:4px">
+              <span style="height:24px; padding:0 9px; border-radius:var(--radius-pill); background:var(--lp-t2); border:1px solid var(--lp-t3); color:var(--lp-ink); font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px">Bibliotheek <span style="font-family:var(--font-mono); font-size:10px">4</span></span>
+              <span style="height:24px; padding:0 9px; border-radius:var(--radius-pill); background:var(--n-0); border:1px solid var(--n-br); color:var(--tx-2); font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px">Uit campagnes <span style="font-family:var(--font-mono); font-size:10px">30</span></span>
+            </div>
+          </div>
+          <div style="overflow:auto; flex:1">
+            <sc-for list="{{ personas }}" as="p" hint-placeholder-count="4">
+              <button type="button" onClick="{{ p.pick }}" style="display:grid; grid-template-columns:3px minmax(0,1fr); gap:9px; width:100%; text-align:left; border:0; border-bottom:1px solid var(--n-2); background:{{ p.bg }}; padding:0; cursor:pointer" style-hover="background:var(--lp-t1)">
+                <span style="background:{{ p.marker }}"></span>
+                <span style="display:grid; gap:3px; padding:10px 12px 10px 0">
+                  <span style="display:flex; align-items:center; gap:6px">
+                    <span style="font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--tx-3)">{{ p.version }}</span>
+                    <span style="flex:1"></span>
+                    <span style="height:18px; padding:0 7px; border-radius:var(--radius-pill); background:{{ p.tint }}; color:{{ p.ink }}; font-size:10px; font-weight:700; display:inline-flex; align-items:center">{{ p.origin }}</span>
+                  </span>
+                  <span style="font-size:12.5px; font-weight:700; line-height:1.35; color:var(--tx)">{{ p.name }}</span>
+                  <span style="font-family:var(--font-mono); font-size:10px; color:var(--tx-3)">{{ p.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="padding:10px 12px; border-top:1px solid var(--n-br)">
+            <button type="button" style="width:100%; height:30px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Persona maken of importeren</button>
+          </div>
+        </section>
+
+        <section style="min-width:0; padding:16px 18px; display:grid; gap:12px; align-content:start">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">DOELGROEP · {{ personaVersion }}</p>
+              <h2 style="margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em; line-height:1.25">{{ personaName }}</h2>
+              <p style="margin:4px 0 0; font-size:12.5px; color:var(--tx-2); line-height:1.6; max-width:76ch">{{ personaBody }}</p>
+            </div>
+            <div style="display:flex; gap:7px; flex:none">
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Bewerken</button>
+              <button type="button" style="height:30px; padding:0 11px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">JSON downloaden</button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:9px">
+            <sc-for list="{{ personaStats }}" as="s" hint-placeholder-count="3">
+              <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:11px 13px">
+                <p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">{{ s.term }}</p>
+                <p style="margin:4px 0 0; font-family:var(--font-mono); font-size:20px; font-weight:600; line-height:1; color:{{ s.color }}">{{ s.value }}</p>
+                <p style="margin:4px 0 0; font-size:11px; color:var(--tx-3); line-height:1.4">{{ s.note }}</p>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ personaOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:10px; background:var(--wa-t); border-radius:var(--radius-md); padding:10px 12px; flex-wrap:wrap">
+              <p style="margin:0; flex:1; min-width:220px; font-size:11.5px; color:var(--wa); line-height:1.55">Deze persona heeft nog open vragen. Het systeem beantwoordt ze uit onderzoek, opleidingskaart en campagne-invoer; al beantwoorde vragen blijven staan.</p>
+              <button type="button" style="height:28px; padding:0 11px; border:1px solid var(--wa); background:transparent; color:var(--wa); border-radius:var(--radius-md); font-size:11.5px; font-weight:700; cursor:pointer">Open vragen laten invullen</button>
+            </div>
+          </sc-if>
+
+          <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+            <sc-for list="{{ personaFacets }}" as="f" hint-placeholder-count="4">
+              <div style="padding:11px 14px; border-bottom:1px solid var(--n-2)">
+                <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">{{ f.term }}</p>
+                <p style="margin:0; font-size:12.5px; color:var(--tx); line-height:1.6">{{ f.value }}</p>
+              </div>
+            </sc-for>
+            <div style="padding:11px 14px">
+              <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">Een persona hoort bij één opleiding en kan aan andere opleidingen worden gekoppeld. Wat als aanname is aangemerkt, gaat als aanname mee in de briefing — niet als feit.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= MERK & BRONNEN -->
+    <sc-if value="{{ isBrand }}" hint-placeholder-val="{{ false }}">
+      <main style="padding:20px; display:grid; gap:14px; align-content:start; max-width:1180px">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
+          <div style="min-width:0">
+            <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">KENNIS &amp; BEHEER</p>
+            <h1 style="margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em">Merk &amp; bronnen</h1>
+            <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:80ch">Het goedgekeurde merkprofiel is bindend: deze kleuren sturen de beelden, de interface van dit label, en de merkregels komen automatisch in het buiten kader van elke briefing.</p>
+          </div>
+          <span style="flex:none; display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:var(--radius-pill); background:var(--ok-t); color:var(--ok); font-size:11.5px; font-weight:700">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Goedgekeurd · versie 4
+          </span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; align-items:start">
+          <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:10px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <h2 style="margin:0; font-size:14px; font-weight:700">Brand Portal</h2>
+              <span style="height:22px; padding:0 9px; border-radius:var(--radius-pill); background:var(--ok-t); color:var(--ok); font-size:11px; font-weight:700; display:inline-flex; align-items:center">Production · 0.4.0</span>
+            </div>
+            <p style="margin:0; font-size:12px; color:var(--tx-2); line-height:1.6">Gekoppeld aan <span style="font-family:var(--font-mono); font-size:11.5px">cs-opleidingen</span>. Gepubliceerde releases zijn direct bruikbaar. Laatst gecontroleerd: 15-9-2026, 18:18.</p>
+            <div style="display:grid; gap:6px">
+              <div style="display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:6px 0; border-top:1px solid var(--n-2)"><span style="color:var(--tx-2)">Font voor koppen</span><span style="font-weight:700">Behind the Nineties</span></div>
+              <div style="display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:6px 0; border-top:1px solid var(--n-2)"><span style="color:var(--tx-2)">Lopende tekst</span><span style="font-weight:700">Euclid Square</span></div>
+            </div>
+            <div style="display:flex; gap:9px; background:var(--wa-t); border-radius:var(--radius-md); padding:10px 12px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" style="color:var(--wa); flex:none; margin-top:1px"><path d="M12 3l10 18H2L12 3zM12 10v4M12 17.5v.5"></path></svg>
+              <p style="margin:0; font-size:11.5px; color:var(--wa); line-height:1.55">Brand Portal bevat voor dit label nog geen tekstuele content- of tone-of-voice-richtlijnen.</p>
+            </div>
+            <button type="button" style="justify-self:start; height:30px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer" style-hover="border-color:var(--lp)">Nu synchroniseren</button>
+          </section>
+
+          <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:10px">
+            <h2 style="margin:0; font-size:14px; font-weight:700">Kleuren van dit label</h2>
+            <p style="margin:0; font-size:11.5px; color:var(--tx-3); line-height:1.5">Gebruikt in de beelden én in deze interface. Vlakken met tekst gebruiken een verdonkerde variant, zodat kleine tekst leesbaar blijft.</p>
+            <div style="display:grid; gap:7px">
+              <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--n-2)">
+                  <span style="width:32px; height:32px; border-radius:var(--radius-md); background:{{ s.hex }}; border:1px solid rgb(24 36 48 / 10%); flex:none"></span>
+                  <span style="flex:1; min-width:0">
+                    <span style="display:block; font-size:12.5px; font-weight:700">{{ s.role }}</span>
+                    <span style="display:block; font-size:11px; color:var(--tx-3)">{{ s.use }}</span>
+                  </span>
+                  <span style="font-family:var(--font-mono); font-size:11px; color:var(--tx-2); flex:none">{{ s.hex }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-radius:var(--radius-lg); padding:14px; background:linear-gradient(150deg, var(--lp-solid) 0%, var(--lp-ink) 100%); color:#fff; display:grid; gap:6px; margin-top:2px">
+              <span style="font-size:10px; font-weight:700; letter-spacing:.12em; opacity:.85">VOORBEELD IN BEELD</span>
+              <span style="font-size:15px; font-weight:700; line-height:1.3">Regie op verzuim vraagt om meer dan één perspectief.</span>
+              <span style="font-size:11.5px; line-height:1.5; opacity:.9">Het woordmerk wordt door onze eigen rendering in het beeld gezet, niet door een AI-model getekend.</span>
+            </div>
+          </section>
+        </div>
+
+        <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:10px">
+          <h2 style="margin:0; font-size:14px; font-weight:700">Merkregels</h2>
+          <p style="margin:0; font-size:11.5px; color:var(--tx-3); line-height:1.5">Deze regels reizen mee naar elke briefing. Een <span style="font-weight:700">niet doen</span>-regel komt in het buiten kader en blokkeert content die hem overtreedt.</p>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:8px">
+            <sc-for list="{{ brandRules }}" as="b" hint-placeholder-count="4">
+              <p style="margin:0; font-size:12px; color:var(--tx-2); background:var(--n-1); border:1px solid var(--n-br); border-radius:var(--radius-md); padding:9px 11px; line-height:1.5">{{ b.text }}</p>
+            </sc-for>
+          </div>
+        </section>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= LABELS & TOEGANG -->
+    <sc-if value="{{ isLabels }}" hint-placeholder-val="{{ false }}">
+      <main style="padding:20px; display:grid; gap:14px; align-content:start; max-width:1060px">
+        <div>
+          <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--lp-deep)">KENNIS &amp; BEHEER</p>
+          <h1 style="margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em">Labels &amp; toegang</h1>
+          <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:80ch">Je ziet hier alleen de labels waarvoor je een rol hebt. Rechten worden op de server bepaald op basis van je lidmaatschap; een label dat je niet mag zien, staat niet grijs — het wordt niet teruggegeven.</p>
+        </div>
+
+        <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); overflow:hidden">
+          <div style="display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 120px 92px; gap:12px; padding:9px 14px; border-bottom:1px solid var(--n-br); background:var(--n-1)">
+            <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">LABEL</span>
+            <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">JOUW ROL</span>
+            <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">HERKOMST</span>
+            <span style="font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3); text-align:right">PALET</span>
+          </div>
+          <sc-for list="{{ labelRows }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 120px 92px; gap:12px; padding:11px 14px; border-bottom:1px solid var(--n-2); align-items:center">
+              <span style="min-width:0">
+                <span style="display:block; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span>
+                <span style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">{{ r.slug }}</span>
+              </span>
+              <span style="font-size:12px; color:var(--tx-2)">{{ r.role }}</span>
+              <span><span style="height:21px; padding:0 9px; border-radius:var(--radius-pill); background:{{ r.tint }}; color:{{ r.ink }}; font-size:11px; font-weight:700; display:inline-flex; align-items:center">{{ r.origin }}</span></span>
+              <span style="justify-self:end; display:flex; gap:2px">
+                <span style="width:10px; height:18px; border-radius:var(--radius-xs) 0 0 var(--radius-xs); background:{{ r.primary }}"></span>
+                <span style="width:6px; height:18px; background:{{ r.accent }}"></span>
+                <span style="width:6px; height:18px; border-radius:0 var(--radius-xs) var(--radius-xs) 0; background:{{ r.ink2 }}"></span>
+              </span>
+            </div>
+          </sc-for>
+        </section>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; align-items:start">
+          <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:9px">
+            <h2 style="margin:0; font-size:14px; font-weight:700">Jouw account</h2>
+            <div style="display:grid; gap:7px">
+              <div style="padding:7px 0; border-top:1px solid var(--n-2)"><p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">NAAM</p><p style="margin:3px 0 0; font-size:12.5px; font-weight:700">Lokale Testgebruiker</p></div>
+              <div style="padding:7px 0; border-top:1px solid var(--n-2)"><p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">ORGANISATIE</p><p style="margin:3px 0 0; font-size:12.5px; font-weight:700">Certify360 (Demo)</p></div>
+              <div style="padding:7px 0; border-top:1px solid var(--n-2)"><p style="margin:0; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--tx-3)">AANMELDWIJZE</p><p style="margin:3px 0 0; font-size:12.5px; font-weight:700">Lokale testidentiteit (alleen ontwikkeling)</p><p style="margin:3px 0 0; font-size:11px; color:var(--tx-3); line-height:1.5">Deze modus is uitgeschakeld in productie; de applicatie start dan niet op.</p></div>
+            </div>
+          </section>
+
+          <section style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:14px; display:grid; gap:10px">
+            <div>
+              <h2 style="margin:0; font-size:14px; font-weight:700">Leden van CS Opleidingen</h2>
+              <p style="margin:2px 0 0; font-size:11px; color:var(--tx-3)">Iedereen die dit label mag lezen, ziet wie toegang heeft. Wijzigen kan alleen een labelbeheerder.</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--n-2)">
+              <span style="width:28px; height:28px; border-radius:50%; background:var(--lp-solid); color:var(--lp-on); display:grid; place-items:center; font-size:11px; font-weight:700; flex:none">LT</span>
+              <span style="flex:1; min-width:0">
+                <span style="display:block; font-size:12.5px; font-weight:700">Lokale Testgebruiker <span style="font-weight:400; color:var(--tx-3)">· dat ben jij</span></span>
+                <span style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--tx-3)">dev@local.test</span>
+              </span>
+              <span style="flex:none; height:22px; padding:0 9px; border-radius:var(--radius-pill); background:var(--lp-t2); color:var(--lp-ink); font-size:11px; font-weight:700; display:inline-flex; align-items:center">Labelbeheerder</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; border-top:1px solid var(--n-2); padding-top:10px">
+              <label style="flex:1 1 150px; min-width:0; display:grid; gap:4px; font-size:11px; font-weight:700; color:var(--tx-2)">Persoon
+                <span style="height:30px; border:1px solid var(--n-br2); border-radius:var(--radius-md); display:flex; align-items:center; padding:0 10px; font-size:12px; font-weight:400; color:var(--tx-3)">Kies iemand…</span>
+              </label>
+              <label style="flex:0 1 130px; min-width:0; display:grid; gap:4px; font-size:11px; font-weight:700; color:var(--tx-2)">Rol
+                <span style="height:30px; border:1px solid var(--n-br2); border-radius:var(--radius-md); display:flex; align-items:center; padding:0 10px; font-size:12px; font-weight:400; color:var(--tx)">Redacteur</span>
+              </label>
+              <button type="button" disabled style="height:30px; padding:0 12px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; opacity:.5; cursor:not-allowed">Toegang geven</button>
+            </div>
+            <p style="margin:0; font-size:11px; color:var(--tx-3); line-height:1.55">Een wijziging geldt vanaf het volgende verzoek van die persoon; er is geen sessie die eerst hoeft te verlopen. Elke wijziging wordt vastgelegd in het auditspoor.</p>
+          </section>
+        </div>
+      </main>
+    </sc-if>
+
+    <!-- ================================================= KALENDER (niet gebouwd) -->
+    <sc-if value="{{ isKalender }}" hint-placeholder-val="{{ false }}">
+      <main style="padding:20px; display:grid; gap:14px; align-content:start; max-width:860px">
+        <div>
+          <p style="margin:0 0 3px; font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--tx-3)">NOG NIET BESCHIKBAAR</p>
+          <h1 style="margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em">Kalender &amp; journeys</h1>
+          <p style="margin:4px 0 0; font-size:12px; color:var(--tx-2); max-width:76ch">Dit onderdeel is niet gebouwd. Het staat in de navigatie omdat het gepland is, niet omdat het werkt — en het laat liever zien wat er ontbreekt dan een leeg raster dat af lijkt.</p>
+        </div>
+
+        <div style="background:var(--n-0); border:1px solid var(--n-br); border-radius:var(--radius-lg); padding:16px; display:grid; gap:10px">
+          <p style="margin:0; font-size:12.5px; font-weight:700">Wat er wel is</p>
+          <p style="margin:0; font-size:12px; color:var(--tx-2); line-height:1.6">Per campagne bestaat er een planning die rekent vanaf een startdatum die jij kiest — die is te vinden in de campagne zelf, bij Kanaalplan. Die schema's zijn rekenwerk, geen voorspelling, en er wordt geen opleidingsdatum gelezen die niemand heeft bevestigd.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; padding-top:4px">
+            <button type="button" onClick="{{ goCampaign }}" style="height:32px; padding:0 13px; border:0; background:var(--lp-solid); color:var(--lp-on); border-radius:var(--radius-md); font-size:12px; font-weight:700; cursor:pointer" style-hover="background:var(--lp-deep)">Naar een campagneplanning</button>
+            <button type="button" onClick="{{ goHome }}" style="height:32px; padding:0 12px; border:1px solid var(--n-br2); background:var(--n-0); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer">Terug naar werkruimte</button>
+          </div>
+        </div>
+      </main>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const LABELS = [
+  { id:'cs', name:'CS Opleidingen', note:'Merkprofiel goedgekeurd · brand portal', primary:'#00A894', accent:'#C5003E', ink:'#203E58' },
+  { id:'lh', name:'Lindenhaeghe (Demo)', note:'Demo-palet · echte kleuren niet aangeleverd', primary:'#183B3E', accent:'#A793ED', ink:'#183B3E' },
+  { id:'c360', name:'Demolabel 3', note:'Geen merkprofiel · Certify360-standaard', primary:'#7A69D3', accent:'#9784FA', ink:'#183037' },
+];
+
+function hex(h){ const s=h.replace('#',''); return [parseInt(s.slice(0,2),16),parseInt(s.slice(2,4),16),parseInt(s.slice(4,6),16)]; }
+function mix(h, target, amount){ const a=hex(h), b=hex(target);
+  const c=a.map((v,i)=>Math.round(v+(b[i]-v)*amount));
+  return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join(''); }
+function lum(h){ const [r,g,b]=hex(h).map(v=>{ const s=v/255; return s<=0.03928? s/12.92 : Math.pow((s+0.055)/1.055,2.4); });
+  return 0.2126*r+0.7152*g+0.0722*b; }
+/** Contrast against white. Text colours must clear 4.5:1. */
+function onWhite(h){ return 1.05 / (lum(h) + 0.05); }
+/** Darken until the colour is legible as 11–12px text on white. */
+function readable(h){ let c = h;
+  for (let i = 0; i < 24 && onWhite(c) < 4.6; i++) c = mix(c, '#000000', 0.08);
+  return c; }
+
+class Component extends DCLogic {
+  state = { screen:'home', navOpen:false, labelsOpen:false, label:'cs', context:true, step:6, asset:0, studio:0, queueFilter:'Alles', studioFilter:'Alles' };
+
+  componentDidMount(){
+    this.paint();
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    window.addEventListener('resize', this.onResize);
+    this.onResize();
+  }
+  componentWillUnmount(){ if (this.onResize) window.removeEventListener('resize', this.onResize); }
+
+  paint(){
+    const l = LABELS.find(x=>x.id===this.state.label) || LABELS[0];
+    this.painted = l.id;
+    const root = document.documentElement.style;
+    const deep = readable(l.primary);
+    const shell = mix(l.ink,'#000000',0.12);
+    root.setProperty('--lp', l.primary);
+    root.setProperty('--lp-deep', deep);
+    root.setProperty('--lp-ink', l.ink);
+    root.setProperty('--lp-accent', l.accent);
+    // Text-bearing fills use --lp-solid: the primary darkened until 12px type
+    // on it clears 4.5:1. Raw --lp stays for bars, markers and tints.
+    const solid = readable(l.primary);
+    const onWhiteRatio = onWhite(solid);
+    const onInkRatio = (lum(solid) + 0.05) / (lum('#12212b') + 0.05);
+    root.setProperty('--lp-solid', solid);
+    root.setProperty('--lp-on', onWhiteRatio >= onInkRatio ? '#ffffff' : '#12212b');
+    root.setProperty('--lp-t1', mix(l.primary,'#ffffff',0.94));
+    root.setProperty('--lp-t2', mix(l.primary,'#ffffff',0.87));
+    root.setProperty('--lp-t3', mix(l.primary,'#ffffff',0.70));
+    // The rail's active mark sits on --lp-shell, which is derived from ink.
+    // A brand that uses one dark colour for both primary and ink (Lindenhaeghe:
+    // #183B3E for each) would make that mark invisible, so the ring falls back
+    // to the accent whenever the primary does not separate from the shell.
+    const ringPrimary = (lum(l.primary) + 0.05) / (lum(shell) + 0.05);
+    root.setProperty('--lp-active', Math.max(ringPrimary, 1 / ringPrimary) < 1.5 ? l.accent : l.primary);
+    root.setProperty('--lp-shell', shell);
+    root.setProperty('--lp-shell-2', mix(l.ink,'#ffffff',0.10));
+    root.setProperty('--lp-shell-tx', mix(l.ink,'#ffffff',0.62));
+  }
+
+  set(patch){ this.setState(patch); }
+
+  renderVals(){
+    const st = this.state;
+    const L = LABELS.find(x=>x.id===st.label) || LABELS[0];
+    // The runtime calls componentDidUpdate with one argument, so the repaint
+    // is driven from here: whenever the rendered label differs from the
+    // painted one, the CSS variables are rewritten.
+    if (this.painted !== L.id) this.paint();
+    const screenOf = { home:'home', campaign:'campaign', studio:'studio', radar:'radar', ai:'ai',
+      resultaten:'resultaten', kalender:'kalender', opleidingen:'opleidingen',
+      doelgroepen:'doelgroepen', merk:'merk', labels:'labels' };
+    const to = (screen) => () => this.set({ screen, navOpen:false, labelsOpen:false });
+
+    const navItem = (label, id, extra) => ({
+      label,
+      go: () => { if (screenOf[id]) this.set({ screen:screenOf[id], navOpen:false }); },
+      bg: screenOf[id] === st.screen ? 'rgba(255,255,255,.16)' : 'transparent',
+      fg: screenOf[id] === st.screen ? '#ffffff' : 'var(--lp-shell-tx)',
+      soon: extra?.soon === true, count: extra?.count ?? false,
+    });
+
+    const navGroups = [
+      { heading:'WERK', items:[
+        navItem('Werkruimte','home'),
+        navItem('Marktradar','radar',{ count:'4' }),
+        navItem('AI Visibility','ai'),
+        navItem('Campagnes','campaign',{ count:'5' }),
+        navItem('Content Studio','studio',{ count:'19' }),
+        navItem('Kalender & journeys','kalender',{ soon:true }),
+        navItem('Resultaten','resultaten'),
+      ]},
+      { heading:'KENNIS & BEHEER', items:[
+        navItem('Labels & toegang','labels'),
+        navItem('Opleidingen','opleidingen',{ count:'1' }),
+        navItem('Doelgroepen','doelgroepen'),
+        navItem('Merk & bronnen','merk'),
+      ]},
+    ];
+
+    const hour = new Date().getHours();
+    const greeting = (hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond') + ', Lokale.';
+
+    const kpis = [
+      { label:'Klaar voor review', value:'19', caption:'Content wacht op beoordeling', bar:'var(--lp)' },
+      { label:'Actie nodig', value:'06', caption:'Broncontrole of afgebroken taak', bar:'var(--wa)' },
+      { label:'Actieve campagnes', value:'05', caption:'Waarvan 1 in stap Content', bar:'var(--lp-ink)' },
+      { label:'Gepland deze week', value:'00', caption:'Planningsmodule nog niet gebouwd', bar:'var(--tx-3)' },
+    ];
+
+    const QUEUE = [
+      { title:'CROV – Inschrijving – september 2026', sub:'2 contentitems · E-mail, Website', action:'Beoordelen', age:'2 u', kind:'review' },
+      { title:'CROV — Route 1 — één protocol, drie werkvloeren', sub:'3 contentitems · LinkedIn, Instagram', action:'Beoordelen', age:'3 u', kind:'review' },
+      { title:'CROV — Regie over langdurige verzuimdossiers', sub:'4 contentitems · LinkedIn, Meta Ads', action:'Beoordelen', age:'5 u', kind:'review' },
+      { title:'CROV — Van verzuimvraag naar een onderbouwde volgende stap', sub:'1 item na een wijziging in een onderliggende bron', action:'Opnieuw beoordelen', age:'1 d', kind:'source',
+        reason:'De opleidingspagina is gewijzigd na het schrijven. Of dat ertoe doet, beoordeel je zelf — dit is een signaal, geen oordeel.' },
+      { title:'Achtergrondtaak: Content maken', sub:'Gestopt na 3 pogingen · niets opgeslagen', action:'Opnieuw proberen', age:'1 d', kind:'fail',
+        reason:'De AI-content haalt ook na een herstelronde de vereiste tekstvorm of beeldbrief niet.' },
+      { title:'CROV – Bekendheid – september 2026', sub:'1 contentitem · LinkedIn', action:'Beoordelen', age:'2 d', kind:'review' },
+    ];
+    const KIND = {
+      review:{ tint:'var(--lp-t2)', ink:'var(--lp-ink)' },
+      source:{ tint:'var(--wa-t)', ink:'var(--wa)' },
+      fail:{ tint:'var(--er-t)', ink:'var(--er)' },
+    };
+    const qf = st.queueFilter;
+    const queue = QUEUE.filter(q => qf==='Alles' || (qf==='Review' && q.kind==='review') || (qf==='Problemen' && q.kind!=='review'))
+      .map(q => ({ ...q, tint:KIND[q.kind].tint, ink:KIND[q.kind].ink, reason:q.reason ?? false,
+        isReview:q.kind==='review', isSource:q.kind==='source', isFail:q.kind==='fail' }));
+
+    const queueFilters = ['Alles','Review','Problemen'].map(label => ({
+      label, pick:()=>this.set({ queueFilter:label }),
+      bg: qf===label ? 'var(--n-0)' : 'transparent',
+      fg: qf===label ? 'var(--tx)' : 'var(--tx-3)',
+    }));
+
+    const foundation = [
+      { term:'Merkprofiel', note:'Versie 1 · goedgekeurd', value:'Goedgekeurd', tint:'var(--ok-t)', ink:'var(--ok)' },
+      { term:'Opleidingen', note:'1 kaart gecontroleerd, 0 open', value:'1 klaar', tint:'var(--ok-t)', ink:'var(--ok)' },
+      { term:'Doelgroepen', note:'2 voorgesteld, nog niet goedgekeurd', value:'0 van 2', tint:'var(--wa-t)', ink:'var(--wa)' },
+      { term:'Kanaalspecs', note:'Facebook onverifieerd', value:'2 van 3', tint:'var(--wa-t)', ink:'var(--wa)' },
+    ];
+
+    const jobs = [
+      { name:'Marktradar scannen', time:'15:51', dot:'var(--ok)' },
+      { name:'Campagnepakket maken', time:'13:35', dot:'var(--ok)' },
+      { name:'Content maken', time:'13:15', dot:'var(--er)' },
+      { name:'Content maken', time:'11:00', dot:'var(--er)' },
+      { name:'Kanaalplan voorstellen', time:'10:58', dot:'var(--ok)' },
+    ];
+
+    const STEPS = [
+      { num:'1', label:'Doelgroep', state:'2 gekozen', done:true },
+      { num:'2', label:'Richting', state:'Kans gekozen', done:true },
+      { num:'3', label:'Briefing', state:'Goedgekeurd', done:true },
+      { num:'4', label:'Concept', state:'1 van 3 gekozen', done:true },
+      { num:'5', label:'Kanaalplan', state:'Goedgekeurd', done:true },
+      { num:'6', label:'Content & beelden', state:'2 wachten op review', done:false },
+      { num:'7', label:'Export', state:'Concept mogelijk', done:false },
+      { num:'8', label:'Resultaten & lessen', state:'Nog niets vastgelegd', done:false },
+    ];
+    const steps = STEPS.map((s,i) => {
+      const current = Number(s.num) === st.step;
+      return { num:s.num, label:s.label, state:s.state,
+        go:()=>this.set({ step:Number(s.num) }),
+        bg: current ? 'var(--lp-t2)' : 'transparent',
+        fg: current ? 'var(--lp-ink)' : 'var(--tx)',
+        weight: current ? '800' : '600',
+        numBg: s.done ? 'var(--ok-t)' : current ? 'var(--lp-solid)' : 'var(--n-0)',
+        numFg: s.done ? 'var(--ok)' : current ? 'var(--lp-on)' : 'var(--tx-3)',
+        numBr: s.done ? 'var(--ok-t)' : current ? 'var(--lp-solid)' : 'var(--n-br2)',
+        isDone: s.done === true, isCurrent: current && s.done !== true };
+    });
+
+    const ASSETS = [
+      { channel:'E-mail', hook:'Past CROV bij jouw praktijk?', meta:'v6 · 214 woorden · 2 punten' },
+      { channel:'Website: opleidingspagina', hook:'Praktische informatie voor je inschrijving', meta:'v1 · 242 woorden · 1 punt' },
+    ];
+    const assets = ASSETS.map((a,i)=>({ ...a, pick:()=>this.set({ asset:i }),
+      br: st.asset===i ? 'var(--lp)' : 'var(--n-br)',
+      bg: st.asset===i ? 'var(--lp-t1)' : 'var(--n-0)',
+      shadow: st.asset===i ? '0 0 0 3px var(--lp-t2)' : 'none' }));
+
+    const sections = [
+      { title:'1. Opzet en studielast', body:'CROV heeft een blended opzet. Je volgt fysieke lesdagen en werkt met e-learningmodules. De opleiding omvat circa 140 studiebelasting; dit is afhankelijk van je werkervaring. Het programma bestaat uit 7 lesdagen plus examen. Het assessment vindt online plaats via Teams en duurt dertig minuten.' },
+      { title:'2. Wat komt aan bod?', body:'De opleiding gaat over het begeleiden van een verzuimdossier. Onderwerpen zijn onder meer sociale wetgeving, arbeidsrecht, communicatie volgens het BOB-model, privacy, psychisch verzuim en verzuimbeheersing. Ook komt samenwerking met de bedrijfsarts en andere arboprofessionals aan bod.' },
+      { title:'3. Prijs en PE-punten', body:'De zakelijke prijs is € 4.290,- exclusief btw, oftewel € 5.190,90 inclusief btw. Particulier betaal je € 4.719,- vrij van btw. De prijs is inclusief lunch, het mondelinge examen, eenmaal een schriftelijk examen en lesmateriaal.' },
+    ];
+
+    const brandRules = [
+      { text:'Schrijf helder en persoonlijk; onderbouw wat je stelt.' },
+      { text:'Geen stellige beloftes over slagen of doorstroom.' },
+      { text:'Noem prijs altijd met btw-vermelding.' },
+      { text:'Logo alleen op een egale ondergrond.' },
+    ];
+
+    const swatches = [
+      { role:'Primair', hex:L.primary, use:'Dominante vlakken, koppen, beeldmerk-accenten' },
+      { role:'Steunkleur', hex:L.accent, use:'Knoppen, highlights en call-to-actions in beeld' },
+      { role:'Tekst / ink', hex:L.ink, use:'Bodytekst en koppen op lichte achtergronden' },
+    ];
+
+    const sources = [
+      { title:'Opleidingspagina CROV', meta:'cs-opleidingen.nl · gecontroleerd 12 sep' },
+      { title:'Kanaalspecificatie e-mail', meta:'onverifieerd · geen primaire bron' },
+      { title:'Merkprofiel v1', meta:'goedgekeurd 9 sep' },
+    ];
+
+    const versions = [
+      { v:'v6', what:'Herzien met AI: opzet concreter' },
+      { v:'v5', what:'Handmatige tekstaanpassing' },
+      { v:'v4', what:'Gegenereerd na kanaalplan' },
+    ];
+
+    const ITEMS = [
+      { channel:'E-MAIL', title:'Past CROV bij jouw praktijk?', campaign:'CROV – Inschrijving – september 2026', meta:'v6 · 214 woorden · 2 punten', status:'Review', kind:'review',
+        hook:'Past CROV bij jouw praktijk?', body:'Je begeleidt verzuimdossiers en wilt vóór je keuze de praktische punten helder hebben. De Opleiding Casemanager Regie op Verzuim (CROV) is op hbo-niveau en vraagt minimaal Nederlands taalniveau B2. Werk je in verzuim en sociale zekerheid, dan kun je de inhoud en opzet naast je eigen werkpraktijk leggen.',
+        flags:['E-mailweergave is niet tegen een primaire bron gecontroleerd: export blijft concept.','Als gebruikt opgegeven maar niet in de tekst: "leidinggevenden", "hrm-medewerkers".'] },
+      { channel:'LINKEDIN', title:'Eén dossier, meerdere perspectieven', campaign:'CROV — Route 1 — één protocol, drie werkvloeren', meta:'v2 · 4 hashtags · 2 beelden', status:'Goedgekeurd', kind:'ok',
+        hook:'Eén dossier, meerdere perspectieven', body:'Een overstap naar casemanagement begint niet met een kennisvraag, maar met een dossier dat vanuit drie werkvloeren anders leest. Bij het begeleiden van langdurig verzuim komen sociale wetgeving, arbeidsrecht en communicatie samen in één gesprek.',
+        flags:['Beeldvarianten delen dezelfde boodschap en CTA.'] },
+      { channel:'INSTAGRAM', title:'Regie op verzuim vraagt om meer dan één perspectief.', campaign:'CROV — Route 1', meta:'v1 · 7 hashtags · 2 beelden', status:'Goedgekeurd', kind:'ok',
+        hook:'Regie op verzuim vraagt om meer dan één perspectief.', body:'Een verzuimdossier leest anders vanaf de werkvloer, vanaf HR en vanaf de bedrijfsarts. In CROV leer je die perspectieven samenbrengen tot één onderbouwde volgende stap.',
+        flags:[] },
+      { channel:'FACEBOOK', title:'Ook bedoeld voor wie casemanager wil worden.', campaign:'CS CROV Discovery · v1', meta:'v1 · 3 hashtags · 2 beelden', status:'Herzien', kind:'warn',
+        hook:'Ook bedoeld voor wie casemanager wil worden.', body:'Wil je je oriënteren op casemanager CROV of een andere carrièrestap? De opleiding beschrijft de rol, de taken en de kennis die daarbij horen.',
+        flags:['Facebook-specs zijn onverifieerd: publicatieklaar export wordt geweigerd.'] },
+      { channel:'WEBSITE', title:'Praktische informatie voor je inschrijving voor CROV', campaign:'CROV – Inschrijving – september 2026', meta:'v1 · 242 woorden · 1 punt', status:'Review', kind:'review',
+        hook:'Praktische informatie voor je inschrijving voor CROV', body:'Bekijk de praktische informatie over CROV voordat je inschrijft: de opleiding is op hbo-niveau, vereist minimaal Nederlands taalniveau B2 en omvat circa 140 studiebelasting.',
+        flags:['Landingspagina heeft geen platformlimiet om te verifiëren.'] },
+      { channel:'LINKEDIN ADS', title:'Een verzuimdossier vraagt om regie.', campaign:'CROV — Route 1', meta:'v1 · 3 koppen · 2 beschrijvingen', status:'Goedgekeurd', kind:'ok',
+        hook:'Een verzuimdossier vraagt om regie.', body:'Communicatie, sociale wetgeving, arbeidsrecht en samenwerking met arboprofessionals in één opleiding.',
+        flags:['Geen volume, klikprijs of conversiecijfer: die bestaan niet in dit systeem.'] },
+      { channel:'GOOGLE ADS', title:'Opleiding Casemanager Regie op Verzuim', campaign:'CROV – Inschrijving – september 2026', meta:'v1 · 6 aandachtspunten', status:'Concept', kind:'warn',
+        hook:'Opleiding Casemanager Regie op Verzuim', body:'Blended opleiding met fysieke lesdagen en e-learningmodules voor mensen in verzuim en sociale zekerheid.',
+        flags:['Tekenlimieten zijn niet geverifieerd; controleer ze in het platform zelf.'] },
+      { channel:'BLOG & FAQ', title:'Welke stappen moeten werkgever en werknemer zetten in de eerste 2 ziektejaren?', campaign:'Losse uiting · zonder campagne', meta:'v1 · zonder campagne', status:'Concept', kind:'warn',
+        hook:'Welke stappen moeten werkgever en werknemer zetten in de eerste 2 ziektejaren?', body:'Een losse uiting, gemaakt buiten een campagne om. Zonder goedgekeurde briefing kan dit stuk niet publicatieklaar worden geëxporteerd.',
+        flags:['Geen campagne: geen goedgekeurde briefing onder dit stuk.'] },
+    ];
+    const SK = { review:{ tint:'var(--lp-t2)', ink:'var(--lp-ink)', marker:'var(--lp)' },
+                 ok:{ tint:'var(--ok-t)', ink:'var(--ok)', marker:'var(--ok)' },
+                 warn:{ tint:'var(--wa-t)', ink:'var(--wa)', marker:'var(--wa)' } };
+
+    const sf = st.studioFilter;
+    const visible = ITEMS.filter(i => sf==='Alles' || (sf==='Review' && i.kind==='review') || (sf==='Goedgekeurd' && i.kind==='ok') || (sf==='Aandacht' && i.kind==='warn'));
+    const studioFilters = [['Alles',ITEMS.length],['Review',ITEMS.filter(i=>i.kind==='review').length],['Goedgekeurd',ITEMS.filter(i=>i.kind==='ok').length],['Aandacht',ITEMS.filter(i=>i.kind==='warn').length]]
+      .map(([label,count]) => ({ label, count:String(count), pick:()=>this.set({ studioFilter:label, studio:0 }),
+        bg: sf===label ? 'var(--lp-t2)' : 'var(--n-0)',
+        br: sf===label ? 'var(--lp-t3)' : 'var(--n-br)',
+        fg: sf===label ? 'var(--lp-ink)' : 'var(--tx-2)' }));
+
+    const sel = visible[Math.min(st.studio, visible.length-1)] || ITEMS[0];
+    const studioItems = visible.map((i,idx)=>({ channel:i.channel, title:i.title, campaign:i.campaign, meta:i.meta, status:i.status,
+      tint:SK[i.kind].tint, ink:SK[i.kind].ink,
+      marker: sel===i ? SK[i.kind].marker : 'transparent',
+      bg: sel===i ? 'var(--lp-t1)' : 'var(--n-0)',
+      pick:()=>this.set({ studio:idx }) }));
+
+    // ----------------------------------------------------------- Marktradar
+    const RADAR_VIEWS = [
+      { id:'picture', label:'Marktbeeld', hint:'Wat de scan samen betekent', count:'5',
+        title:'Scan van 15-9-2026, 15:55',
+        lead:'5 inzichten · 4 kansen · 3 doelgroepbevindingen · 8 zoekvragen · 11 scan(s) voor deze opleiding. Elke passage is teruggevonden op de bronpagina.' },
+      { id:'opps', label:'Kansen', hint:'Voorstellen om iets mee te doen', count:'4',
+        title:'Kansen uit deze scan',
+        lead:'Vier voorstellen, elk met de fase waarin ze spelen en de bron waaruit ze komen. Een kans is een voorstel om over te beslissen, geen vastgestelde marktvraag.',
+        foot:'Een kans die je bewaart, komt op je shortlist en blijft aan deze scan gekoppeld.' },
+      { id:'saved', label:'Bewaard', hint:'Jouw shortlist', count:'1',
+        title:'Bewaarde kansen',
+        lead:'Wat je uit eerdere scans hebt bewaard voor deze opleiding.',
+        foot:'Een bewaarde kans verwijst naar de scan waaruit ze komt; die scan blijft ongewijzigd bewaard.' },
+      { id:'competitors', label:'Concurrenten', hint:'Aanbieders die je volgt', count:'3',
+        title:'Aanbieders in deze scan',
+        lead:'De drie aanbieders waarvan passages zijn teruggevonden, met hun eigen woorden. Er is geen rangorde en geen prijsvergelijking: die staan niet in alle bronnen.',
+        foot:'Wat een aanbieder over zichzelf schrijft, is een claim van die aanbieder — niet een gemeten feit.' },
+      { id:'audience', label:'Doelgroepen', hint:'Wie er in deze markt zoekt', count:'3',
+        title:'Doelgroepbevindingen',
+        lead:'Rolbeschrijvingen die in de bronnen voorkwamen. Deze bevindingen zijn de basis voor een persona, maar zijn zelf nog geen persona.',
+        foot:'Een bevinding wordt pas een doelgroep als iemand haar goedkeurt bij Doelgroepen.' },
+      { id:'ads', label:'Advertenties', hint:'Wat anderen adverteren', count:'15',
+        title:'Advertenties',
+        lead:'15 advertenties uit Google Ads Transparency, gegroepeerd per adverteerder. Er is geen budget, geen looptijd en geen bereik: die gegevens zitten niet in de bron.',
+        foot:'Een zichtbare advertentie bewijst niet dat ze werkt; alleen dat ze is uitgezet.' },
+      { id:'keywords', label:'Zoekvragen', hint:'Waar mensen op zoeken', count:'8',
+        title:'Zoekvragen',
+        lead:'De acht vragen die in de scan naar boven kwamen. Geen volume en geen positie: er is niets gemeten, alleen gelezen wat er staat.',
+        foot:'Deze vragen zijn de invoer voor AI Visibility; drie ervan zijn daar bevraagd.' },
+      { id:'notes', label:'Scannotities', hint:'Wat is gelezen en wat niet', count:'5',
+        title:'Scannotities',
+        lead:'De randvoorwaarden van deze scan: wat is gelezen, wat is geweigerd en wat buiten beeld bleef.',
+        foot:'Wat hier niet staat, is niet gescand. Een lege categorie betekent niet dat er niets is.' },
+    ];
+    const radarView = st.radarView ?? 'picture';
+    const radarSel = RADAR_VIEWS.find(v => v.id === radarView) ?? RADAR_VIEWS[0];
+    const radarViews = RADAR_VIEWS.map(v => {
+      const current = v.id === radarView;
+      return { label:v.label, hint:v.hint, count:v.count, selected: current,
+        pick:()=>this.set({ radarView:v.id }),
+        bg: current ? 'var(--lp-t2)' : 'transparent',
+        fg: current ? 'var(--lp-ink)' : 'var(--tx)',
+        weight: current ? '700' : '600' };
+    });
+
+    const radarDiff = [
+      { n:'3', what:'nieuwe bronnen' },
+      { n:'3', what:'niet meer in scan' },
+      { n:'7', what:'nieuwe vragen' },
+      { n:'5', what:'nieuwe advertenties' },
+    ];
+
+    const EV = {
+      beperkt:{ bg:'var(--wa-t)', fg:'var(--wa)' },
+      gemiddeld:{ bg:'var(--n-1)', fg:'var(--tx-2)' },
+      robuust:{ bg:'var(--ok-t)', fg:'var(--ok)' },
+    };
+    const INSIGHTS = [
+      { phase:'Overwegen', evidence:'Bewijs: beperkt · 1 domein', level:'beperkt', agreement:'bronnen zijn het eens',
+        claim:'De scan legt nadruk op processtappen bij ziekte en op de rol van de bedrijfsarts.',
+        body:'Rijksoverheid meldt in een card dat een wetsvoorstel het advies van de bedrijfsarts leidend maakt bij de UWV-toets na 2 jaar ziekte. Dit bewijs toont geen ingangsdatum, geen zoekvolume en geen behoefte aan een opleiding.' },
+      { phase:'Overwegen', evidence:'Bewijs: robuust · 3 domeinen', level:'robuust', agreement:'bronnen zijn het eens',
+        claim:'De scan noemt zowel HR-professionals als beginnende casemanagers als mogelijke doelgroep.',
+        body:'SV Land noemt HR-medewerkers die dagelijks met complexe verzuimcasussen werken en meer regie willen nemen. Habeo+ noemt mensen die werkzaam zijn als beginnend casemanager, binnen de eigen organisatie of als zelfstandige.' },
+      { phase:'Beslissen', evidence:'Bewijs: robuust · 4 domeinen', level:'robuust', agreement:'bronnen zijn het eens',
+        claim:'Erkenning en hbo-niveau zijn zichtbare positioneringsthema\u2019s bij CROV-aanbieders.',
+        body:'SV Land noemt zijn CROV-opleiding RNVC-erkend. Sensio Opleidingen noemt een op hbo-niveau geaccrediteerde opleiding. Capabel Hogeschool vermeldt dat de post-hbo CROV-opleiding erkend is.' },
+      { phase:'Overwegen', evidence:'Bewijs: robuust · 3 domeinen', level:'robuust', agreement:'bronnen zijn het eens',
+        claim:'Lesdagen, examen en lesvorm zijn zichtbare vergelijkingspunten in het aanbod.',
+        body:'Sensio Opleidingen vermeldt hbo-niveau, 8 lesdagen en een examen. Een advertentie van CS Opleidingen vermeldt 8 lesdagen plus examen. SV Land vermeldt klassikaal in Zoetermeer of online.' },
+      { phase:'Ontdekken', evidence:'Bewijs: gemiddeld · 2 domeinen', level:'gemiddeld', agreement:'bronnen zijn het eens',
+        claim:'Meerdere aanbieders brengen CROV en verzuimopleidingen via advertenties onder de aandacht.',
+        body:'CS Opleidingen heeft gesponsorde advertenties in Google Ads Transparency met onder meer de teksten Casemanagement, Regie op Verzuim en Opleiding Regie op Verzuim.' },
+    ];
+    const radarInsights = INSIGHTS.map((i, idx) => {
+      const current = (st.insight ?? 0) === idx;
+      return { ...i, selected: current, pick:()=>this.set({ insight:idx }),
+        br: current ? 'var(--lp)' : 'var(--n-br)',
+        bg: current ? 'var(--lp-t1)' : 'var(--n-0)',
+        shadow: current ? '0 0 0 3px var(--lp-t2)' : 'none',
+        dotBr: current ? 'var(--lp-solid)' : 'var(--n-br2)',
+        dotBg: current ? 'var(--lp-solid)' : 'var(--n-0)',
+        phaseBg: current ? 'var(--lp-t2)' : 'var(--n-1)',
+        phaseFg: current ? 'var(--lp-ink)' : 'var(--tx-2)',
+        evBg: EV[i.level].bg, evFg: EV[i.level].fg };
+    });
+
+    const competitors = [
+      { name:'SV Land', quote:'Crov-opleiding® | RNVC erkende HBO opleiding Word een erkend specialist in verzuim en re-integratie met een officieel RNVC-diploma.' },
+      { name:'Sensio Opleidingen', quote:'Casemanager Regie op Verzuim Dé op HBO-niveau geaccrediteerde opleiding voor professionals die willen doorgroeien naar een regievoerende rol.' },
+      { name:'Capabel Hogeschool', quote:'Post-HBO opleiding Casemanager Regie op Verzuim (CROV) — erkend, met toegang tot het RSC-register.' },
+    ];
+
+    /**
+     * The seven non-Marktbeeld views, each rendered by the same row template.
+     * Keeping them in one table is what makes the rail's badge counts and the
+     * content agree: the badge reads the array length rather than a literal.
+     */
+    const NEUTRAL = { tint:'var(--n-1)', ink:'var(--tx-2)' };
+    const OKISH = { tint:'var(--ok-t)', ink:'var(--ok)' };
+    const WARN = { tint:'var(--wa-t)', ink:'var(--wa)' };
+    const RADAR_ROWS = {
+      opps: [
+        { eyebrow:'OVERWEGEN', title:'Erkenning en register vooraan in de opleidingspagina', badge:'Bewijs: robuust', ...OKISH,
+          body:'Drie aanbieders noemen hun erkenning in de eerste regel; onze pagina noemt de Hobéon-accreditatie pas onderaan. Een voorstel om de erkenning naar boven te halen.',
+          meta:'4 domeinen · uit inzicht 3' },
+        { eyebrow:'OVERWEGEN', title:'Lesdagen, examen en lesvorm als vergelijkingsblok', badge:'Bewijs: robuust', ...OKISH,
+          body:'Sensio noemt 8 lesdagen en een examen, SV Land noemt klassikaal in Zoetermeer of online. Een blok dat onze opzet in dezelfde termen zet, maakt vergelijken mogelijk.',
+          meta:'3 domeinen · uit inzicht 4' },
+        { eyebrow:'OVERWEGEN', title:'Twee ingangen: zij-instromers en zittende professionals', badge:'Bewijs: robuust', ...OKISH,
+          body:'De bronnen noemen zowel HR-medewerkers die meer regie willen als beginnende casemanagers. Twee routes op de pagina in plaats van één algemene beschrijving.',
+          meta:'3 domeinen · uit inzicht 2' },
+        { eyebrow:'ONTDEKKEN', title:'Processtappen bij ziekte als blogonderwerp', badge:'Bewijs: beperkt', ...WARN,
+          body:'Rijksoverheid meldt een wetsvoorstel waarin het advies van de bedrijfsarts leidend wordt bij de UWV-toets. Eén domein, geen ingangsdatum: een voorstel om te volgen, niet om op te bouwen.',
+          meta:'1 domein · uit inzicht 1' },
+      ],
+      saved: [
+        { eyebrow:'BEWAARD OP 11-9-2026', title:'Erkenning en register vooraan in de opleidingspagina', badge:'Op shortlist', tint:'var(--lp-t2)', ink:'var(--lp-ink)',
+          body:'Bewaard uit de scan van 11-9-2026, 19:21. In de scan van vandaag komt dezelfde kans opnieuw naar boven, nu met vier domeinen in plaats van drie.',
+          meta:'gekoppeld aan scan 11-9-2026 · ongewijzigd bewaard' },
+      ],
+      competitors: competitors.map(c => ({
+        eyebrow:'AANBIEDER', title:c.name, badge:'Geciteerd', ...NEUTRAL, body:c.quote, meta:'passage teruggevonden op de bronpagina' })),
+      audience: [
+        { eyebrow:'ROLBESCHRIJVING · SV LAND', title:'HR-medewerkers met complexe verzuimcasussen', badge:'1 domein', ...NEUTRAL,
+          body:'SV Land noemt HR-medewerkers die dagelijks met complexe verzuimcasussen werken en meer regie willen nemen.',
+          meta:'basis voor persona "HRM-medewerkers en leidinggevenden"' },
+        { eyebrow:'ROLBESCHRIJVING · HABEO+', title:'Beginnend casemanager, in dienst of zelfstandig', badge:'1 domein', ...NEUTRAL,
+          body:'Habeo+ noemt mensen die werkzaam zijn als beginnend casemanager, binnen de eigen organisatie of als zelfstandige.',
+          meta:'basis voor persona "Aspirant-casemanagers"' },
+        { eyebrow:'ROLBESCHRIJVING · MEERDERE', title:'Professionals in verzuim en sociale zekerheid', badge:'2 domeinen', ...NEUTRAL,
+          body:'Arbeidsdeskundigen en casemanagers die hun aanpak rond langdurige dossiers willen verdiepen.',
+          meta:'basis voor persona "Professionals in verzuim en sociale zekerheid"' },
+      ],
+      ads: [
+        { eyebrow:'CS OPLEIDINGEN · 6 ADVERTENTIES', title:'Casemanagement · Regie op Verzuim · Opleiding Regie op Verzuim', badge:'Onze eigen', tint:'var(--lp-t2)', ink:'var(--lp-ink)',
+          body:'Zes gesponsorde advertenties met deze teksten. Google Ads Transparency geeft de tekst en de adverteerder, geen budget en geen looptijd.',
+          meta:'bron: adstransparency.google.com' },
+        { eyebrow:'SV LAND · 5 ADVERTENTIES', title:'Crov-opleiding® | RNVC erkende HBO opleiding', badge:'Concurrent', ...NEUTRAL,
+          body:'Vijf advertenties die de RNVC-erkenning en het officiële diploma in de kop zetten.',
+          meta:'bron: adstransparency.google.com' },
+        { eyebrow:'SENSIO OPLEIDINGEN · 3 ADVERTENTIES', title:'Casemanager Regie op Verzuim — op HBO-niveau geaccrediteerd', badge:'Concurrent', ...NEUTRAL,
+          body:'Drie advertenties met de accreditatie en de doorgroei naar een regievoerende rol als belofte.',
+          meta:'bron: adstransparency.google.com' },
+        { eyebrow:'CAPABEL HOGESCHOOL · 1 ADVERTENTIE', title:'Post-HBO Casemanager Regie op Verzuim', badge:'Concurrent', ...NEUTRAL,
+          body:'Eén advertentie die het RSC-register als eindpunt noemt.',
+          meta:'bron: adstransparency.google.com' },
+      ],
+      keywords: [
+        { eyebrow:'BEVRAAGD IN AI VISIBILITY', title:'Welke aanbieders bieden een CROV-opleiding aan in Nederland?', badge:'Genoemd', ...OKISH, body:'Onze opleiding kwam in het antwoord voor.', meta:'onderzocht 11-9-2026' },
+        { eyebrow:'BEVRAAGD IN AI VISIBILITY', title:'Wat kost een opleiding casemanager regie op verzuim?', badge:'Prijs verouderd', ...WARN, body:'De genoemde prijs klopt; de herkansingskosten in het antwoord staan in geen bron.', meta:'onderzocht 11-9-2026' },
+        { eyebrow:'BEVRAAGD IN AI VISIBILITY', title:'Welke stappen moeten werkgever en werknemer zetten in de eerste 2 ziektejaren?', badge:'Niet genoemd', ...NEUTRAL, body:'Geen enkele opleider staat in dit antwoord.', meta:'onderzocht 11-9-2026' },
+        { eyebrow:'NIET BEVRAAGD', title:'Is CROV op hbo-niveau?', badge:false, ...NEUTRAL, body:'Uit de scan, nog niet voorgelegd aan een assistent.', meta:false },
+        { eyebrow:'NIET BEVRAAGD', title:'Hoeveel PE-punten geeft de CROV-opleiding?', badge:false, ...NEUTRAL, body:'Uit de scan, nog niet voorgelegd aan een assistent.', meta:false },
+        { eyebrow:'NIET BEVRAAGD', title:'Wat is het verschil tussen casemanager en arbeidsdeskundige?', badge:false, ...NEUTRAL, body:'Uit de scan, nog niet voorgelegd aan een assistent.', meta:false },
+        { eyebrow:'NIET BEVRAAGD', title:'Welke opleiding geeft toegang tot het RSC-register?', badge:false, ...NEUTRAL, body:'Uit de scan, nog niet voorgelegd aan een assistent.', meta:false },
+        { eyebrow:'NIET BEVRAAGD', title:'Kan ik CROV online volgen?', badge:false, ...NEUTRAL, body:'Uit de scan, nog niet voorgelegd aan een assistent.', meta:false },
+      ],
+      notes: [
+        { eyebrow:'OPDRACHT', title:'Wat is gescand', badge:false, ...NEUTRAL, body:'De opleiding CROV, in Nederland, in het Nederlands. Elf scans voor deze opleiding; deze is de meest recente.', meta:'15-9-2026, 15:55' },
+        { eyebrow:'GELEZEN', title:'18 bronpagina\u2019s, 3 nieuw', badge:false, ...NEUTRAL, body:'Van elke passage in een inzicht is de tekst teruggevonden op de bronpagina. Passages die niet terug te vinden waren, zijn weggelaten.', meta:'3 bronnen niet meer in scan' },
+        { eyebrow:'GEWEIGERD', title:'Interne adressen en pagina\u2019s achter een login', badge:'Geweigerd', ...WARN, body:'Een intern adres wordt geweigerd voordat er werk in de wachtrij komt. Pagina\u2019s achter een login zijn niet opgevraagd.', meta:false },
+        { eyebrow:'BUITEN BEELD', title:'Volume, positie en prijsvergelijking', badge:false, ...NEUTRAL, body:'Er is geen zoekvolume, geen positie en geen rangorde. Prijzen staan niet in alle bronnen, dus er is niets vergeleken.', meta:false },
+        { eyebrow:'INTERPRETATIE', title:'Een gewijzigde bron is een gewijzigde tekst', badge:false, ...NEUTRAL, body:'Een verschil met de vorige scan zegt dat er tekst is veranderd, niet dat de markt is bewogen. Wat niet is gevonden, is niet bewezen afwezig.', meta:false },
+      ],
+    };
+    const radarRows = (RADAR_ROWS[radarView] ?? []).map(r => ({
+      ...r, badge: r.badge ?? false, meta: r.meta ?? false }));
+
+    // --------------------------------------------------------- AI Visibility
+    const aiQuestions = [
+      { question:'Welke aanbieders bieden een CROV-opleiding aan in Nederland?',
+        meta:'Land: NL · model niet aangeleverd · webzoeken uitgevoerd · 11-9-2026',
+        verdict:'CS Opleidingen genoemd', tint:'var(--ok-t)', ink:'var(--ok)',
+        answer:'CS Training BV / CS Opleidingen biedt de opleiding Casemanager Regie op Verzuim (CROV) aan, op hbo-niveau, op verschillende locaties en digitaal. Ook SV Land, Gezond in Bedrijf Business School en Capabel Hogeschool worden genoemd. Het antwoord verwijst naar het Register Specialistisch Casemanagement als onafhankelijke check.',
+        sources:'9 bronnen genoemd · 4 met een link' },
+      { question:'Wat kost een opleiding casemanager regie op verzuim?',
+        meta:'Land: NL · model niet aangeleverd · webzoeken uitgevoerd · 11-9-2026',
+        verdict:'Prijs verouderd', tint:'var(--wa-t)', ink:'var(--wa)',
+        answer:'Het antwoord noemt € 4.290 exclusief btw voor zakelijke deelnemers en een tweede aanbieder op € 3.995 exclusief btw. De prijs komt overeen met onze opleidingskaart, maar de genoemde herkansingskosten staan er niet in — die claim is niet terug te vinden in een bron.',
+        sources:'6 bronnen genoemd · 2 met een link' },
+      { question:'Welke stappen moeten werkgever en werknemer zetten in de eerste 2 ziektejaren?',
+        meta:'Land: NL · model niet aangeleverd · webzoeken uitgevoerd · 11-9-2026',
+        verdict:'Niet genoemd', tint:'var(--n-1)', ink:'var(--tx-2)',
+        answer:'Het antwoord beschrijft de Wet verbetering poortwachter zonder een opleider te noemen. Dit is een blogvraag waar geen aanbieder in het antwoord staat: een paginavoorstel is gemaakt, geen bewijs dat plaatsing de zichtbaarheid verhoogt.',
+        sources:'11 bronnen genoemd · 5 met een link' },
+    ];
+
+    /**
+     * Every source named across the three answers.
+     *
+     * `mentions` is how often the source was named in total; the counts here
+     * add up to the 26 the question cards report (9 + 6 + 11), so the table is
+     * the whole set rather than a shortlist. `linked` marks the 11 that came
+     * with a URL — the other 15 were named in prose only.
+     */
+    const AI_SOURCES = [
+      ['Register Specialistisch Casemanagement', 'rsc-register.nl', 'Onafhankelijk register', 2, 2, true],
+      ['CS Opleidingen', 'cs-opleidingen.nl', 'Onze eigen pagina', 2, 3, true],
+      ['SV Land', 'svland.nl', 'Aanbieder', 2, 3, true],
+      ['Capabel Hogeschool', 'capabel.nl', 'Aanbieder', 1, 2, false],
+      ['Gezond in Bedrijf Business School', 'niet aangeleverd', 'Aanbieder', 1, 1, false],
+      ['Sensio Opleidingen', 'sensio-opleidingen.nl', 'Aanbieder', 1, 2, true],
+      ['Rijksoverheid', 'rijksoverheid.nl', 'Wetgeving', 2, 4, true],
+      ['UWV', 'uwv.nl', 'Wetgeving', 2, 3, false],
+      ['Arboportaal', 'arboportaal.nl', 'Wetgeving', 1, 2, true],
+      ['Nederlandse Vereniging voor Arbeidsdeskundigen', 'nvva.nl', 'Beroepsvereniging', 1, 2, false],
+      ['Hobéon', 'hobeon.nl', 'Accreditatie', 1, 2, false],
+    ];
+    const aiSources = AI_SOURCES.map(([name, domain, kind, questions, mentions, linked]) => ({
+      name, domain, kind,
+      inQuestions: String(questions) + ' van 3',
+      mentions: mentions === 1 ? '1 keer' : String(mentions) + ' keer',
+      link: linked ? 'Met link' : 'Alleen genoemd',
+      tint: linked ? 'var(--ok-t)' : 'var(--n-1)',
+      ink: linked ? 'var(--ok)' : 'var(--tx-2)',
+    }));
+    const aiMentionTotal = AI_SOURCES.reduce((sum, s) => sum + s[4], 0);
+    const aiLinkedTotal = AI_SOURCES.filter((s) => s[5]).length;
+    const aiSourceCount = String(aiSources.length);
+    const aiSourceLead = aiSources.length + ' bronnen kwamen in de antwoorden voor, samen ' +
+      aiMentionTotal + ' keer genoemd; ' + aiLinkedTotal +
+      ' daarvan met een link. Een genoemde bron is geen bewijs van een koppeling met een specifieke zin.';
+
+    const AI_VIEWS = [
+      { id:'questions', label:'Zoekvragen', hint:'Wat assistenten antwoorden', count:'3',
+        title:'Zoekvragen & antwoorden',
+        lead:'De vragen van je doelgroep, met het antwoord dat een AI-assistent gaf en of onze opleiding daarin voorkwam.' },
+      { id:'sources', label:'Genoemde bronnen', hint:'Wie wordt aangehaald', count:'bronnen',
+        title:'Genoemde bronnen',
+        lead:'bronnen' },
+      { id:'pages', label:'Paginavoorstellen', hint:'Wat je ermee kunt doen', count:'3',
+        title:'Paginavoorstellen',
+        lead:'Per vraag één voorstel voor de opleidingspagina of het blog. Een voorstel is tekst om te controleren, geen publicatie.' },
+      { id:'notes', label:'Onderzoeksnotities', hint:'Wat is gelezen en wat niet', count:'5',
+        title:'Onderzoeksnotities',
+        lead:'De randvoorwaarden van dit onderzoek: wat is bevraagd, met welke instellingen, en wat er buiten beeld bleef.' },
+    ];
+    const aiView = st.aiView ?? 'questions';
+    const aiSel = AI_VIEWS.find(v => v.id === aiView) ?? AI_VIEWS[0];
+    const aiViews = AI_VIEWS.map(v => {
+      const current = v.id === aiView;
+      return { label:v.label, hint:v.hint,
+        count: v.count === 'bronnen' ? aiSourceCount : v.count, selected:current,
+        pick:()=>this.set({ aiView:v.id }),
+        bg: current ? 'var(--lp-t2)' : 'transparent',
+        fg: current ? 'var(--lp-ink)' : 'var(--tx)',
+        weight: current ? '800' : '600' };
+    });
+
+
+    const aiPages = [
+      { target:'OPLEIDINGSPAGINA CROV', status:'Concept', tint:'var(--n-1)', ink:'var(--tx-2)',
+        title:'Erkenning en register vooraan zetten',
+        why:'In het antwoord op de aanbiedersvraag staat het Register Specialistisch Casemanagement als onafhankelijke check, en twee concurrenten noemen hun erkenning in de eerste regel. Onze pagina noemt de Hobéon-accreditatie pas onder Accreditatie.',
+        meta:'v1 · 180 woorden · 1 aandachtspunt' },
+      { target:'OPLEIDINGSPAGINA CROV', status:'Aandacht', tint:'var(--wa-t)', ink:'var(--wa)',
+        title:'Prijsblok met btw-vermelding en wat is inbegrepen',
+        why:'Het antwoord op de prijsvraag noemde herkansingskosten die in geen bron staan. Een expliciet prijsblok met btw-vermelding en de inbegrepen onderdelen geeft de assistent tekst om aan te halen in plaats van te reconstrueren.',
+        meta:'v1 · 140 woorden · prijs komt uit de opleidingskaart' },
+      { target:'BLOG & FAQ', status:'Concept', tint:'var(--n-1)', ink:'var(--tx-2)',
+        title:'Welke stappen moeten werkgever en werknemer zetten in de eerste 2 ziektejaren?',
+        why:'Op deze vraag staat geen enkele opleider in het antwoord. Een feitelijk artikel over de Wet verbetering poortwachter is de enige plek waar onze naam terecht zou kunnen komen; of dat gebeurt, is niet te voorspellen.',
+        meta:'v1 · zonder campagne · geen goedgekeurde briefing' },
+    ];
+
+    const aiNotes = [
+      { term:'BEVRAAGDE VRAGEN', value:'Drie vragen, gekozen uit de zoekvragen van de marktscan: een aanbiedersvraag, een prijsvraag en een blogvraag zonder aanbieder in het antwoord.' },
+      { term:'INSTELLINGEN', value:'Land Nederland, Nederlandse taal, webzoeken uitgevoerd. Het gebruikte model is niet aangeleverd en wordt daarom niet genoemd.' },
+      { term:'WAT IS GELEZEN', value:'Alleen de antwoordtekst en de bronnen die de assistent zelf noemde. Er is niet doorgeklikt naar die bronnen en er is geen pagina opnieuw opgevraagd.' },
+      { term:'WAT BUITEN BEELD BLEEF', value:'Positie in het antwoord, aandeel over meerdere vragen, en verandering over tijd. Eén onderzoek is één momentopname; twee antwoorden op dezelfde vraag kunnen verschillen.' },
+      { term:'HERHALEN', value:'Een nieuw onderzoek overschrijft niets: elke ronde blijft naast de vorige staan, zodat je verschillen zelf kunt beoordelen in plaats van een trendlijn te krijgen die er niet is.' },
+    ];
+
+    // ------------------------------------------------------------ Resultaten
+    const resultKpis = [
+      { label:'Vastgelegde lessen', value:'00', caption:'Nog niets goedgekeurd', bar:'var(--tx-3)' },
+      { label:'Campagnes met resultaat', value:'00', caption:'Registratie per campagne', bar:'var(--tx-3)' },
+      { label:'Publicaties genoteerd', value:'00', caption:'Met export als bewijs', bar:'var(--tx-3)' },
+      { label:'Gewijzigde bronnen', value:'01', caption:'Raakt 1 campagne', bar:'var(--wa)' },
+    ];
+
+    // ----------------------------------------------------------- Opleidingen
+    const F_OK = { status:'Gecontroleerd', tint:'var(--ok-t)', ink:'var(--ok)' };
+    const F_EMPTY = { status:'Leeg', tint:'var(--n-1)', ink:'var(--tx-2)' };
+    const courseFields = [
+      { field:'Korte omschrijving', ...F_OK, value:'Erkende opleiding tot casemanager CROV waarin deelnemers leren een verzuimdossier te begeleiden, met aandacht voor rechten en plichten, financieel-juridische aspecten van verzuim, communicatie, sociale wetgeving, arbeidsrecht, samenwerking met arboprofessionals en verzuimbeheersing.', remark:false },
+      { field:'Voor wie', ...F_OK, value:'Mensen die werkzaam zijn in verzuim en sociale zekerheid, bijvoorbeeld casemanagers, leidinggevenden, HRM-medewerkers en arbeidsdeskundigen. Ook bedoeld voor mensen die casemanager willen worden of een andere carrière willen starten.', remark:false },
+      { field:'Toelatingsvoorwaarden', ...F_OK, value:'Deelnemers moeten minimaal Nederlands taalniveau B2 beheersen; de opleiding is op hbo-niveau.', remark:'De pagina noemt de opleiding op hbo-niveau, maar vermeldt niet expliciet dat een hbo-diploma vereist is.' },
+      { field:'Duur en studielast', ...F_OK, value:'Circa 140 studiebelasting, afhankelijk van werkervaring; 7 lesdagen plus examen, klassikaal op locatie. Het assessment vindt online via Teams plaats en duurt dertig minuten.', remark:'De pagina noemt zowel een examen als een schriftelijk examen en assessment. De precieze doorlooptijd in kalenderweken of -maanden staat niet vermeld.' },
+      { field:'Inhoud', ...F_OK, value:'Blended learning met fysieke lesdagen en e-learningmodules. Onderwerpen: sociale wetgeving in de eerste twee ziektejaren en daarna, arbeidsrecht, communicatie volgens het BOB-model, samenwerking met de bedrijfsarts, privacy, psychisch verzuim en verzuimbeheersing.', remark:false },
+      { field:'Prijs', ...F_OK, value:'Zakelijk € 4.290,- exclusief btw (inclusief btw € 5.190,90). Particulier € 4.719,- vrij van btw. Inclusief lunch, mondeling examen, eenmaal schriftelijk examen, lesmateriaal en een VeReFi Premium-abonnement.', remark:'De pagina vermeldt ook een afzonderlijke examentraining met eigen prijzen; die is niet opgenomen als prijs van de opleiding zelf.' },
+      { field:'Data', ...F_EMPTY, value:'Niet bekend — wordt niet gebruikt', valueColor:'var(--tx-3)', remark:false },
+      { field:'Accreditatie', ...F_OK, value:'Geaccrediteerd door Hobéon. Regie op Verzuim is door Hobéon gewaardeerd met 6 PE-punten, door de NVvA met 21 PE-punten en door NIRPA met 300 PE-punten.', remark:'De pagina gebruikt zowel de naam Casemanager Regie op Verzuim (CROV) als de eerdere naam Regie op Verzuim bij de vermelding van PE-punten.' },
+    ].map(f => ({ ...f, valueColor: f.valueColor ?? 'var(--tx)' }));
+
+    // ----------------------------------------------------------- Doelgroepen
+    const PERSONAS = [
+      { name:'HRM- of verzuimprofessional die betrokken partijen rond verzuim wil verbinden', version:'v2', origin:'Handmatig', kind:'hand',
+        meta:'onderbouwing 4 · aannames 3 · vragen 36/36', open:false,
+        body:'Een professional die werkzaam is in verzuim en sociale zekerheid, bijvoorbeeld in een HRM-rol, en die betrokken is bij verzuimbeheersing en samenwerking rond verzuim.',
+        stats:[['ONDERBOUWING','4','bevindingen met bron','var(--ok)'],['AANNAMES','3','reizen mee als aanname','var(--wa)'],['PERSONAVRAGEN','36/36','beantwoord','var(--tx)']],
+        facets:[
+          ['WAT DEZE PERSOON WIL','Eén werkwijze waarmee werkvloer, HR en bedrijfsarts naar hetzelfde dossier kijken, zonder dat de regie bij één partij blijft liggen.'],
+          ['WAAR HET NU VASTLOOPT','Afspraken worden per casus opnieuw gemaakt; wat in het ene dossier werkte, is in het volgende weer onderwerp van discussie.'],
+          ['AANNAMES (NIET BEWEZEN)','Dat deze groep zelf budget kan vrijmaken; dat PE-punten meewegen in de keuze; dat een klassikale lesdag haalbaar is naast het werk.'],
+          ['UIT WELKE BRONNEN','Opleidingskaart CROV (gecontroleerd), twee rolbeschrijvingen uit de marktscan van 15-9-2026, en de campagne-invoer van Route 1.'],
+        ] },
+      { name:'Aspirant-casemanagers en mensen die een andere carrière willen starten', version:'v2', origin:'Voorstel', kind:'system',
+        meta:'onderbouwing 4 · aannames 0 · vragen 36/36', open:false,
+        body:'Mensen die casemanager willen worden of een andere carrière willen starten en zich willen opleiden in regie op verzuim.',
+        stats:[['ONDERBOUWING','4','bevindingen met bron','var(--ok)'],['AANNAMES','0','geen onbewezen claim','var(--ok)'],['PERSONAVRAGEN','36/36','beantwoord','var(--tx)']],
+        facets:[
+          ['WAT DEZE PERSOON WIL','Een erkende route naar het vak, met een diploma dat in het veld wordt herkend.'],
+          ['WAAR HET NU VASTLOOPT','Het aanbod is moeilijk te vergelijken: erkenningen, niveaus en registers verschillen per aanbieder.'],
+          ['AANNAMES (NIET BEWEZEN)','Geen. Elke claim in deze persona is teruggevonden in een bron.'],
+          ['UIT WELKE BRONNEN','Opleidingskaart CROV (veld "Voor wie", gecontroleerd) en drie aanbiederspagina\u2019s uit de marktscan.'],
+        ] },
+      { name:'HRM-medewerkers en leidinggevenden met verzuimtaken', version:'v1', origin:'Voorstel', kind:'system',
+        meta:'onderbouwing 3 · aannames 0 · vragen 0/36', open:true,
+        body:'HRM-medewerkers en leidinggevenden die betrokken zijn bij verzuim en een gestructureerde basis zoeken voor begeleiding, communicatie en samenwerking rond verzuim.',
+        stats:[['ONDERBOUWING','3','bevindingen met bron','var(--ok)'],['AANNAMES','0','geen onbewezen claim','var(--ok)'],['PERSONAVRAGEN','0/36','nog niets beantwoord','var(--wa)']],
+        facets:[
+          ['WAT DEZE PERSOON WIL','Weten wat wel en niet mag, en wat een goed gesprek met een zieke medewerker is.'],
+          ['WAAR HET NU VASTLOOPT','Verzuim is een taak naast het eigen werk; er is geen tijd om wetgeving bij te houden.'],
+          ['AANNAMES (NIET BEWEZEN)','Geen — maar 36 personavragen staan nog open, dus dit profiel is nog dun.'],
+          ['UIT WELKE BRONNEN','Opleidingskaart CROV en de doelgroepbevindingen uit de marktscan van 15-9-2026.'],
+        ] },
+      { name:'Professionals in verzuim en sociale zekerheid', version:'v1', origin:'Voorstel', kind:'system',
+        meta:'onderbouwing 3 · aannames 0 · vragen 0/36', open:true,
+        body:'Werkenden in verzuim en sociale zekerheid, zoals casemanagers en arbeidsdeskundigen, die hun kennis en aanpak rond verzuimdossiers willen verdiepen.',
+        stats:[['ONDERBOUWING','3','bevindingen met bron','var(--ok)'],['AANNAMES','0','geen onbewezen claim','var(--ok)'],['PERSONAVRAGEN','0/36','nog niets beantwoord','var(--wa)']],
+        facets:[
+          ['WAT DEZE PERSOON WIL','Diepgang op langdurige dossiers, niet de basis nog eens.'],
+          ['WAAR HET NU VASTLOOPT','Ervaring is er; de juridische en financiële kant van een langdurig dossier blijft schuren.'],
+          ['AANNAMES (NIET BEWEZEN)','Geen — 36 personavragen staan nog open.'],
+          ['UIT WELKE BRONNEN','Opleidingskaart CROV en de rolbeschrijvingen uit de marktscan.'],
+        ] },
+    ];
+    const personaIndex = Math.min(st.persona ?? 0, PERSONAS.length - 1);
+    const pSel = PERSONAS[personaIndex];
+    const personas = PERSONAS.map((p, idx) => ({
+      name:p.name, version:p.version, origin:p.origin, meta:p.meta,
+      tint: p.kind === 'hand' ? 'var(--lp-t2)' : 'var(--n-1)',
+      ink: p.kind === 'hand' ? 'var(--lp-ink)' : 'var(--tx-2)',
+      marker: idx === personaIndex ? 'var(--lp)' : 'transparent',
+      bg: idx === personaIndex ? 'var(--lp-t1)' : 'var(--n-0)',
+      pick:()=>this.set({ persona:idx }) }));
+
+    // -------------------------------------------------------------- Labels
+    const ROLE_BY_ID = { cs:'Labelbeheerder', lh:'Labelbeheerder', c360:'Redacteur' };
+    const labelRows = [
+      { name:'CS Opleidingen', slug:'cs-opleidingen', role:'Labelbeheerder', origin:'Ingevoerd',
+        tint:'var(--n-1)', ink:'var(--tx-2)', primary:'#00A894', accent:'#C5003E', ink2:'#203E58' },
+      { name:'Demolabel 2', slug:'demolabel-2', role:'Meelezer', origin:'Demo',
+        tint:'var(--wa-t)', ink:'var(--wa)', primary:'#7A69D3', accent:'#9784FA', ink2:'#183037' },
+      { name:'Demolabel 3', slug:'demolabel-3', role:'Redacteur', origin:'Demo',
+        tint:'var(--wa-t)', ink:'var(--wa)', primary:'#7A69D3', accent:'#9784FA', ink2:'#183037' },
+      { name:'Demolabel 4', slug:'demolabel-4', role:'Beoordelaar', origin:'Demo',
+        tint:'var(--wa-t)', ink:'var(--wa)', primary:'#7A69D3', accent:'#9784FA', ink2:'#183037' },
+      { name:'Lindenhaeghe (Demo)', slug:'lindenhaeghe', role:'Labelbeheerder', origin:'Demo',
+        tint:'var(--wa-t)', ink:'var(--wa)', primary:'#183B3E', accent:'#A793ED', ink2:'#183B3E' },
+    ];
+
+    // Below ~1180px the workspace column would fall under 460px with the
+    // context panel held open, so the panel becomes a button instead.
+    const wide = (st.w ?? 1440) >= 1180;
+    const showContext = st.context && wide;
+
+    return {
+      navGroups, navOpen:st.navOpen,
+      goHome: to('home'), goCampaign: to('campaign'), goStudio: to('studio'),
+      goNav: () => this.set({ navOpen:true, labelsOpen:false }),
+      goRadar: to('radar'), goAi: to('ai'), goResults: to('resultaten'), goKalender: to('kalender'),
+      atHome: st.screen==='home', atCampaign: st.screen==='campaign', atStudio: st.screen==='studio',
+      atRadar: st.screen==='radar', atAi: st.screen==='ai', atResults: st.screen==='resultaten',
+      atKalender: st.screen==='kalender',
+
+      isRadar: st.screen==='radar', isAi: st.screen==='ai', isResults: st.screen==='resultaten',
+      isKalender: st.screen==='kalender', isCourses: st.screen==='opleidingen',
+      isPersonas: st.screen==='doelgroepen', isBrand: st.screen==='merk', isLabels: st.screen==='labels',
+
+      radarViews, radarDiff, radarInsights, competitors, radarRows,
+      radarTitle: radarSel.title, radarLead: radarSel.lead,
+      radarFoot: radarSel.foot ?? '',
+      radarIsPicture: radarView === 'picture',
+      radarIsList: radarView !== 'picture',
+      radarCols: wide ? '232px minmax(0,1fr) 260px' : '232px minmax(0,1fr)',
+      radarContext: wide,
+      aiQuestions, resultKpis, courseFields, labelRows,
+      aiViews, aiViewTitle: aiSel.title,
+      aiViewLead: aiSel.lead === 'bronnen' ? aiSourceLead : aiSel.lead,
+      aiSidebarMeta: '3 zoekvragen · ' + aiSources.length + ' bronnen, ' + aiMentionTotal + ' vermeldingen',
+      aiIsQuestions: aiView === 'questions', aiIsSources: aiView === 'sources',
+      aiIsPages: aiView === 'pages', aiIsNotes: aiView === 'notes',
+      aiToSources: () => this.set({ aiView:'sources' }),
+      aiToPages: () => this.set({ aiView:'pages' }),
+      aiSources, aiPages, aiNotes,
+
+      personas, personaCount: String(PERSONAS.length) + ' persona\u2019s',
+      personaName: pSel.name, personaVersion: pSel.version, personaBody: pSel.body,
+      personaOpen: pSel.open,
+      personaStats: pSel.stats.map(([term, value, note, color]) => ({ term, value, note, color })),
+      personaFacets: pSel.facets.map(([term, value]) => ({ term, value })),
+      toggleRail:()=>this.set({ navOpen:!st.navOpen }), closeNav:()=>this.set({ navOpen:false }),
+      labels: LABELS.map(l=>({ ...l, current:l.id===st.label,
+        bg: l.id===st.label ? 'var(--lp-t1)' : 'transparent',
+        pick:()=>{ this.setState({ label:l.id, labelsOpen:false }, ()=>this.paint()); } })),
+      labelsOpen:st.labelsOpen, toggleLabels:()=>this.set({ labelsOpen:!st.labelsOpen }),
+      labelName:L.name, labelInitials:L.name.slice(0,2).toUpperCase(),
+
+      crumbRoot: ({ home:'Werkruimte', campaign:'Campagnes', studio:'Content Studio', radar:'Kansen',
+        ai:'Kansen', resultaten:'Resultaten', kalender:'Kalender & journeys',
+        opleidingen:'Kennis & beheer', doelgroepen:'Kennis & beheer', merk:'Kennis & beheer',
+        labels:'Kennis & beheer' })[st.screen] ?? 'Werkruimte',
+      crumbLeaf: ({
+        home: L.name,
+        campaign: 'CROV – Inschrijving – september 2026 · 6. Content & beelden',
+        studio: sel.title,
+        radar: 'Marktradar · ' + radarSel.label,
+        ai: 'AI Visibility · ' + aiSel.label,
+        resultaten: 'Wat we hebben geleerd',
+        kalender: 'Nog niet beschikbaar',
+        opleidingen: 'Opleidingen · CROV v2',
+        doelgroepen: 'Doelgroepen · ' + pSel.version,
+        merk: 'Merk & bronnen',
+        labels: 'Labels & toegang',
+      })[st.screen] ?? L.name,
+
+      isHome: st.screen==='home', isCampaign: st.screen==='campaign', isStudio: st.screen==='studio',
+      greeting, kpis, queue, queueFilters, foundation, jobs,
+
+      steps, assets, sections, brandRules, swatches, sources, versions,
+      contextOpen: showContext, contextClosed: !showContext,
+      openContext:()=>this.set({ context:true }), closeContext:()=>this.set({ context:false }),
+      campaignCols: showContext ? '232px minmax(0,1fr) 264px' : '232px minmax(0,1fr)',
+
+      studioFilters, studioItems,
+      studioCount: visible.length === ITEMS.length ? String(ITEMS.length) + ' stuks' : String(visible.length) + ' van ' + String(ITEMS.length),
+      studioChannel: sel.channel, studioTitle: sel.title, studioCampaign: sel.campaign,
+      studioHook: sel.hook, studioBody: sel.body,
+      studioMeta: [
+        { term:'STATUS', value:sel.status },
+        { term:'VERSIE', value:sel.meta.split(' · ')[0] },
+        { term:'FASE', value:'Beslissen' },
+        { term:'EXPORT', value: sel.kind==='ok' ? 'Publicatieklaar' : 'Alleen concept' },
+      ],
+      studioTags: (sel.meta.split(' · ')).map(t=>({ text:t })),
+      studioFlags: sel.flags.map(t=>({ text:t })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

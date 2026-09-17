@@ -29,7 +29,9 @@ export function createAiProvider(env: ServerEnv): AiProvider {
     }
     return new MockProvider();
   }
-  if (env.AI_PROVIDER === 'openai') {
+  // OpenAI directly, and LiteLLM in front of whatever an operator configured
+  // behind it: one adapter, because the HTTP surface is the same one.
+  if (env.AI_PROVIDER === 'openai' || env.AI_PROVIDER === 'litellm') {
     return new OpenAiProvider(env);
   }
   return new AnthropicProvider(env);

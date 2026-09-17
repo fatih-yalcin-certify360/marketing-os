@@ -377,3 +377,92 @@ describe('high quality image requests', () => {
     expect(() => new OpenAiImageAdapter(imageEnv({ AI_IMAGE_MODEL: 'gpt-image-1-mini', AI_IMAGE_QUALITY: 'xhigh' }))).toThrow(/GPT Image 2.5/);
   });
 });
+
+/**
+ * The same adapter, pointed at a gateway.
+ *
+ * LiteLLM speaks the same two endpoints, so switching to it is configuration
+ * rather than a second adapter. Three things must still differ, and this is
+ * where that is held: where the call goes, what the ledger records, and what
+ * the product is allowed to claim.
+ */
+describe('through a LiteLLM gateway', () => {
+  function gateway(overrides: Record<string, string> = {}): OpenAiTextAdapter {
+    return new OpenAiTextAdapter(
+      loadServerEnv({
+        NODE_ENV: 'test',
+        DATABASE_URL: 'postgresql://c360:c360@db:5432/c360',
+        AI_PROVIDER: 'litellm',
+        LITELLM_BASE_URL: 'https://llm.internal',
+        LITELLM_API_KEY: 'sk-virtual',
+        AI_TEXT_MODEL: 'team-default',
+        AI_REQUEST_TIMEOUT_MS: '5000',
+        ...overrides,
+      }),
+    );
+  }
+
+  it('calls the proxy with its virtual key, and no OpenAI organisation header', async () => {
+    fetchMock.mockImplementation(jsonResponse(reply({ title: 'Een titel', count: 2 })));
+    await gateway().generateStructured(request);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://llm.internal/v1/responses');
+    const { authorization, ...rest } = init.headers as Record<string, string>;
+    expect(authorization).toBe('Bearer sk-virtual');
+    // The virtual key identifies the caller; the OpenAI header means nothing here.
+    expect(rest['openai-organization']).toBeUndefined();
+  });
+
+  it('records the gateway as the supplier, not the API shape it speaks', () => {
+    expect(gateway().provider).toBe('litellm');
+    expect(adapter().provider).toBe('openai');
+  });
+
+  it('takes the gateway’s own cost when a euro rate makes it convertible', async () => {
+    fetchMock.mockImplementation(
+      jsonResponse(reply({ title: 'Een titel', count: 2 }), 200, {
+        // LiteLLM reports dollars.
+        'x-litellm-response-cost': '0.0412',
+      }),
+    );
+    const result = await gateway({
+      AI_COST_USD_TO_EUR_RATE: '0.92',
+      AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK: '200',
+      AI_TEXT_PRICE_OUTPUT_CENTS_PER_MTOK: '1200',
+    }).generateStructured(request);
+
+    // 0.0412 USD × 0.92 → 3.79 eurocents, rounded up. The proxy knows the real
+    // upstream price; our table only knows what somebody configured.
+    expect(result.usage.actualCostCents).toBe(4);
+  });
+
+  it('ignores the header without a rate, rather than inventing a conversion', async () => {
+    fetchMock.mockImplementation(
+      jsonResponse(reply({ title: 'Een titel', count: 2 }), 200, {
+        'x-litellm-response-cost': '0.0412',
+      }),
+    );
+    const result = await gateway({
+      AI_TEXT_PRICE_INPUT_CENTS_PER_MTOK: '200',
+      AI_TEXT_PRICE_OUTPUT_CENTS_PER_MTOK: '1200',
+    }).generateStructured(request);
+
+    // Falls back to the configured price: 1_000 input + 500 output tokens.
+    expect(result.usage.actualCostCents).toBe(1);
+  });
+
+  it('reports no cost at all when nothing prices the model', async () => {
+    fetchMock.mockImplementation(jsonResponse(reply({ title: 'Een titel', count: 2 })));
+    const result = await gateway().generateStructured(request);
+    // Never a made-up figure in the actual-cost column.
+    expect(result.usage.actualCostCents).toBeNull();
+  });
+
+  it('does not ask for a hosted tool the proxy may not forward', () => {
+    // The product refuses web search before it gets here (`canDiscover`); this
+    // holds the capability flag the refusal reads.
+    expect(gateway().supportsWebSearch).toBe(false);
+    expect(gateway({ AI_WEB_SEARCH_ENABLED: 'true' }).supportsWebSearch).toBe(true);
+  });
+});

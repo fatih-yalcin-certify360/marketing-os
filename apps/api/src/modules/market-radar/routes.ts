@@ -1,9 +1,11 @@
 import { buildMarketPackage } from './package.js';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { jobs } from '../../core/db/schema.js';
+import { jobs, courseVersions } from '../../core/db/schema.js';
+import { listCompetitors, saveCompetitor } from '../competitors/service.js';
+import { competitorsForCourse, competitorSource, matchesRegisteredSource } from './registered-competitors.js';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { radarScanInput, packageSelection, radarReport } from '@c360/contracts';
+import { campaignObjective, radarScanInput, packageSelection, radarReport } from '@c360/contracts';
 import { requireLabelPermission } from '../../core/authz/policy.js';
 import { currentUser } from '../../core/http/authenticate.js';
 import { AppError } from '../../core/errors/app-error.js';
@@ -14,8 +16,43 @@ const cardParams = z.object({
   runId: z.uuid(),
   cardId: z.uuid(),
 });
+/** The objective a person chose at the hand-off; absent for older clients. */
+const handoffBody = z.object({ objective: campaignObjective.nullable().default(null) });
 export const radarRoutes: FastifyPluginAsync = async (app) => {
   const { db, services } = app.appContext;
+  app.post('/labels/:labelId/radar/:runId/competitors', async request => {
+    const p = z.object({ labelId: z.uuid(), runId: z.uuid() }).parse(request.params);
+    const { sourceUrl } = z.object({ sourceUrl: z.url().max(2000) }).parse(request.body);
+    const user = currentUser(request);
+    requireLabelPermission(user, p.labelId, 'campaign:write');
+    const run = await services.radar.requireRun(db, user, p.labelId, p.runId);
+    const found = run.report.audience?.competitors.find(candidate => candidate.sourceUrl === sourceUrl);
+    if (!found) throw AppError.notFoundOrForbidden('competitor_suggestion', sourceUrl);
+    if (run.report.isMock) throw new AppError('validation_failed', {
+      publicMessage: 'Dit is een demobevinding. Voeg een echte concurrent handmatig toe of gebruik een echte onderzoeksscan.',
+    });
+    const course = await services.courses.requireVersion(db, p.labelId, run.courseVersionId);
+    const [row] = await db.select({ key: courseVersions.courseKey }).from(courseVersions)
+      .where(and(eq(courseVersions.id, course.id), eq(courseVersions.labelId, p.labelId)));
+    const registered = await listCompetitors(db, p.labelId);
+    const existing = registered.find(profile => matchesRegisteredSource(profile, sourceUrl));
+    if (existing?.kind === 'own') throw new AppError('validation_failed', {
+      publicMessage: 'Deze bron hoort bij het eigen merk en kan niet als concurrent worden opgeslagen.',
+    });
+    if (existing) return existing;
+    const url = new URL(sourceUrl);
+    const domain = url.hostname.replace(/^www\./u, '');
+    const social = /(?:^|\.)(?:linkedin\.com|facebook\.com|instagram\.com)$/u.test(domain);
+    return saveCompetitor(db, user, p.labelId, {
+      name: found.organization.trim().slice(0, 120), kind: 'competitor',
+      websiteUrl: social ? null : url.origin,
+      domains: social ? [] : [domain],
+      courseUrls: [sourceUrl], courseKeys: [row!.key],
+      ...(domain.endsWith('linkedin.com') ? { linkedinUrl: sourceUrl } : {}),
+      ...(domain.endsWith('facebook.com') ? { facebookUrl: sourceUrl } : {}),
+      ...(domain.endsWith('instagram.com') ? { instagramUrl: sourceUrl } : {}),
+    }, undefined, { runId: run.id, sourceUrl, excerpt: found.excerpt });
+  });
   app.get('/labels/:labelId/courses/:courseVersionId/radar/saved', async(request)=>{
     const p=courseParams.parse(request.params);const user=currentUser(request);
     requireLabelPermission(user,p.labelId,'research:read');
@@ -77,16 +114,33 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
       const body = radarScanInput.parse(request.body ?? {});
       if (body.deliverables.length)
         throw new AppError('validation_failed', { publicMessage: 'Maak eerst een campagne en keur de briefing goed; kies daarna het contentpakket.' });
-      if (body.discover && !services.radar.canDiscover)
+      // A competitors-only scan searches for nothing, so web search being
+      // unavailable is no reason to refuse it.
+      if (body.discover && body.focus !== 'competitors' && !services.radar.canDiscover)
         throw new AppError('capability_unavailable', {
           publicMessage:
             'Webzoeken is niet beschikbaar. Voeg bronlinks toe en schakel automatisch zoeken uit.',
         });
-      if (!body.discover && !body.urls.length)
+      const [course] = await db.select({ key: courseVersions.courseKey }).from(courseVersions)
+        .where(and(eq(courseVersions.id, p.courseVersionId), eq(courseVersions.labelId, p.labelId)));
+      const registered = competitorsForCourse(await listCompetitors(db, p.labelId), course!.key);
+      if (registered.filter(profile => competitorSource(profile) !== null).length > 25) {
+        throw new AppError('validation_failed', { publicMessage: 'Selecteer maximaal 25 actieve concurrenten voor deze opleiding.' });
+      }
+      const savedSources = registered.some(profile => competitorSource(profile) !== null);
+      if (body.focus === 'competitors' && !savedSources) {
+        // The scan reads the registry and nothing else, so an empty registry
+        // means there is literally nothing to read.
         throw new AppError('validation_failed', {
           publicMessage:
-            'Voeg minimaal één bronlink toe of schakel webzoeken in.',
+            'Deze scan leest alleen de opgeslagen concurrenten, en die zijn er nog niet voor deze opleiding. Voeg een concurrent met een bronlink toe, of kies een bredere scan.',
         });
+      }
+      if (body.focus !== 'competitors' && !body.discover && !body.urls.length && !savedSources) {
+        throw new AppError('validation_failed', {
+          publicMessage: 'Voeg een concurrent met bronlink of een losse bronlink toe, of schakel webzoeken in.',
+        });
+      }
       for (const url of body.urls)
         if (
           !inspectUrl(url, {
@@ -108,6 +162,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
           p.courseVersionId,
           latest?.id ?? 'initial',
           JSON.stringify(body),
+          JSON.stringify(registered),
         ],
         payload: { courseVersionId: p.courseVersionId, ...body },
         requestId: request.id,
@@ -129,9 +184,15 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
       .header('content-disposition', `attachment; filename="CONCEPT-marktpakket-${run.id}.zip"`)
       .header('cache-control', 'private, no-store').send(buffer);
   });
+  app.post('/labels/:labelId/radar/:runId/insights/:insightId/campaign', async (request, reply) => {
+    const p = z.object({ labelId: z.uuid(), runId: z.uuid(), insightId: z.uuid() }).parse(request.params);
+    const body = handoffBody.parse(request.body ?? {});
+    return reply.code(201).send(await services.radar.campaignFromInsight(db, currentUser(request), p.labelId, p.runId, p.insightId, body.objective));
+  });
   app.post('/labels/:labelId/radar/:runId/keywords/:keywordId/campaign', async (request, reply) => {
     const p = z.object({ labelId: z.uuid(), runId: z.uuid(), keywordId: z.uuid() }).parse(request.params);
-    return reply.code(201).send(await services.radar.campaignFromKeyword(db, currentUser(request), p.labelId, p.runId, p.keywordId));
+    const body = handoffBody.parse(request.body ?? {});
+    return reply.code(201).send(await services.radar.campaignFromKeyword(db, currentUser(request), p.labelId, p.runId, p.keywordId, body.objective));
   });
   app.post(
     '/labels/:labelId/radar/:runId/audience/:findingId/campaign',
@@ -139,6 +200,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
       const p = z
         .object({ labelId: z.uuid(), runId: z.uuid(), findingId: z.uuid() })
         .parse(request.params);
+      const body = handoffBody.parse(request.body ?? {});
       return reply
         .code(201)
         .send(
@@ -148,6 +210,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
             p.labelId,
             p.runId,
             p.findingId,
+            body.objective,
           ),
         );
     },
@@ -177,6 +240,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
       const p = z
         .object({ labelId: z.uuid(), runId: z.uuid(), adId: z.uuid() })
         .parse(request.params);
+      const body = handoffBody.parse(request.body ?? {});
       return reply
         .code(201)
         .send(
@@ -186,6 +250,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
             p.labelId,
             p.runId,
             p.adId,
+            body.objective,
           ),
         );
     },
@@ -211,8 +276,8 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
     '/labels/:labelId/radar/:runId/cards/:cardId/campaign',
     async (request, reply) => {
       const p = cardParams.parse(request.params);
-      const body = z
-        .object({ approachIndex: z.number().int().min(0).max(2) })
+      const body = handoffBody
+        .extend({ approachIndex: z.number().int().min(0).max(2) })
         .parse(request.body);
       const campaign = await services.radar.createCampaign(
         db,
@@ -221,6 +286,7 @@ export const radarRoutes: FastifyPluginAsync = async (app) => {
         p.runId,
         p.cardId,
         body.approachIndex,
+        body.objective,
       );
       return reply.code(201).send(campaign);
     },

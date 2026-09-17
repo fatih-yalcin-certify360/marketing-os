@@ -1,6 +1,8 @@
+import {personaQuestionnaire} from './persona-questionnaire.js';
 import { z } from 'zod';
 import { dataOrigin, isoTimestamp, uuid, versionNumber } from './primitives.js';
 import { reviewState } from './workflow.js';
+import { marketingChannel } from './channels.js';
 
 /**
  * Personas.
@@ -17,8 +19,8 @@ import { reviewState } from './workflow.js';
  *     is an explained outcome rather than a silent one.
  *
  * Personas describe need and behaviour. Age, gender and similar demographic
- * attributes have no field here on purpose — the requirement is explicit that
- * unnecessary demographic stereotypes are not to be produced.
+ * attributes are optional in the questionnaire and must have a stated relevance;
+ * they must never be inferred from stereotypes.
  */
 
 export const groundingKind = z.enum([
@@ -45,12 +47,84 @@ export const grounding = z.object({
 });
 export type Grounding = z.infer<typeof grounding>;
 
+/**
+ * Where and when this audience orients — the field that lets channel advice
+ * rest on the audience rather than on the rule alone.
+ *
+ * A persona used to describe need, motivation, barriers and criteria, and
+ * nothing about media habits; the channel plan could then only *infer* whether
+ * an audience is on Instagram from prose about its needs, and a reviewer had
+ * nothing to check that inference against. Each statement here names the
+ * channel it bears on and carries its evidence. `grounding: null` means the
+ * statement is an **assumption**: the service sets it to null when the cited
+ * source is not among the findings or confirmed facts it handed the model, so
+ * an invented source cannot pass as evidence. The channel plan may move a
+ * verdict on a grounded statement, never on an assumption.
+ */
+export const orientationSource = z.object({
+  /** One checkable statement: "zoekt via de werkgever naar bijscholing", "leest vakmedia op LinkedIn". */
+  statementNl: z.string().min(10).max(300),
+  /** The channel in our vocabulary this statement bears on; null when it bears on none in particular. */
+  channel: marketingChannel.nullable(),
+  /** The evidence, or null for an assumption. */
+  grounding: grounding.nullable(),
+});
+export type OrientationSource = z.infer<typeof orientationSource>;
+
+/**
+ * What the model returns when asked where one stored audience orients.
+ *
+ * Separate from the persona proposal because it is asked separately: a persona
+ * that was written by hand, imported from a document, or proposed before this
+ * field existed has no orientation at all, and "which channels reach this
+ * person" is exactly the part a channel plan leans on. `noteNl` says what the
+ * material could not answer, so an empty list reads as "not found" rather than
+ * as "this audience uses nothing".
+ */
+export const personaOrientationProposal = z.object({
+  orientationSources: z.array(orientationSource).max(8),
+  noteNl: z.string().max(600),
+});
+export type PersonaOrientationProposal = z.infer<typeof personaOrientationProposal>;
+
+/**
+ * Which personas a list call returns for a course version.
+ *
+ * - `library`: personas without a campaign — the reusable ones (the default
+ *   when no campaign is named);
+ * - `campaign`: the personas proposed inside one campaign (the default when a
+ *   campaign is named);
+ * - `all`: both, plus every other campaign's personas of the course, each
+ *   carrying its `campaignId` so the interface can say where it came from.
+ */
+export const personaListScope = z.enum(['library', 'campaign', 'all']);
+export type PersonaListScope = z.infer<typeof personaListScope>;
+
 export const personaVersion = z.object({
   id: uuid,
   labelId: uuid,
   /** A persona is always about a specific course version. */
   courseVersionId: uuid,
   version: versionNumber,
+  /**
+   * The identity the versions of one persona share. A proposal gets
+   * `${campaignId ?? courseVersionId}:${runToken}:${slug}`, so every run
+   * appends identities instead of becoming version n+1 of a same-named
+   * persona; a manual or promoted persona gets a random key. Exposed so the
+   * interface can group versions without a second query.
+   */
+  personaKey: z.string().min(1).max(200),
+  /** The campaign this persona was proposed in; null for a library persona. */
+  campaignId: uuid.nullable(),
+  /**
+   * Other course versions this persona is also relevant for, besides
+   * `courseVersionId` it was made for. An audience — HR professionals with
+   * absence duties, say — often fits several courses of one label; linking
+   * lists the persona under each of them without copying it. Empty on every
+   * row written before links existed.
+   */
+  linkedCourseVersionIds: z.array(uuid).max(20).default([]),
+  questionnaire: personaQuestionnaire.optional(),
   name: z.string().min(1).max(120),
   /** One sentence: who this is, in behavioural terms. */
   summary: z.string().min(10).max(400),
@@ -61,6 +135,8 @@ export const personaVersion = z.object({
   relationToCourse: z.string().min(10).max(1_000),
   grounding: z.array(grounding).max(20),
   assumptions: z.array(z.string().min(3).max(300)).max(12),
+  /** Media and orientation behaviour, each statement with its evidence or marked as an assumption. */
+  orientationSources: z.array(orientationSource).max(8).default([]),
   reviewState,
   origin: dataOrigin,
   /** Which prompt produced it, for traceability. Null for manual entry. */
@@ -72,6 +148,7 @@ export type PersonaVersion = z.infer<typeof personaVersion>;
 
 /** Shape the AI adapter must return. Ids and versions are assigned server-side. */
 export const personaProposal = z.object({
+  questionnaire: personaQuestionnaire.optional(),
   name: z.string().min(1).max(120),
   summary: z.string().min(10).max(400),
   need: z.string().min(10).max(1_000),
@@ -81,11 +158,18 @@ export const personaProposal = z.object({
   relationToCourse: z.string().min(10).max(1_000),
   grounding: z.array(grounding).max(20),
   assumptions: z.array(z.string().min(3).max(300)).max(12),
+  /**
+   * Required in the provider schema (`.default([])` makes it so), optional in
+   * stored rows from before the field existed. A model that has no evidence
+   * about channels returns an empty list rather than a guess — the prompt says
+   * so, and the service nulls the grounding of anything it cannot trace.
+   */
+  orientationSources: z.array(orientationSource).max(8).default([]),
 });
 export type PersonaProposal = z.infer<typeof personaProposal>;
 
 export const personaProposalSet = z.object({
-  personas: z.array(personaProposal).min(1).max(3),
+  personas: z.array(personaProposal.omit({questionnaire:true})).min(1).max(3),
   /**
    * Set when fewer than three were produced. Required in that case — the
    * service rejects a short set with no reason, so "only two" can never be
@@ -95,7 +179,16 @@ export const personaProposalSet = z.object({
 });
 export type PersonaProposalSet = z.infer<typeof personaProposalSet>;
 
-export const personaInput = personaProposal;
+/**
+ * What a person saves: the proposal plus the courses the persona is linked
+ * to. The links stay off `personaProposal` on purpose — that is the schema the
+ * provider fills, and a model given a field of course ids would invent them.
+ */
+export const personaInput = personaProposal.extend({
+  linkedCourseVersionIds: z.array(uuid).max(20).default([]),
+});
+export type PersonaInput = z.infer<typeof personaInput>;
+export type PersonaInputData = z.input<typeof personaInput>;
 
 /**
  * A campaign-specific adaptation of a library persona.

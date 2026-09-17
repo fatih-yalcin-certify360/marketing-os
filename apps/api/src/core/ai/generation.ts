@@ -220,10 +220,12 @@ function toAppError(error: unknown, template: string): AppError {
   }
   if (error instanceof AiInvalidOutputError) {
     return new AppError('provider_invalid_output', {
-      publicMessage:
-        'Het antwoord van de AI-aanbieder was onbruikbaar. Er is niets opgeslagen; probeer het opnieuw.',
+      publicMessage: error.truncated
+        ? 'Het antwoord van de AI-aanbieder liep tegen de ingestelde uitvoerlimiet aan en is afgebroken. ' +
+          'Er is niets opgeslagen. Opnieuw proberen loopt tegen dezelfde grens aan; verhoog AI_MAX_OUTPUT_TOKENS.'
+        : 'Het antwoord van de AI-aanbieder was onbruikbaar. Er is niets opgeslagen; probeer het opnieuw.',
       internalDetail: error.message,
-      context: { template, repairAttempts: error.repairAttempts },
+      context: { template, repairAttempts: error.repairAttempts, truncated: error.truncated },
     });
   }
   return new AppError('internal_error', {

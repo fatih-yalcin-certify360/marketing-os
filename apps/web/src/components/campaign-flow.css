@@ -1,0 +1,28 @@
+
+/* Website & interactief — the package branch (2026-09-15) */
+.package-readiness { margin: var(--c360-space-3) 0; }
+.package-readiness__list { list-style: none; margin: 0 0 var(--c360-space-2); padding: 0; display: grid; gap: var(--c360-space-1); }
+.package-readiness__list li { display: flex; flex-wrap: wrap; gap: var(--c360-space-2); align-items: baseline; }
+.package-step { border-top: 1px solid var(--c360-border); padding-top: var(--c360-space-3); }
+.package-step__title { margin: 0 0 var(--c360-space-1); font-size: 15px; }
+.package-recommendations { display: grid; gap: var(--c360-space-2); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: var(--c360-space-3); }
+.package-recommendation { border: 1px solid var(--c360-border); border-radius: var(--c360-radius); padding: var(--c360-space-3); background: var(--c360-canvas); }
+.package-recommendation h4 { margin: 0 0 var(--c360-space-1); font-size: 14px; }
+.package-recommendation p { margin: var(--c360-space-1) 0; font-size: 14px; }
+.package-choices { border: 0; padding: 0; margin: 0; display: grid; gap: var(--c360-space-2); }
+.package-choice { display: flex; gap: var(--c360-space-2); align-items: flex-start; border: 1px solid var(--c360-border); border-radius: var(--c360-radius); padding: var(--c360-space-2) var(--c360-space-3); cursor: pointer; }
+.package-choice input { margin-top: 4px; }
+.package-result { border: 1px solid var(--c360-border); border-radius: var(--c360-radius); padding: var(--c360-space-3); background: var(--c360-surface, #fff); display: grid; gap: var(--c360-space-2); }
+.package-result__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--c360-space-2); align-items: baseline; }
+.package-result__head h3 { margin: 0; }
+.package-preview { display: grid; gap: var(--c360-space-2); }
+.package-preview__frame { width: 100%; height: 720px; border: 1px solid var(--c360-border); border-radius: var(--c360-radius); background: #f3f6f8; }
+.package-embed { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; width: 100%; }
+
+/* Advertising lines with their length against the platform limit (2026-09-15) */
+.rsa-lines { list-style: decimal; padding-left: 1.6em; margin: 0; display: grid; gap: 2px; }
+.rsa-line { display: flex; justify-content: space-between; gap: var(--c360-space-3); font-size: 14px; }
+.rsa-line__count { color: var(--c360-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+.rsa-line.is-over .rsa-line__count { color: var(--c360-danger, #b3261e); font-weight: 600; }
+.google-ads-frame { display: grid; gap: var(--c360-space-2); font-size: 14px; }
+.google-ads-frame .c360-definition__value { font-size: 14px; }

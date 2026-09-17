@@ -210,7 +210,22 @@ a plan that says why these channels, and the option to make everything anyway.
 3. **Objective alongside entry mode.** *What* the campaign is for and *from
    what* it starts are different questions and both are real.
 
-## Build record — slice 1 (2026-09-11)
+## Build record
+
+### Slices 2 and 3 — 2026-09-11
+
+Built as designed, with these deviations recorded: the per-stage message names
+course-card *fields* as proof rather than a selection over values, so the
+value is read at generation time and a withdrawn fact is never quoted from a
+stale copy; an unconfirmed field is removed by the service and named in the
+brief's review notes instead of being shown greyed out in a picker (no brief
+editor exists yet in the interface); the calendar puts each stage one week
+later than the previous rather than the overlapping 1–2 / 2–3 / 3–4 windows,
+which those windows become as soon as a cell has two pieces; and the results
+step was built now (Stap 8, publications, figures per channel and stage,
+learnings) because the outcomes and learnings modules had no interface at all.
+Migration is `0022_stage_briefing_results`.
+ — slice 1 (2026-09-11)
 
 Delivered as designed: `funnelStage`, `campaignObjective`, `channelFit` with
 its reasons, `channelAdvice` without a numeric field, Stap 0 objective cards

@@ -90,3 +90,15 @@ export function jobResultString(job: JobSummary | undefined, key: string): strin
   const value = job?.result?.[key];
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
+
+/**
+ * Reads a list of strings out of a job's result — the ids a proposal created,
+ * for instance. Null when the field is absent or not a list of strings, so a
+ * missing field and an empty list stay distinguishable: "the job said nothing"
+ * versus "the job said: nothing new".
+ */
+export function jobResultStringArray(job: JobSummary | undefined, key: string): string[] | null {
+  const value = job?.result?.[key];
+  if (!Array.isArray(value)) return null;
+  return value.filter((item): item is string => typeof item === 'string');
+}

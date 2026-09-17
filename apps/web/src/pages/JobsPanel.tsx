@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
 import type { JobStatus, JobSummary, LabelSummary } from '@c360/contracts';
-import { Badge, Button, Card, Field, Notice, Progress, type Tone } from '@c360/ui';
+import { Badge, Button, Card, Disclosure, Field, Notice, Progress, type Tone } from '@c360/ui';
 import { useJobAction, useJobs, useStartDemoJob } from '../api/queries.js';
 
 /**
@@ -24,29 +24,29 @@ export function JobsPanel(props: { label: LabelSummary }): ReactNode {
   const [message, setMessage] = useState('Testtaak vanuit de werkruimte');
   const [steps, setSteps] = useState(3);
   const [failFirstAttempts, setFailFirstAttempts] = useState(0);
+  const [showAll, setShowAll] = useState(false);
 
-  const items = jobs.data?.items ?? [];
+  const all = jobs.data?.items ?? [];
+  // The last handful is what a person came to check; the rest is history.
+  const items = showAll ? all : all.slice(0, 6);
 
   return (
     <Card
       title="Achtergrondtaken"
+      description="Lange bewerkingen lopen door als je de pagina verlaat; een afgebroken taak start je hier opnieuw."
       ariaLabel="Achtergrondtaken"
       action={
         jobs.isFetching ? <span className="c360-stat__caption">Bijwerken…</span> : undefined
       }
     >
-      <p className="c360-card__hint" style={{ marginBottom: 'var(--c360-space-4)' }}>
-        Lange bewerkingen lopen op de achtergrond. Je kunt de pagina verlaten; de voortgang blijft
-        bewaard en een afgebroken taak kun je opnieuw starten.
-      </p>
-
+      <Disclosure tone="plain" summary="Testtaak starten (ontwikkeling)">
       <form
         className="c360-stack"
         onSubmit={(event) => {
           event.preventDefault();
           start.mutate({ labelId: props.label.id, message, steps, failFirstAttempts });
         }}
-        style={{ marginBottom: 'var(--c360-space-5)' }}
+        style={{ marginTop: 'var(--c360-space-3)' }}
       >
         <Field
           id={messageId}
@@ -124,6 +124,7 @@ export function JobsPanel(props: { label: LabelSummary }): ReactNode {
           )}
         </div>
       </form>
+      </Disclosure>
 
       {jobs.isError && (
         <Notice tone="warning" live>
@@ -132,12 +133,14 @@ export function JobsPanel(props: { label: LabelSummary }): ReactNode {
       )}
 
       {items.length === 0 && !jobs.isPending && !jobs.isError && (
-        <Notice tone="neutral">Er zijn nog geen taken voor dit label.</Notice>
+        <p className="c360-card__hint" style={{ marginTop: 'var(--c360-space-3)' }}>
+          Er zijn nog geen taken voor dit label.
+        </p>
       )}
 
       {items.length > 0 && (
-        <div className="c360-table-scroll">
-          <table className="c360-table">
+        <div className="c360-table-scroll" style={{ marginTop: 'var(--c360-space-4)' }}>
+          <table className="c360-table jobs-table">
             <caption className="c360-visually-hidden">
               Achtergrondtaken voor {props.label.name}
             </caption>
@@ -167,6 +170,19 @@ export function JobsPanel(props: { label: LabelSummary }): ReactNode {
               ))}
             </tbody>
           </table>
+          {all.length > 6 && (
+            <div className="c360-row" style={{ marginTop: 'var(--c360-space-3)' }}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowAll(!showAll);
+                }}
+              >
+                {showAll ? 'Minder tonen' : `Alle ${String(all.length)} taken tonen`}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -184,6 +200,7 @@ function JobRow(props: {
   const cancellable = job.status === 'queued' || job.status === 'running';
 
   return (
+    <>
     <tr>
       <td>
         <span style={{ fontWeight: 600 }}>{JOB_TYPE_LABEL_NL[job.type] ?? job.type}</span>
@@ -192,11 +209,6 @@ function JobRow(props: {
       </td>
       <td>
         <Badge tone={STATUS_TONE[job.status]}>{STATUS_LABEL_NL[job.status]}</Badge>
-        {job.failureMessage !== null && (
-          <p className="c360-list__subtitle" style={{ maxWidth: '32ch' }}>
-            {job.failureMessage}
-          </p>
-        )}
       </td>
       <td style={{ minWidth: '160px' }}>
         {job.progress === null ? (
@@ -227,6 +239,14 @@ function JobRow(props: {
         {!cancellable && !job.retryable && <span className="c360-stat__caption">—</span>}
       </td>
     </tr>
+    {/* Why it failed belongs under the row, not inside the status column: in a
+        column of ten characters the sentence broke one word per line. */}
+    {job.failureMessage !== null && (
+      <tr className="jobs-table__note">
+        <td colSpan={5}>{job.failureMessage}</td>
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -251,7 +271,25 @@ const STATUS_TONE: Record<JobStatus, Tone> = {
 };
 
 const JOB_TYPE_LABEL_NL: Record<string, string> = {
-  'demo.echo': 'Testtaak (fase 0)',
+  'demo.echo': 'Testtaak',
+  'course.extract_from_url': 'Opleidingskaart uit pagina',
+  'course.extract_from_documents': 'Opleidingskaart uit document',
+  'research.run': 'Bronnenonderzoek',
+  'persona.propose': 'Doelgroepen voorstellen',
+  'persona.extract_from_text': 'Persona uit tekst',
+  'persona.fill_questionnaire': 'Personavragen aanvullen',
+  'opportunity.propose': 'Kansen voorstellen',
+  'brief.draft': 'Briefing uitwerken',
+  'concept.propose': 'Concepten voorstellen',
+  'content.plan': 'Kanaalplan voorstellen',
+  'content.generate': 'Content maken',
+  'content.standalone': 'Losse uiting maken',
+  'content.revise': 'Content herzien',
+  'campaign.package': 'Campagnepakket maken',
+  'campaign.deliverables': 'Contentvormen voorstellen',
+  'radar.scan': 'Marktradar scannen',
+  'geo.research': 'GEO-onderzoek',
+  'visibility.run': 'AI Visibility meten',
 };
 
 function formatTime(iso: string): string {

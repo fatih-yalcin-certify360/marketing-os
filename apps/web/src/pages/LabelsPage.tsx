@@ -9,6 +9,7 @@ import {
   useSetMemberRole,
 } from '../api/queries.js';
 import { ErrorState, LoadingState } from '../components/states.js';
+import { paletteOfLabel } from '../shell/LabelTheme.js';
 
 /**
  * Labels & toegang.
@@ -21,29 +22,39 @@ export function LabelsPage(props: { user: CurrentUser | undefined }): ReactNode 
   const labels = useLabels();
 
   if (labels.isPending) {
-    return <LoadingState label="Labels worden geladen" />;
+    return (
+      <div className="os-page">
+        <LoadingState label="Labels worden geladen" />
+      </div>
+    );
   }
   if (labels.isError) {
     return (
-      <ErrorState
-        message={labels.error.userMessage}
-        requestId={labels.error.requestId}
-        onRetry={() => void labels.refetch()}
-      />
+      <div className="os-page">
+        <ErrorState
+          message={labels.error.userMessage}
+          requestId={labels.error.requestId}
+          onRetry={() => void labels.refetch()}
+        />
+      </div>
     );
   }
 
   return (
-    <>
-      <header>
-        <h1 className="c360-page-title">Labels &amp; toegang</h1>
-        <p className="c360-page-lead">
-          Je ziet hier alleen de labels waarvoor je een rol hebt. Rechten worden op de server
-          bepaald op basis van je lidmaatschap.
-        </p>
+    <div className="os-page os-page--narrow">
+      <header className="os-page__head">
+        <div className="os-page__head-text">
+          <p className="os-eyebrow">Kennis &amp; beheer</p>
+          <h1 className="c360-page-title">Labels &amp; toegang</h1>
+          <p className="c360-page-lead">
+            Je ziet hier alleen de labels waarvoor je een rol hebt. Rechten worden op de server
+            bepaald op basis van je lidmaatschap; een label dat je niet mag zien staat niet grijs —
+            het wordt niet teruggegeven.
+          </p>
+        </div>
       </header>
 
-      <Card ariaLabel="Jouw labels">
+      <div className="os-panel">
         <div className="c360-table-scroll">
           <table className="c360-table">
             <caption className="c360-visually-hidden">Labels met jouw rol</caption>
@@ -52,26 +63,35 @@ export function LabelsPage(props: { user: CurrentUser | undefined }): ReactNode 
                 <th scope="col">Label</th>
                 <th scope="col">Jouw rol</th>
                 <th scope="col">Herkomst</th>
+                <th scope="col">Palet</th>
               </tr>
             </thead>
             <tbody>
               {labels.data.items.map((label) => (
                 <tr key={label.id}>
                   <td>
-                    <span style={{ fontWeight: 700 }}>{label.name}</span>
+                    <span style={{ fontFamily: 'var(--font-title)', fontWeight: 700 }}>{label.name}</span>
                     <br />
-                    <span className="c360-stat__caption">{label.slug}</span>
+                    <span className="os-num" style={{ fontSize: 10.5, color: 'var(--tx-3)' }}>
+                      {label.slug}
+                    </span>
                   </td>
                   <td>{ROLE_LABEL_NL[label.role] ?? label.role}</td>
                   <td>
                     <OriginBadge label={label} />
+                  </td>
+                  {/* The three colours this label paints the interface with.
+                      From its approved brand profile, or the Certify360 house
+                      palette when it has none — and the title says which. */}
+                  <td>
+                    <PaletteSwatch label={label} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
       <Card title="Jouw account" ariaLabel="Jouw account">
         <dl className="c360-definition">
@@ -100,7 +120,30 @@ export function LabelsPage(props: { user: CurrentUser | undefined }): ReactNode 
       </Card>
 
       <MembersPanel labels={labels.data.items} user={props.user} />
-    </>
+    </div>
+  );
+}
+
+/**
+ * A label's three interface colours, as one swatch.
+ *
+ * `palette` is null when the label has no approved brand profile; the swatch
+ * then shows the Certify360 house colours it will actually paint with, and the
+ * title says so. A colour is never invented for a brand that has not supplied
+ * one.
+ */
+function PaletteSwatch(props: { label: LabelSummary }): ReactNode {
+  const { palette, grounded } = paletteOfLabel(props.label);
+  const title = grounded
+    ? `Uit het goedgekeurde merkprofiel: ${palette.primary}, ${palette.accent}, ${palette.ink}`
+    : `Geen goedgekeurd merkprofiel — Certify360-huispalet: ${palette.primary}, ${palette.accent}, ${palette.ink}`;
+  return (
+    <span className="os-swatch" title={title}>
+      <span style={{ background: palette.primary }} />
+      <span style={{ background: palette.accent }} />
+      <span style={{ background: palette.ink }} />
+      <span className="c360-visually-hidden">{title}</span>
+    </span>
   );
 }
 

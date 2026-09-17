@@ -94,6 +94,9 @@ describe('audience evidence', () => {
         notes: [],
         failures: [],
         isMock: false,
+        insights: [],
+        digest: null,
+        claims: [],
       },
     });
     expect(text).toContain(page.url);

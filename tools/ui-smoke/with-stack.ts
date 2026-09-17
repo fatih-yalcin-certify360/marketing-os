@@ -11,9 +11,10 @@ import { join } from 'node:path';
  *  - **It costs nothing and needs no key.** `AI_PROVIDER=mock` produces
  *    clearly-labelled deterministic output, so the run exercises the *product*
  *    — the gates, the queue, the render layer, the export — rather than the
- *    model. Running it against a real provider stays possible and is a
- *    deliberate, separate act (`npx tsx tools/ui-smoke/index.ts`), because it
- *    costs roughly one campaign each time.
+ *    model. `--live` runs the same nineteen steps through the configured
+ *    gateway instead, which exercises the model too and costs roughly one
+ *    campaign. It is a flag rather than the default precisely because a check
+ *    you run twenty times a day must not bill you twenty times.
  *  - **It shares nothing.** Its own PGlite data directory in a temp folder, its
  *    own ports, its own storage root. Pointing it at a database someone is
  *    working in would make a failure ambiguous, and a smoke run that can
@@ -26,12 +27,65 @@ import { join } from 'node:path';
  * normal stack is up.
  */
 
+/**
+ * Whether to run against the real gateway.
+ *
+ * Opt-in, and it takes its settings from the ambient environment rather than
+ * inventing any: the point of a live run is to exercise the configuration that
+ * is actually deployed. A missing key is refused up front, because discovering
+ * it after the stack has booted wastes a minute and leaves a half-run.
+ */
+const LIVE = process.argv.slice(2).includes('--live');
+
 const PORTS = {
   db: process.env.SMOKE_DB_PORT ?? '5455',
   api: process.env.SMOKE_API_PORT ?? '4055',
   workerHealth: process.env.SMOKE_WORKER_HEALTH_PORT ?? '4056',
   web: process.env.SMOKE_WEB_PORT ?? '5255',
 };
+
+/**
+ * The AI settings for this run.
+ *
+ * Mock by default. With `--live`, the gateway settings are passed through from
+ * the environment — never defaulted here, so a live run cannot quietly talk to
+ * something other than what the operator configured. Images stay off in both
+ * modes: the smoke checks that the product renders its own brand artwork, and
+ * buying a scene per variant would multiply the cost of a routine check.
+ */
+function aiSettings(): NodeJS.ProcessEnv {
+  if (!LIVE) return { AI_PROVIDER: 'mock', AI_IMAGE_ENABLED: 'false' };
+
+  const baseUrl = process.env.LITELLM_BASE_URL;
+  const apiKey = process.env.LITELLM_API_KEY;
+  if (baseUrl === undefined || apiKey === undefined) {
+    process.stderr.write(
+      '[with-stack] --live needs LITELLM_BASE_URL and LITELLM_API_KEY in the environment.\n' +
+        '            Load your .env first, for example:  set -a; . ./.env; set +a; npm run smoke -- --live\n',
+    );
+    process.exit(2);
+  }
+  process.stdout.write(
+    `[with-stack] --live: nineteen steps against ${new URL(baseUrl).host}. This spends real money.\n`,
+  );
+  return {
+    AI_PROVIDER: 'litellm',
+    LITELLM_BASE_URL: baseUrl,
+    LITELLM_API_KEY: apiKey,
+    // Everything else follows the deployed configuration, defaults included.
+    ...(process.env.AI_TEXT_MODEL === undefined ? {} : { AI_TEXT_MODEL: process.env.AI_TEXT_MODEL }),
+    ...(process.env.AI_MAX_OUTPUT_TOKENS === undefined
+      ? {}
+      : { AI_MAX_OUTPUT_TOKENS: process.env.AI_MAX_OUTPUT_TOKENS }),
+    ...(process.env.AI_WEB_SEARCH_ENABLED === undefined
+      ? {}
+      : { AI_WEB_SEARCH_ENABLED: process.env.AI_WEB_SEARCH_ENABLED }),
+    ...(process.env.AI_COST_USD_TO_EUR_RATE === undefined
+      ? {}
+      : { AI_COST_USD_TO_EUR_RATE: process.env.AI_COST_USD_TO_EUR_RATE }),
+    AI_IMAGE_ENABLED: 'false',
+  };
+}
 
 const children: { name: string; child: ChildProcess; output: string[] }[] = [];
 let shuttingDown = false;
@@ -204,8 +258,7 @@ async function main(): Promise<void> {
     NODE_ENV: 'development',
     LOG_LEVEL: 'warn',
     AUTH_MODE: 'local',
-    AI_PROVIDER: 'mock',
-    AI_IMAGE_ENABLED: 'false',
+    ...aiSettings(),
     DATABASE_URL: `postgresql://c360:c360_dev_password@127.0.0.1:${PORTS.db}/postgres`,
     STORAGE_ROOT: storageRoot,
     AUTH_PROXY_SHARED_SECRET: 'ui-smoke-throwaway-secret-not-a-real-one',

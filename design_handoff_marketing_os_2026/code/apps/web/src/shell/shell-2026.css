@@ -1,0 +1,465 @@
+/*
+ * 2026 shell: 56px icon rail, click-to-open 232px flyout, 48px top bar,
+ * neutral canvas. The label's colours paint the rail and every accent; the
+ * working surfaces stay neutral so long documents keep reading well.
+ */
+
+/* --------------------------------------------------- design-system type ---
+   Three brand faces. At Gambit (--font-display) is for EXTERNAL communication
+   only and never appears in the application; TT Firs Neue is the lead face
+   inside the product, Plus Jakarta Sans carries reading copy. */
+.os-app { font-family: var(--font-body); }
+
+.os-app h1,
+.os-app h2,
+.os-app h3,
+.os-app h4,
+.os-app h5,
+.os-app h6,
+.os-app button,
+.os-app input,
+.os-app label,
+.os-app th { font-family: var(--font-title); }
+
+/* Numbers, versions, times, amounts and domains are tabular mono. */
+.os-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.os-app {
+  display: flex;
+  min-height: 100vh;
+  background: var(--n-1);
+}
+
+/* ----------------------------------------------------------------- rail --- */
+.os-rail {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: var(--rail-w);
+  flex: none;
+  background: var(--lp-shell);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0 12px;
+  z-index: 30;
+}
+
+.os-rail__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+  flex: none;
+}
+
+.os-rail__item {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--lp-shell-tx);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+}
+
+.os-rail__item:hover {
+  background: var(--lp-shell-2);
+  color: #fff;
+}
+
+/* The active mark is a white overlay plate with a ring in --lp-active.
+   It may not be painted from --lp: the rail is --lp-shell, which is derived
+   from ink, and a brand using one dark colour for both (Lindenhaeghe,
+   #183B3E for primary and ink) would leave no visible mark at all.
+   --lp-active falls back to the accent in exactly that case. */
+.os-rail__item[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 12%);
+  box-shadow: inset 0 0 0 1.5px var(--lp-active);
+}
+
+.os-rail__item--unavailable {
+  opacity: 0.55;
+}
+
+.os-rail__dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lp-accent);
+}
+
+.os-rail__foot {
+  margin-top: auto;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+/* --------------------------------------------------------------- flyout --- */
+.os-flyout {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: var(--flyout-w);
+  flex: none;
+  background: var(--lp-shell-2);
+  color: #fff;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: os-fly 160ms cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 20;
+}
+
+@keyframes os-fly {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.os-flyout__heading {
+  margin: 6px 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--lp-shell-tx);
+}
+
+.os-flyout__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--lp-shell-tx);
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.os-flyout__item:hover { background: rgb(255 255 255 / 10%); }
+.os-flyout__item--active { background: rgb(255 255 255 / 16%); color: #fff; }
+
+.os-flyout__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-flyout__count {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgb(255 255 255 / 14%);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+}
+
+.os-flyout__soon {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--lp-shell-tx);
+}
+
+/* --------------------------------------------------------------- topbar --- */
+.os-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.os-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  height: var(--topbar-h);
+  flex: none;
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--n-br);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Every top-bar control is a fixed-height pill, so none of them may wrap. */
+.os-topbar > * { flex: none; white-space: nowrap; }
+.os-topbar__spacer { flex: 1 1 auto; min-width: 0; }
+
+.os-crumb {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tx-2);
+  min-width: 0;
+}
+
+.os-crumb__leaf {
+  font-weight: 700;
+  color: var(--tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46ch;
+}
+
+.os-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--n-br);
+  background: var(--n-0);
+  border-radius: var(--radius-pill);
+  color: var(--tx-3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-search__key {
+  font-family: var(--c360-font-mono);
+  font-size: 10px;
+  border: 1px solid var(--n-br);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.os-labelchip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--lp-t3);
+  background: var(--lp-t1);
+  border-radius: var(--radius-pill);
+  color: var(--lp-ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-labelchip__mark {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  flex: none;
+}
+
+.os-labelchip__name { max-width: 15ch; overflow: hidden; text-overflow: ellipsis; }
+
+.os-labelmenu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  width: 276px;
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgb(24 36 48 / 12%);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  z-index: 40;
+}
+
+.os-labelmenu__swatch { display: flex; gap: 2px; flex: none; }
+.os-labelmenu__swatch span { width: 6px; height: 18px; }
+.os-labelmenu__swatch span:first-child { width: 10px; border-radius: 3px 0 0 3px; }
+.os-labelmenu__swatch span:last-child { border-radius: 0 3px 3px 0; }
+
+/* -------------------------------------------------------------- content --- */
+.os-content { padding: 20px; display: grid; gap: 16px; align-content: start; }
+
+/* Filled controls take --lp-solid, never raw --lp: the raw brand colour is
+   chosen for print and fails 4.5:1 under 12px text. */
+.os-button--primary {
+  height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  font: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.os-button--primary:hover { background: var(--lp-deep); }
+
+.os-button--secondary {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--n-br2);
+  background: var(--n-0);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-button--secondary:hover { border-color: var(--lp); }
+
+/* ------------------------------------------------- campaign three-column --- */
+.os-flow {
+  display: grid;
+  grid-template-columns: var(--steprail-w) minmax(0, 1fr) var(--context-w);
+  flex: 1;
+  min-height: 0;
+}
+
+/* Below 1180px the workspace would fall under 460px, so the context panel
+   becomes a button in the step header instead of holding its column. */
+@media (max-width: 1180px) {
+  .os-flow { grid-template-columns: var(--steprail-w) minmax(0, 1fr); }
+  .os-context { display: none; }
+}
+
+.os-steprail,
+.os-context {
+  background: var(--n-0);
+  padding: 14px 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+  position: sticky;
+  top: var(--topbar-h);
+  align-self: start;
+  max-height: calc(100vh - var(--topbar-h));
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.os-steprail { border-right: 1px solid var(--n-br); }
+.os-context { border-left: 1px solid var(--n-br); }
+
+.os-step {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 7px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.os-step:hover { background: var(--lp-t1); }
+.os-step[aria-current='step'] { background: var(--lp-t2); color: var(--lp-ink); }
+
+.os-step__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--c360-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--n-0);
+  color: var(--tx-3);
+  border: 1px solid var(--n-br2);
+}
+
+.os-step--done .os-step__num { background: var(--ok-t); color: var(--ok); border-color: var(--ok-t); }
+.os-step[aria-current='step'] .os-step__num { background: var(--lp-solid); color: var(--lp-on); border-color: var(--lp-solid); }
+
+/* ------------------------------------------------- list + detail screens --- */
+.os-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 364px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .os-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+.os-split__list {
+  border-right: 1px solid var(--n-br);
+  background: var(--n-0);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: var(--topbar-h);
+  align-self: start;
+  height: calc(100vh - var(--topbar-h));
+}
+
+.os-split__scroll { overflow: auto; flex: 1; }
+
+.os-split__row {
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--n-2);
+  background: var(--n-0);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.os-split__row:hover { background: var(--lp-t1); }
+.os-split__row[aria-selected='true'] { background: var(--lp-t1); }
+.os-split__row[aria-selected='true'] .os-split__marker { background: var(--lp); }
+
+:focus-visible {
+  outline: 2px solid var(--lp-solid);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

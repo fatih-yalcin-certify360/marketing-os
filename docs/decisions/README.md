@@ -27,6 +27,7 @@ Status values: **Accepted**, **Superseded by ADR-xxxx**, **Proposed**.
 | [0016](ADR-0016-queued-generation.md) | All generation runs as a job; no model call in a request | Accepted |
 | [0017](ADR-0017-ssrf-guard.md) | Outbound fetching guarded on the resolved address, every redirect hop | Accepted |
 | [0018](ADR-0018-sources-and-research.md) | Sources are registered, not discovered; findings carry provenance | Accepted |
+| [0019](ADR-0019-litellm-gateway.md) | LiteLLM as a gateway on the OpenAI-compatible adapter; capabilities declared, not assumed | Accepted |
 
 ## Writing a new one
 

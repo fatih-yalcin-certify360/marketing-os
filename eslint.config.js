@@ -27,6 +27,26 @@ export default tseslint.config(
       '**/*.tsbuildinfo',
       // Generated at runtime: uploads, rendered images, exports, dev database.
       'var/**',
+      /*
+       * The 2026 design handoff: a reference bundle, not repository code.
+       *
+       * It holds an HTML prototype of every screen plus the drop-in sources it
+       * was written against. Those sources were adapted into `apps/` and
+       * `packages/` on 2026-09-15; the bundle stays as the reference the
+       * interface is measured against, and it is not part of any tsconfig, so
+       * linting it only produces "not found by the project service".
+       */
+      'design_handoff_marketing_os_2026/**',
+      /*
+       * A real banner, kept as a reference for what the generator has to reach.
+       *
+       * A shipped 300x600 from a Dutch insurer: Google Studio with the Enabler,
+       * GSAP 3.11.5 and SplitText from Google's mirror, Montserrat as a real
+       * webfont file, a photographic background and a rotating USP list. It is
+       * somebody else's production code, in no tsconfig, and linting it only
+       * produces "not found by the project service".
+       */
+      'reference-banners/**',
     ],
   },
 

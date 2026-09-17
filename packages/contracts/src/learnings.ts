@@ -48,6 +48,8 @@ export const learningInput = z.object({
   outcomeReportIds: z.array(uuid).max(50).default([]),
 });
 export type LearningInput = z.infer<typeof learningInput>;
+/** What a form may *send*: defaulted fields are optional and filled in by the parse. */
+export type LearningInputData = z.input<typeof learningInput>;
 
 export const learning = z.object({
   id: uuid,

@@ -37,7 +37,14 @@ export const campaignPackageRoutes: FastifyPluginAsync = async (app) => {
     const p=params.parse(request.params);const user=currentUser(request);
     const items=await services.campaignPackages.list(db,user,p.labelId,p.campaignId);
     const [job]=await db.select({id:jobs.id}).from(jobs).where(and(eq(jobs.labelId,p.labelId),eq(jobs.type,'campaign.package'),sql`${jobs.payload}->>'campaignId' = ${p.campaignId}`)).orderBy(desc(jobs.createdAt)).limit(1);
-    return {items,latestJob:job?await services.jobs.get(db,user,job.id):null};
+    const readiness=await services.campaignPackages.readiness(db,user,p.labelId,p.campaignId);
+    return {items,latestJob:job?await services.jobs.get(db,user,job.id):null,readiness};
+  });
+  /** The produced pages as inline HTML for the sandboxed preview on the campaign screen (2026-09-15). */
+  app.get('/labels/:labelId/campaigns/:campaignId/packages/:packageId/preview',async(request,reply)=>{
+    const p=params.extend({packageId:z.uuid()}).parse(request.params);
+    const preview=await services.campaignPackages.preview(db,currentUser(request),p.labelId,p.campaignId,p.packageId);
+    return reply.header('cache-control','private, no-store').send(preview);
   });
   app.post('/labels/:labelId/campaigns/:campaignId/packages',async(request,reply)=>{
     const p=params.parse(request.params);const user=currentUser(request);const body=campaignPackageInput.parse(request.body);

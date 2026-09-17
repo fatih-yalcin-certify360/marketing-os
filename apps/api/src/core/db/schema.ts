@@ -287,6 +287,11 @@ export const personaVersions = pgTable(
     relationToCourse: text('relation_to_course').notNull(),
     grounding: jsonb('grounding').notNull().default([]),
     assumptions: jsonb('assumptions').notNull().default([]),
+    /** Where the audience orients, per statement with evidence or null for an assumption. */
+    orientationSources: jsonb('orientation_sources').notNull().default([]),
+    questionnaire: jsonb('questionnaire').notNull().default({}),
+    /** Other course versions this persona is linked to; see migration 0025. */
+    linkedCourseVersionIds: jsonb('linked_course_version_ids').notNull().default([]),
     reviewState: text('review_state').notNull().default('draft'),
     origin: text('origin').notNull().default('ai_generated'),
     promptVersion: text('prompt_version'),
@@ -358,6 +363,19 @@ export const briefVersions = pgTable(
     goal: text('goal').notNull(),
     personaVersionIds: jsonb('persona_version_ids').notNull(),
     coreMessage: text('core_message').notNull(),
+    /** The thesis per funnel stage: message, CTA kind and confirmed proof fields. */
+    stageMessages: jsonb('stage_messages').notNull().default([]),
+    /** Search phrases the content should carry, each with its provenance; no figures. */
+    keywords: jsonb('keywords').notNull().default([]),
+    /** The sections of a professional brief; see migration 0026. */
+    contextNl: text('context_nl').notNull().default(''),
+    audienceInsightNl: text('audience_insight_nl').notNull().default(''),
+    propositionNl: text('proposition_nl').notNull().default(''),
+    toneOfVoiceNl: text('tone_of_voice_nl').notNull().default(''),
+    mandatories: jsonb('mandatories').notNull().default([]),
+    channelRoles: jsonb('channel_roles').notNull().default([]),
+    timingNl: text('timing_nl').notNull().default(''),
+    risks: jsonb('risks').notNull().default([]),
     evidence: jsonb('evidence').notNull().default([]),
     usableClaims: jsonb('usable_claims').notNull().default([]),
     offLimits: jsonb('off_limits').notNull().default([]),
@@ -419,6 +437,8 @@ export const contentPlans = pgTable(
     rationaleNl: text('rationale_nl').notNull(),
     /** Rule verdict, advised verdict and reasoning per stage × channel cell. */
     channelAdvice: jsonb('channel_advice').notNull().default([]),
+    /** One indicator, source and decision rule per stage; no target, no forecast. */
+    measurementPlan: jsonb('measurement_plan').notNull().default([]),
     reviewState: text('review_state').notNull().default('draft'),
     origin: text('origin').notNull().default('ai_generated'),
     createdAt,
@@ -434,7 +454,8 @@ export const contentAssetVersions = pgTable(
     id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
     organizationId: uuid('organization_id').notNull(),
     labelId: uuid('label_id').notNull(),
-    campaignId: uuid('campaign_id').notNull(),
+    /** Null for a standalone piece; see `ownerScope` (migration 0029). */
+    campaignId: uuid('campaign_id'),
     assetKey: text('asset_key').notNull(),
     version: integer('version').notNull(),
     channel: text('channel').notNull(),
@@ -444,10 +465,17 @@ export const contentAssetVersions = pgTable(
     language: text('language').notNull().default('nl'),
     copy: jsonb('copy').notNull(),
     variants: jsonb('variants').notNull().default([]),
-    briefVersionId: uuid('brief_version_id').notNull(),
-    conceptVersionId: uuid('concept_version_id').notNull(),
+    briefVersionId: uuid('brief_version_id'),
+    conceptVersionId: uuid('concept_version_id'),
+    // Still required for both scopes: a piece always belongs to a brand and a
+    // course, and that grounding is what makes a briefless piece safe.
     brandProfileVersionId: uuid('brand_profile_version_id').notNull(),
     courseVersionId: uuid('course_version_id').notNull(),
+    /** `campaign` or `standalone`; a CHECK ties it to `campaignId`. */
+    ownerScope: text('owner_scope').notNull().default('campaign'),
+    /** Where a standalone piece came from: a finding, a card, or a person. */
+    originKind: text('origin_kind'),
+    originRefId: uuid('origin_ref_id'),
     personaVersionIds: jsonb('persona_version_ids').notNull().default([]),
     warnings: jsonb('warnings').notNull().default([]),
     /**
@@ -576,6 +604,8 @@ export const outcomeReports = pgTable('outcome_reports', {
   campaignId: uuid('campaign_id').notNull(),
   publicationRecordId: uuid('publication_record_id'),
   channel: text('channel').notNull(),
+  /** The stage the figures belong to, when the report splits by stage. */
+  funnelStage: text('funnel_stage'),
   periodStart: date('period_start').notNull(),
   periodEnd: date('period_end').notNull(),
   impressions: integer('impressions'),

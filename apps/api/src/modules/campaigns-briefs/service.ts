@@ -1,23 +1,52 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, lt, or, sql } from 'drizzle-orm';
 import {
   briefProposal,
+  confirmedFacts,
   createCampaignInput,
+  stagesForObjective,
   unconfirmedFacts,
   COURSE_FACT_LABEL_NL,
+  FUNNEL_STAGE_LABEL_NL,
   type BriefEditInput,
   type BriefVersion,
   type Campaign,
   type CampaignObjective,
+  type CourseFactField,
+  type CourseVersion,
   type CreateCampaignInputData,
   type CurrentUser,
+  type FunnelStage,
   type Grounding,
   type MarketingChannel,
   type ReviewState,
+  type StageMessage,
   type UsableClaim,
   type WorkflowStage,
 } from '@c360/contracts';
 import type { Db, DbOrTx } from '../../core/db/types.js';
-import { briefVersions, campaigns } from '../../core/db/schema.js';
+import type { AuditEntry } from '../audit/service.js';
+import {
+  briefVersions,
+  campaigns,
+  conceptVersions,
+  contentAssetVersions,
+  contentPlans,
+  courseVersions,
+  exports as exportsTable,
+  outcomeReports,
+  radarRuns,
+} from '../../core/db/schema.js';
+import { z } from 'zod';
+import {
+  CHANNEL_LABEL_NL,
+  computeCampaignProgress,
+  statableFacts,
+  type BriefKeyword,
+  type BriefProposal,
+  type CampaignListItem,
+  type ChannelRole,
+  type Page,
+} from '@c360/contracts';
 import { AppError } from '../../core/errors/app-error.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
 import type { GenerationService } from '../../core/ai/generation.js';
@@ -49,7 +78,122 @@ export class CampaignService {
     private readonly personas: PersonaService,
     private readonly opportunities: OpportunityService,
     private readonly approvals: ApprovalService,
+    /**
+     * Optional so every existing call site keeps working; present in the
+     * server, where re-pointing a campaign at another course version has to
+     * leave a trace of who did it and from which version to which.
+     */
+    private readonly audit?: { record(db: DbOrTx, entry: AuditEntry): Promise<void> },
   ) {}
+
+  /**
+   * Moves a campaign to the currently approved version of its own course.
+   *
+   * A campaign is pinned to the course version it was created with. Approving
+   * a corrected card archives the old one, and from that moment the campaign
+   * fails the export gate with "De opleidingskaart is nog niet goedgekeurd" —
+   * about a card the user just approved. That was the single worst defect the
+   * audit of 2026-09-15 found: one correction froze every running campaign,
+   * with no way out but to re-approve the stale card.
+   *
+   * Moving is deliberately not automatic. The briefing quotes facts from the
+   * card, so a changed price or date means the briefing and the content have
+   * to be looked at again. This puts the campaign on the current card and
+   * flags exactly those artefacts for re-review, in one transaction, and says
+   * what it touched.
+   */
+  async repointToCurrentCourse(
+    db: Db,
+    user: CurrentUser,
+    labelId: string,
+    campaignId: string,
+  ): Promise<{
+    campaign: Campaign;
+    moved: boolean;
+    fromVersion: number;
+    toVersion: number;
+    briefsFlagged: number;
+    assetsFlagged: number;
+  }> {
+    requireLabelPermission(user, labelId, 'campaign:write');
+    const campaign = await this.requireById(db, labelId, campaignId);
+    const pinned = await this.courses.requireVersion(db, labelId, campaign.courseVersionId);
+    const current = await this.courses.approvedForSameCourse(db, labelId, campaign.courseVersionId);
+
+    if (current === undefined) {
+      throw new AppError('gate_not_passed', {
+        publicMessage:
+          'Er is geen goedgekeurde opleidingskaart voor deze opleiding. Keur eerst een kaart goed.',
+      });
+    }
+    if (current.id === campaign.courseVersionId) {
+      return {
+        campaign,
+        moved: false,
+        fromVersion: pinned.version,
+        toVersion: current.version,
+        briefsFlagged: 0,
+        assetsFlagged: 0,
+      };
+    }
+
+    return db.transaction(async (tx) => {
+      await tx
+        .update(campaigns)
+        .set({ courseVersionId: current.id })
+        .where(and(eq(campaigns.id, campaignId), eq(campaigns.labelId, labelId)));
+
+      const briefs = await tx
+        .update(briefVersions)
+        .set({ reviewState: 'needs_rereview' })
+        .where(
+          and(
+            eq(briefVersions.labelId, labelId),
+            eq(briefVersions.campaignId, campaignId),
+            sql`${briefVersions.reviewState} IN ('draft', 'approved')`,
+          ),
+        )
+        .returning({ id: briefVersions.id });
+
+      const assets = await tx
+        .update(contentAssetVersions)
+        .set({ reviewState: 'needs_rereview' })
+        .where(
+          and(
+            eq(contentAssetVersions.labelId, labelId),
+            eq(contentAssetVersions.campaignId, campaignId),
+            sql`${contentAssetVersions.reviewState} IN ('draft', 'approved')`,
+          ),
+        )
+        .returning({ id: contentAssetVersions.id });
+
+      await this.audit?.record(tx, {
+        organizationId: user.organizationId,
+        labelId,
+        actorKind: 'user',
+        actorUserId: user.userId,
+        action: 'campaign.course_version_repointed',
+        resourceType: 'campaign',
+        resourceId: campaignId,
+        outcome: 'allowed',
+        metadata: {
+          fromCourseVersion: pinned.version,
+          toCourseVersion: current.version,
+          briefsFlagged: briefs.length,
+          assetsFlagged: assets.length,
+        },
+      });
+
+      return {
+        campaign: await this.requireById(tx, labelId, campaignId),
+        moved: true,
+        fromVersion: pinned.version,
+        toVersion: current.version,
+        briefsFlagged: briefs.length,
+        assetsFlagged: assets.length,
+      };
+    });
+  }
 
   async create(
     db: Db,
@@ -92,15 +236,181 @@ export class CampaignService {
     return toCampaign(row);
   }
 
-  async list(db: Db, user: CurrentUser, labelId: string, limit: number): Promise<Campaign[]> {
+  /**
+   * The campaigns of a label, newest first, each with where it stands.
+   *
+   * Progress comes from `computeCampaignProgress` — the same rule the detail
+   * page applies — fed by six grouped queries over the page's campaign ids:
+   * briefs, selected concepts, plans, the latest version of every content
+   * asset, exports with bytes, outcome reports. Never a detail call per row:
+   * the detail route runs nine queries for one campaign, and a list of fifty
+   * would run four hundred and fifty. Keyset pagination on (createdAt, id);
+   * `userIdea` and `suppliedBrief` are nulled on list rows, because a list
+   * must not carry every briefing ever pasted.
+   */
+  async list(
+    db: Db,
+    user: CurrentUser,
+    labelId: string,
+    query: { limit: number; cursor?: string | undefined },
+  ): Promise<Page<CampaignListItem>> {
     requireLabelPermission(user, labelId, 'campaign:read');
+    const after = decodeListCursor(query.cursor);
     const rows = await db
       .select()
       .from(campaigns)
-      .where(eq(campaigns.labelId, labelId))
-      .orderBy(desc(campaigns.createdAt))
-      .limit(limit);
-    return rows.map(toCampaign);
+      .where(
+        and(
+          eq(campaigns.labelId, labelId),
+          after === undefined
+            ? undefined
+            : or(
+                lt(campaigns.createdAt, after.createdAt),
+                and(eq(campaigns.createdAt, after.createdAt), lt(campaigns.id, after.id)),
+              ),
+        ),
+      )
+      .orderBy(desc(campaigns.createdAt), desc(campaigns.id))
+      .limit(query.limit + 1);
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    const nextCursor =
+      rows.length > query.limit && last !== undefined
+        ? encodeListCursor({ createdAt: last.createdAt, id: last.id })
+        : null;
+    if (page.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const ids = page.map((row) => row.id);
+    const [briefRows, conceptRows, planRows, assetRows, exportRows, outcomeRows, courseRows] =
+      await Promise.all([
+        db
+          .select({
+            campaignId: briefVersions.campaignId,
+            version: briefVersions.version,
+            reviewState: briefVersions.reviewState,
+            personaVersionIds: briefVersions.personaVersionIds,
+            createdAt: briefVersions.createdAt,
+          })
+          .from(briefVersions)
+          .where(inArray(briefVersions.campaignId, ids)),
+        db
+          .select({ campaignId: conceptVersions.campaignId })
+          .from(conceptVersions)
+          .where(and(inArray(conceptVersions.campaignId, ids), eq(conceptVersions.selected, true))),
+        db
+          .select({
+            campaignId: contentPlans.campaignId,
+            version: contentPlans.version,
+            reviewState: contentPlans.reviewState,
+            createdAt: contentPlans.createdAt,
+          })
+          .from(contentPlans)
+          .where(inArray(contentPlans.campaignId, ids)),
+        db
+          .select({
+            campaignId: contentAssetVersions.campaignId,
+            assetKey: contentAssetVersions.assetKey,
+            version: contentAssetVersions.version,
+            reviewState: contentAssetVersions.reviewState,
+            createdAt: contentAssetVersions.createdAt,
+          })
+          .from(contentAssetVersions)
+          .where(inArray(contentAssetVersions.campaignId, ids)),
+        db
+          .select({ campaignId: exportsTable.campaignId, createdAt: exportsTable.createdAt })
+          .from(exportsTable)
+          .where(and(inArray(exportsTable.campaignId, ids), gt(exportsTable.sizeBytes, 0))),
+        db
+          .select({ campaignId: outcomeReports.campaignId, createdAt: outcomeReports.createdAt })
+          .from(outcomeReports)
+          .where(inArray(outcomeReports.campaignId, ids)),
+        db
+          .select({ id: courseVersions.id, name: courseVersions.name })
+          .from(courseVersions)
+          .where(inArray(courseVersions.id, [...new Set(page.map((row) => row.courseVersionId))])),
+      ]);
+
+    const latestBrief = new Map<string, (typeof briefRows)[number]>();
+    const approvedBriefs = new Set<string>();
+    for (const brief of briefRows) {
+      const current = latestBrief.get(brief.campaignId);
+      if (current === undefined || brief.version > current.version) latestBrief.set(brief.campaignId, brief);
+      if (brief.reviewState === 'approved') approvedBriefs.add(brief.campaignId);
+    }
+    const selectedConcepts = new Set(conceptRows.map((row) => row.campaignId));
+    const latestPlan = new Map<string, (typeof planRows)[number]>();
+    for (const plan of planRows) {
+      const current = latestPlan.get(plan.campaignId);
+      if (current === undefined || plan.version > current.version) latestPlan.set(plan.campaignId, plan);
+    }
+    const latestAssets = new Map<string, Map<string, (typeof assetRows)[number]>>();
+    for (const asset of assetRows) {
+      // A standalone piece has no campaign and belongs in no campaign's
+      // progress; the query filters on the campaign ids, so this is only a
+      // type-level guard (migration 0029).
+      if (asset.campaignId === null) continue;
+      const perCampaign = latestAssets.get(asset.campaignId) ?? new Map<string, (typeof assetRows)[number]>();
+      const current = perCampaign.get(asset.assetKey);
+      if (current === undefined || asset.version > current.version) perCampaign.set(asset.assetKey, asset);
+      latestAssets.set(asset.campaignId, perCampaign);
+    }
+    const exported = new Map<string, Date>();
+    for (const record of exportRows) {
+      const current = exported.get(record.campaignId);
+      if (current === undefined || record.createdAt > current) exported.set(record.campaignId, record.createdAt);
+    }
+    const outcomes = new Map<string, Date>();
+    for (const record of outcomeRows) {
+      const current = outcomes.get(record.campaignId);
+      if (current === undefined || record.createdAt > current) outcomes.set(record.campaignId, record.createdAt);
+    }
+    const courseNames = new Map(courseRows.map((row) => [row.id, row.name]));
+
+    const items = page.map((row): CampaignListItem => {
+      const brief = latestBrief.get(row.id);
+      const plan = latestPlan.get(row.id);
+      const assets = [...(latestAssets.get(row.id)?.values() ?? [])];
+      const activity = [
+        row.updatedAt,
+        brief?.createdAt,
+        plan?.createdAt,
+        ...assets.map((asset) => asset.createdAt),
+        exported.get(row.id),
+        outcomes.get(row.id),
+      ].filter((value): value is Date => value instanceof Date);
+      const lastActivityAt = new Date(Math.max(...activity.map((value) => value.getTime())));
+      const personaIds = brief?.personaVersionIds;
+      const progress = computeCampaignProgress({
+        entryMode: row.entryMode as CampaignListItem['entryMode'],
+        hasOpportunity: row.opportunityId !== null,
+        fromRadar: row.radarRunId !== null,
+        personaCount: Array.isArray(personaIds) ? personaIds.length : 0,
+        brief:
+          brief === undefined
+            ? null
+            : { reviewState: brief.reviewState as ReviewState, approved: approvedBriefs.has(row.id) },
+        hasSelectedConcept: selectedConcepts.has(row.id),
+        plan: plan === undefined ? null : { reviewState: plan.reviewState as ReviewState },
+        assets: {
+          total: assets.length,
+          approved: assets.filter((asset) => asset.reviewState === 'approved').length,
+          needsRereview: assets.filter((asset) => asset.reviewState === 'needs_rereview').length,
+        },
+        hasExport: exported.has(row.id),
+        hasOutcomes: outcomes.has(row.id),
+        lastActivityAt: lastActivityAt.toISOString(),
+      });
+      return {
+        ...toCampaign(row),
+        userIdea: null,
+        suppliedBrief: null,
+        courseName: courseNames.get(row.courseVersionId) ?? 'Onbekende opleiding',
+        progress,
+      };
+    });
+    return { items, nextCursor };
   }
 
   async findById(db: DbOrTx, labelId: string, id: string): Promise<Campaign | undefined> {
@@ -233,9 +543,18 @@ export class CampaignService {
   async requireApprovedBrief(db: DbOrTx, campaignId: string): Promise<BriefVersion> {
     const brief = await this.approvedBrief(db, campaignId);
     if (brief === undefined) {
+      /*
+       * Says *why* when the reason is a changed audience. A brief that was
+       * approved and then flagged because one of its personas got a new
+       * version is not "not yet approved"; it needs a second look, and the
+       * message should send the person there rather than to a first approval.
+       */
+      const latest = await this.latestBrief(db, campaignId);
       throw new AppError('gate_not_passed', {
         publicMessage:
-          'De briefing is nog niet goedgekeurd. Keur de briefing goed voordat je concepten laat maken.',
+          latest?.reviewState === 'needs_rereview'
+            ? 'Een doelgroep van deze briefing is gewijzigd. Beoordeel de briefing opnieuw en keur haar weer goed voordat je verdergaat.'
+            : 'De briefing is nog niet goedgekeurd. Keur de briefing goed voordat je concepten laat maken.',
         context: { campaignId, gate: 'brief_version_approved' },
       });
     }
@@ -303,26 +622,131 @@ export class CampaignService {
       campaign.opportunityId === null
         ? null
         : await this.opportunities.requireById(db, input.labelId, campaign.opportunityId);
+    const stages = stagesForObjective(campaign.objective ?? 'full_funnel');
+    const keywordPool = await this.keywordPool(db, campaign, course);
 
-    const result = await this.generation.generate(db, {
-      template: 'brief.draft',
-      schema: briefProposal,
-      organizationId: user.organizationId,
-      labelId: input.labelId,
-      jobId: input.jobId ?? null,
-      attempt: input.attempt ?? 0,
-      signal: input.signal,
-      context: {
-        language: campaign.contentLanguage,
-        course,
-        brand: brandProfile,
-        personas,
-        opportunity:
-          opportunity === null ? null : { title: opportunity.title, coreIdea: opportunity.coreIdea },
-        userIdea: campaign.userIdea,
-        suppliedBrief: campaign.suppliedBrief,
-      },
-    });
+    /*
+     * One generation, one repair.
+     *
+     * A brief has to be long enough to hand to a colleague: the word minimums
+     * in `briefProblems` are the difference between a briefing and a form.
+     * The provider schema cannot carry them (strict mode drops minimums), so
+     * a first answer that falls short goes back once with the shortfall named
+     * under `<herstelpunten>`; a second shortfall is a provider error with the
+     * problems in the detail, and nothing is stored.
+     */
+    let repairNotes: string[] = [];
+    let result: Awaited<ReturnType<typeof this.generation.generate<typeof briefProposal>>> | undefined;
+    for (let round = 0; round < 2; round += 1) {
+      const attempt = await this.generation.generate(db, {
+        template: 'brief.draft',
+        schema: briefProposal,
+        organizationId: user.organizationId,
+        labelId: input.labelId,
+        jobId: input.jobId ?? null,
+        attempt: input.attempt ?? 0,
+        signal: input.signal,
+        context: {
+          language: campaign.contentLanguage,
+          course,
+          brand: brandProfile,
+          personas,
+          opportunity:
+            opportunity === null ? null : { title: opportunity.title, coreIdea: opportunity.coreIdea },
+          userIdea: campaign.userIdea,
+          suppliedBrief: campaign.suppliedBrief,
+          // The stages the brief must speak to follow from the objective; a
+          // campaign without one is briefed as a full funnel and told so.
+          objective: campaign.objective,
+          funnelStages: stages,
+          keywords: keywordPool,
+          repairNotes,
+        },
+      });
+      const problems = briefProblems(attempt.value);
+      if (problems.length === 0) {
+        result = attempt;
+        break;
+      }
+      if (round === 0) {
+        repairNotes = problems;
+        continue;
+      }
+      throw new AppError('provider_invalid_output', {
+        publicMessage:
+          'De briefing haalt ook na een herstelronde niet de omvang en de onderdelen van een volwaardige campagnebriefing. Er is niets opgeslagen; probeer het opnieuw.',
+        internalDetail: problems.join(' | '),
+      });
+    }
+    if (result === undefined) {
+      throw new AppError('internal_error', { internalDetail: 'brief draft loop ended without a result' });
+    }
+
+    /*
+     * A role for every suggested channel, and for no other.
+     *
+     * The plan step hands out stages per channel from the suggestions; a role
+     * for a channel the brief does not suggest would argue for a channel that
+     * is not in the campaign. Dropped silently — it is the model's slip, not
+     * information a person needs — while a suggested channel without a role is
+     * a `briefProblems` failure above.
+     */
+    const suggested = new Set<string>(result.value.channelSuggestions);
+    const channelRoles = result.value.channelRoles.filter((role) => suggested.has(role.channel));
+
+    /*
+     * Keywords come from the pool and nowhere else.
+     *
+     * The model chooses which of the supplied phrases the campaign writes
+     * for; it cannot add one. A phrase outside the pool would be a search
+     * term nobody found anywhere — invented demand — and is dropped with a
+     * note, so the person sees what the model wanted and can add the phrase
+     * by hand if it is real.
+     */
+    const pool = new Map(keywordPool.map((keyword) => [normalisePhrase(keyword.phrase), keyword]));
+    const keywords: BriefKeyword[] = [];
+    const rejectedKeywords: string[] = [];
+    for (const proposed of result.value.keywords) {
+      const known = pool.get(normalisePhrase(proposed.phrase));
+      if (known === undefined) {
+        rejectedKeywords.push(proposed.phrase);
+        continue;
+      }
+      if (!keywords.some((keyword) => keyword.phrase === known.phrase)) keywords.push(known);
+    }
+    if (keywords.length === 0) {
+      // A model that picks nothing leaves the content without search phrases;
+      // the pool's first entries are a better default than none.
+      keywords.push(...keywordPool.slice(0, 5));
+    }
+    const keywordNotes =
+      rejectedKeywords.length === 0
+        ? []
+        : [
+            `Niet overgenomen als zoekterm omdat ze in geen onderzoek of opleidingsfeit voorkomen: ${rejectedKeywords.map((phrase) => `“${phrase}”`).join(', ')}. Voeg ze toe als je weet dat ernaar wordt gezocht.`,
+          ];
+
+    /*
+     * One message per stage, and only confirmed proof.
+     *
+     * The schema bounds a stage to the three that exist and a proof field to
+     * the eight on the card, but it cannot know which stages *this* objective
+     * covers or which facts *this* card has confirmed. A message for a stage
+     * outside the objective, or a stage left without one, is a model that
+     * ignored its instructions and fails here rather than being stored. An
+     * unconfirmed proof field is removed and named in the review notes: the
+     * brief is still usable, and the person sees what the model wanted to
+     * cite and may confirm the fact.
+     */
+    const stageProblems = stageMessageProblems(result.value.stageMessages, stages);
+    if (stageProblems.length > 0) {
+      throw new AppError('provider_invalid_output', {
+        publicMessage:
+          'De briefing bevat geen kloppende boodschap per funnelfase. Er is niets opgeslagen; probeer opnieuw.',
+        internalDetail: stageProblems.join(' '),
+      });
+    }
+    const proof = confirmedProofOnly(result.value.stageMessages, course);
 
     // Appended after generation, so the model cannot leave them out.
     const mandatoryOffLimits = [
@@ -333,6 +757,7 @@ export class CampaignService {
       ),
     ];
     const offLimits = [...new Set([...result.value.offLimits, ...mandatoryOffLimits])];
+    const reviewNotes = [...result.value.reviewNotes, ...proof.notesNl, ...keywordNotes];
 
     return db.transaction(async (tx) => {
       const maxRows = await tx
@@ -348,15 +773,28 @@ export class CampaignService {
           labelId: input.labelId,
           campaignId: input.campaignId,
           version: next,
-          reviewNotes: result.value.reviewNotes,
+          reviewNotes,
+          contextNl: result.value.contextNl,
           goal: result.value.goal,
+          audienceInsightNl: result.value.audienceInsightNl,
+          propositionNl: result.value.propositionNl,
           personaVersionIds: [...input.personaVersionIds],
           coreMessage: result.value.coreMessage,
+          stageMessages: proof.messages,
+          keywords,
+          toneOfVoiceNl: result.value.toneOfVoiceNl,
+          mandatories: result.value.mandatories,
+          channelRoles,
+          timingNl: result.value.timingNl,
+          risks: result.value.risks,
           evidence: result.value.evidence,
           usableClaims: result.value.usableClaims,
           offLimits,
           cta: result.value.cta,
-          ctaUrl: result.value.ctaUrl ?? radarTargetUrl(campaign.suppliedBrief),
+          // Never a call to action without a destination: the course page is
+          // the default, so a briefing that promises "bekijk de keuzehulp"
+          // still points at the page where that keuzehulp is embedded.
+          ctaUrl: result.value.ctaUrl ?? radarTargetUrl(campaign.suppliedBrief) ?? course.courseUrl,
           channelSuggestions: result.value.channelSuggestions,
           contentScope: result.value.contentScope,
           measurement: result.value.measurement,
@@ -379,6 +817,61 @@ export class CampaignService {
     });
   }
 
+  /**
+   * The search phrases a briefing may choose from.
+   *
+   * From the radar's keyword research when the campaign was started from a
+   * scan: the questions and queries the research found on public pages, each
+   * with the page it was found on. Otherwise derived here from the course
+   * name and the confirmed "for whom" and "content" facts, labelled
+   * `afgeleid` so nobody mistakes a derivation for a finding. Never a volume,
+   * a difficulty or a position: nothing was measured.
+   */
+  private async keywordPool(
+    db: DbOrTx,
+    campaign: Campaign,
+    course: CourseVersion,
+  ): Promise<BriefKeyword[]> {
+    const pool: BriefKeyword[] = [];
+    const seen = new Set<string>();
+    const add = (keyword: BriefKeyword): void => {
+      const key = normalisePhrase(keyword.phrase);
+      if (key.length < 2 || seen.has(key) || pool.length >= 10) return;
+      seen.add(key);
+      pool.push(keyword);
+    };
+
+    if (campaign.radarRunId != null) {
+      const rows = await db
+        .select({ report: radarRuns.report })
+        .from(radarRuns)
+        .where(and(eq(radarRuns.id, campaign.radarRunId), eq(radarRuns.labelId, campaign.labelId)))
+        .limit(1);
+      const parsed = radarKeywordItems.safeParse(rows[0]?.report);
+      if (parsed.success) {
+        for (const item of parsed.data.keywords?.items ?? []) {
+          add({ phrase: item.phrase, sourceRef: item.sourceUrl, kind: 'radar' });
+        }
+      }
+    }
+
+    add({ phrase: course.name, sourceRef: 'Opleidingskaart · Naam', kind: 'afgeleid' });
+    add({ phrase: `opleiding ${course.name}`, sourceRef: 'Opleidingskaart · Naam', kind: 'afgeleid' });
+    for (const fact of statableFacts(course)) {
+      if (fact.field !== 'targetAudience' && fact.field !== 'contentOutline') continue;
+      // Short noun phrases from a confirmed fact: "casemanagers", "leidinggevenden
+      // met verzuimtaken". Long clauses are sentences, not search terms.
+      for (const phrase of fact.value.split(/[,;.\n]|\ben\b|\bof\b/u)) {
+        const clean = phrase.replace(/^(zoals|waaronder|bijvoorbeeld|onder meer|voor)\s+/iu, '').trim();
+        const words = clean.split(/\s+/u).filter((word) => word.length > 0);
+        if (words.length >= 1 && words.length <= 4 && clean.length >= 5 && clean.length <= 60) {
+          add({ phrase: clean.toLowerCase(), sourceRef: `Opleidingskaart · ${fact.label}`, kind: 'afgeleid' });
+        }
+      }
+    }
+    return pool;
+  }
+
   /** User edits produce a new version; the previous one is retained. */
   async editBrief(
     db: Db,
@@ -398,6 +891,27 @@ export class CampaignService {
       });
     }
 
+    /*
+     * A person's stage messages are held to the same two rules as the model's:
+     * one per stage the objective covers, and confirmed proof only. Here a
+     * problem is a bad request rather than a provider error, and an
+     * unconfirmed proof field is refused rather than silently dropped — the
+     * person is editing, so they can see the refusal and confirm the fact.
+     */
+    let stageMessages = current.stageMessages;
+    if (patch.stageMessages !== undefined) {
+      const stages = stagesForObjective(campaign.objective ?? 'full_funnel');
+      const course = await this.courses.requireVersion(db, labelId, campaign.courseVersionId);
+      const problems = [
+        ...stageMessageProblems(patch.stageMessages, stages),
+        ...confirmedProofOnly(patch.stageMessages, course).notesNl,
+      ];
+      if (problems.length > 0) {
+        throw new AppError('bad_request', { publicMessage: problems.join(' ') });
+      }
+      stageMessages = patch.stageMessages;
+    }
+
     return db.transaction(async (tx) => {
       const inserted = await tx
         .insert(briefVersions)
@@ -407,9 +921,19 @@ export class CampaignService {
           campaignId,
           version: current.version + 1,
           reviewNotes: patch.reviewNotes ?? current.reviewNotes,
+          keywords: patch.keywords ?? current.keywords,
+          contextNl: patch.contextNl ?? current.contextNl,
           goal: patch.goal ?? current.goal,
+          audienceInsightNl: patch.audienceInsightNl ?? current.audienceInsightNl,
+          propositionNl: patch.propositionNl ?? current.propositionNl,
           personaVersionIds: patch.personaVersionIds ?? current.personaVersionIds,
           coreMessage: patch.coreMessage ?? current.coreMessage,
+          stageMessages,
+          toneOfVoiceNl: patch.toneOfVoiceNl ?? current.toneOfVoiceNl,
+          mandatories: patch.mandatories ?? current.mandatories,
+          channelRoles: patch.channelRoles ?? current.channelRoles,
+          timingNl: patch.timingNl ?? current.timingNl,
+          risks: patch.risks ?? current.risks,
           evidence: patch.evidence ?? current.evidence,
           usableClaims: patch.usableClaims ?? current.usableClaims,
           // Off-limits can be added to but the mandatory entries stay.
@@ -449,10 +973,21 @@ export class CampaignService {
     await this.requireById(db, labelId, campaignId);
 
     return db.transaction(async (tx) => {
+      // Scoped to the campaign as well as the label. Resolving on the label
+      // alone let a briefing id from campaign B be approved through campaign
+      // A's route: the foreign briefing turned "approved" while the archiving
+      // step below silently un-approved A's own, knocking A back to step 3
+      // (audit 2026-09-15).
       const rows = await tx
         .select()
         .from(briefVersions)
-        .where(and(eq(briefVersions.id, briefVersionId), eq(briefVersions.labelId, labelId)))
+        .where(
+          and(
+            eq(briefVersions.id, briefVersionId),
+            eq(briefVersions.labelId, labelId),
+            eq(briefVersions.campaignId, campaignId),
+          ),
+        )
         .limit(1);
       const target = rows[0];
       if (target === undefined) {
@@ -521,6 +1056,50 @@ interface CampaignRow {
   updatedAt: Date;
 }
 
+/** The form in which two phrases count as one search term. */
+function normalisePhrase(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/** Only the part of a radar report the briefing needs; the rest of the report may evolve freely. */
+const radarKeywordItems = z.object({
+  keywords: z
+    .object({ items: z.array(z.object({ phrase: z.string(), sourceUrl: z.string() })) })
+    .nullable()
+    .optional(),
+});
+
+/**
+ * The list cursor: the (createdAt, id) of the last row, base64url of JSON.
+ * Opaque to the client, cheap to decode, and a malformed one reads as "from
+ * the start" rather than as an error a person cannot act on.
+ */
+function encodeListCursor(value: { createdAt: Date; id: string }): string {
+  return Buffer.from(JSON.stringify({ c: value.createdAt.toISOString(), i: value.id }), 'utf8').toString(
+    'base64url',
+  );
+}
+
+function decodeListCursor(cursor: string | undefined): { createdAt: Date; id: string } | undefined {
+  if (cursor === undefined) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const { c, i } = parsed as { c?: unknown; i?: unknown };
+    if (typeof c !== 'string' || typeof i !== 'string') return undefined;
+    const createdAt = new Date(c);
+    return Number.isNaN(createdAt.getTime()) ? undefined : { createdAt, id: i };
+  } catch {
+    return undefined;
+  }
+}
+
 export function toCampaign(row: CampaignRow): Campaign {
   return {
     radarRunId: row.radarRunId ?? null,
@@ -553,6 +1132,16 @@ interface BriefRow {
   goal: string;
   personaVersionIds: unknown;
   coreMessage: string;
+  stageMessages?: unknown;
+  keywords?: unknown;
+  contextNl?: string | null;
+  audienceInsightNl?: string | null;
+  propositionNl?: string | null;
+  toneOfVoiceNl?: string | null;
+  mandatories?: unknown;
+  channelRoles?: unknown;
+  timingNl?: string | null;
+  risks?: unknown;
   evidence: unknown;
   usableClaims: unknown;
   offLimits: unknown;
@@ -580,6 +1169,16 @@ export function toBrief(row: BriefRow): BriefVersion {
     goal: row.goal,
     personaVersionIds: (row.personaVersionIds ?? []) as string[],
     coreMessage: row.coreMessage,
+    stageMessages: (row.stageMessages ?? []) as StageMessage[],
+    keywords: (row.keywords ?? []) as BriefKeyword[],
+    contextNl: row.contextNl ?? '',
+    audienceInsightNl: row.audienceInsightNl ?? '',
+    propositionNl: row.propositionNl ?? '',
+    toneOfVoiceNl: row.toneOfVoiceNl ?? '',
+    mandatories: (row.mandatories ?? []) as string[],
+    channelRoles: (row.channelRoles ?? []) as ChannelRole[],
+    timingNl: row.timingNl ?? '',
+    risks: (row.risks ?? []) as string[],
     evidence: (row.evidence ?? []) as Grounding[],
     usableClaims: (row.usableClaims ?? []) as UsableClaim[],
     offLimits: (row.offLimits ?? []) as string[],
@@ -597,6 +1196,151 @@ export function toBrief(row: BriefRow): BriefVersion {
     promptVersion: row.promptVersion,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** The narrative sections of a brief and the fewest words each may have. */
+export const BRIEF_SECTION_MIN_WORDS: Readonly<
+  Record<'contextNl' | 'goal' | 'audienceInsightNl' | 'propositionNl' | 'coreMessage' | 'toneOfVoiceNl' | 'contentScope' | 'timingNl' | 'measurement' | 'stopConditions', number>
+> = Object.freeze({
+  contextNl: 80,
+  goal: 40,
+  audienceInsightNl: 80,
+  propositionNl: 30,
+  coreMessage: 12,
+  toneOfVoiceNl: 20,
+  contentScope: 60,
+  timingNl: 10,
+  measurement: 40,
+  stopConditions: 20,
+});
+
+/** A brief below this, all narrative sections together, is a form, not a briefing. */
+export const BRIEF_MIN_TOTAL_WORDS = 550;
+
+const BRIEF_SECTION_LABEL_NL: Readonly<Record<keyof typeof BRIEF_SECTION_MIN_WORDS, string>> = Object.freeze({
+  contextNl: 'Aanleiding en context',
+  goal: 'Doelstelling',
+  audienceInsightNl: 'Doelgroep en inzicht',
+  propositionNl: 'Propositie en belofte',
+  coreMessage: 'Kernboodschap',
+  toneOfVoiceNl: 'Toon en stijl',
+  contentScope: 'Deliverables en creatieve richting',
+  timingNl: 'Timing en fasering',
+  measurement: 'Meten',
+  stopConditions: 'Stopcriteria',
+});
+
+export function briefWordCount(text: string): number {
+  return text.trim().split(/\s+/u).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+}
+
+/** Every narrative section of a brief, for a total word count. */
+export function briefNarrativeWords(brief: Pick<BriefVersion, keyof typeof BRIEF_SECTION_MIN_WORDS>): number {
+  return (Object.keys(BRIEF_SECTION_MIN_WORDS) as (keyof typeof BRIEF_SECTION_MIN_WORDS)[]).reduce(
+    (sum, key) => sum + briefWordCount(brief[key]),
+    0,
+  );
+}
+
+/**
+ * Why a proposed brief is not yet a briefing, in Dutch; empty when it is.
+ *
+ * Words, not characters: a writer thinks in words and the prompt states the
+ * same numbers. Three kinds of shortfall — a section too thin, the whole too
+ * short, a suggested channel without a role — plus the one thing a brief must
+ * not contain: a percentage in the goal or the measurement, which reads as a
+ * forecast nobody measured.
+ */
+export function briefProblems(brief: BriefProposal): string[] {
+  const problems: string[] = [];
+  for (const [key, minimum] of Object.entries(BRIEF_SECTION_MIN_WORDS) as [keyof typeof BRIEF_SECTION_MIN_WORDS, number][]) {
+    const words = briefWordCount(brief[key]);
+    if (words < minimum) {
+      problems.push(
+        `${BRIEF_SECTION_LABEL_NL[key]} (${key}) telt ${String(words)} woorden; minimaal ${String(minimum)} nodig.`,
+      );
+    }
+  }
+  const total = briefNarrativeWords(brief);
+  if (total < BRIEF_MIN_TOTAL_WORDS) {
+    problems.push(
+      `De briefing telt in totaal ${String(total)} woorden in de tekstonderdelen; een volwaardige briefing heeft er minimaal ${String(BRIEF_MIN_TOTAL_WORDS)}.`,
+    );
+  }
+  const roles = new Set(brief.channelRoles.map((role) => role.channel));
+  const withoutRole = brief.channelSuggestions.filter((channel) => !roles.has(channel));
+  if (withoutRole.length > 0) {
+    problems.push(
+      `Geen rol beschreven in channelRoles voor: ${withoutRole.map((channel) => CHANNEL_LABEL_NL[channel]).join(', ')}.`,
+    );
+  }
+  if (/\d+\s*%/u.test(`${brief.goal} ${brief.measurement}`)) {
+    problems.push('Doelstelling of Meten bevat een percentage; een briefing noemt indicatoren, geen prognose.');
+  }
+  return problems;
+}
+
+/**
+ * Why a set of stage messages does not fit its campaign, in Dutch; empty when it does.
+ *
+ * Pure, so the same check serves the model's proposal (a problem is a provider
+ * error) and a person's edit (a bad request): exactly one message per stage
+ * the objective covers, none for any other stage.
+ */
+export function stageMessageProblems(
+  messages: readonly StageMessage[],
+  stages: readonly FunnelStage[],
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<FunnelStage>();
+  for (const message of messages) {
+    if (!stages.includes(message.stage)) {
+      problems.push(
+        `De fase ${FUNNEL_STAGE_LABEL_NL[message.stage]} hoort niet bij het doel van deze campagne.`,
+      );
+    }
+    if (seen.has(message.stage)) {
+      problems.push(`De fase ${FUNNEL_STAGE_LABEL_NL[message.stage]} heeft meer dan één boodschap.`);
+    }
+    seen.add(message.stage);
+  }
+  for (const stage of stages) {
+    if (!seen.has(stage)) {
+      problems.push(`De fase ${FUNNEL_STAGE_LABEL_NL[stage]} heeft geen boodschap.`);
+    }
+  }
+  return [...new Set(problems)];
+}
+
+/**
+ * Keeps only confirmed proof fields, and says which were removed.
+ *
+ * The brief names fields as proof; a field nobody has confirmed cannot be
+ * proof of anything yet. The removed ones are reported per stage so the
+ * person can see what the model wanted to cite — and confirm the fact if it
+ * is true — rather than wondering why a stage cites nothing.
+ */
+export function confirmedProofOnly(
+  messages: readonly StageMessage[],
+  course: Pick<CourseVersion, 'facts'>,
+): { messages: StageMessage[]; notesNl: string[] } {
+  const confirmed = new Set<CourseFactField>(confirmedFacts(course));
+  const notesNl: string[] = [];
+  const cleaned = messages.map((message) => {
+    const removed = message.proofFields.filter((field) => !confirmed.has(field));
+    if (removed.length > 0) {
+      notesNl.push(
+        `Bewijs voor ${FUNNEL_STAGE_LABEL_NL[message.stage]}: ${removed
+          .map((field) => COURSE_FACT_LABEL_NL[field])
+          .join(', ')} is nog niet gecontroleerd en is uit de fase-boodschap gehaald.`,
+      );
+    }
+    return {
+      ...message,
+      proofFields: [...new Set(message.proofFields.filter((field) => confirmed.has(field)))],
+    };
+  });
+  return { messages: cleaned, notesNl };
 }
 
 /** The radar supplies an explicit destination, distinct from external evidence URLs. */

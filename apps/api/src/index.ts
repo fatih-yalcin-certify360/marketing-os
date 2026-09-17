@@ -1,4 +1,4 @@
-import { EnvValidationError, loadServerEnv } from '@c360/config';
+import { EnvValidationError, loadServerEnv, type ServerEnv } from '@c360/config';
 import { createDatabase } from './core/db/pool.js';
 import { buildServer } from './server.js';
 
@@ -102,7 +102,23 @@ async function main(): Promise<void> {
     {
       authMode: env.AUTH_MODE,
       aiProvider: env.AI_PROVIDER,
+      /*
+       * Where model calls actually go.
+       *
+       * `aiProvider` names a setting; this names the host that will receive the
+       * text, the images and the web-search tool calls. Worth one line at boot,
+       * because "everything runs through our own gateway" is a claim somebody
+       * will make in a review and should be able to check without reading the
+       * adapter (2026-09-16). No key, only the host.
+       */
+      aiEndpoint: aiEndpointHost(env),
+      aiTextModel: env.AI_TEXT_MODEL,
+      aiImages: env.AI_IMAGE_ENABLED ? env.AI_IMAGE_MODEL : 'disabled',
+      aiMaxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
       nodeEnv: env.NODE_ENV,
+      // Named at boot so a worker that logs a different root is visible
+      // before the first job dies on a file the other process stored.
+      storageRoot: env.STORAGE_ROOT,
     },
     'api listening',
   );
@@ -118,3 +134,21 @@ void main().catch((error: unknown) => {
   process.stderr.write(`[api] fatal: ${error instanceof Error ? error.stack : String(error)}\n`);
   process.exit(1);
 });
+
+/**
+ * The host every model call is sent to, without the key.
+ *
+ * One function rather than an inline expression, so the answer to "does
+ * anything still leave for a model vendor directly?" is a single readable
+ * place. A gateway URL that is not https in production is already refused by
+ * the environment guard, so this only has to report.
+ */
+function aiEndpointHost(env: ServerEnv): string {
+  if (env.AI_PROVIDER === 'mock') return 'mock (no network)';
+  if (env.AI_PROVIDER === 'litellm') {
+    return env.LITELLM_BASE_URL === undefined
+      ? 'litellm (unconfigured)'
+      : new URL(env.LITELLM_BASE_URL).host;
+  }
+  return env.AI_PROVIDER === 'openai' ? 'api.openai.com' : 'api.anthropic.com';
+}

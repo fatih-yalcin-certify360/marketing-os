@@ -15,6 +15,9 @@ import { AiInvalidOutputError, AiUnavailableError, type AiProvider } from './typ
 export class VisualGenerationService {
   constructor(private readonly provider: AiProvider, private readonly env: ServerEnv) {}
   get enabled(): boolean { return this.env.AI_IMAGE_ENABLED; }
+  requestDimensions(widthPx: number, heightPx: number): { widthPx: number; heightPx: number } {
+    return this.provider.image()?.requestDimensions?.(widthPx, heightPx) ?? { widthPx, heightPx };
+  }
   requireCapability(): void {
     if (this.enabled && !this.provider.image()) throw new AppError('capability_unavailable', { publicMessage: 'AI-beeldgeneratie is niet beschikbaar bij de ingestelde aanbieder.' });
   }
@@ -46,7 +49,7 @@ export class VisualGenerationService {
         references.push({ bytes, mimeType: row.mimeType }); referenceHashes.push(row.sha256);
       }
     }
-    const key = createHash('sha256').update(JSON.stringify([adapter.provider, adapter.model, adapter.quality, input.prompt, input.widthPx, input.heightPx, referenceHashes, 'visual-v2'])).digest('hex');
+    const key = createHash('sha256').update(JSON.stringify([adapter.provider, adapter.model, adapter.quality, input.prompt, input.widthPx, input.heightPx, referenceHashes, 'visual-v4'])).digest('hex');
     if (input.jobId) {
       const [saved] = await db.select({ id: assets.id }).from(assets).where(and(eq(assets.labelId, input.labelId), eq(assets.aiJobId, input.jobId), eq(assets.aiRequestKey, key)));
       if (saved) return { assetId: saved.id, png: await this.load(db, user, input.labelId, saved.id) };
@@ -63,7 +66,7 @@ export class VisualGenerationService {
       // Record every paid channel separately, including calls whose bytes are unusable.
       await new UsageRecorder().record(db, { organizationId: user.organizationId, labelId: input.labelId,
         jobId: input.jobId ?? null, attempt: input.attempt ?? 0, unitKey: key, kind: 'ai_image',
-        provider: adapter.provider, model: adapter.model ?? null, promptTemplate: 'content.visual', promptVersion: 'v2', imageCount: 1,
+        provider: adapter.provider, model: adapter.model ?? null, promptTemplate: 'content.visual', promptVersion: 'v4', imageCount: 1,
         estimatedCostCents: estimated, actualCostCents: actual, inputTokens: result.usage.inputTokens,
         outputTokens: result.usage.outputTokens, latencyMs: result.usage.latencyMs });
       const png = result.png;
@@ -76,7 +79,7 @@ export class VisualGenerationService {
       const [saved] = await db.insert(assets).values({ organizationId: user.organizationId, labelId: input.labelId, kind: 'generated_image', mimeType: 'image/png',
         ...stored, widthPx: png.readUInt32BE(16), heightPx: png.readUInt32BE(20), createdByUserId: user.userId,
         aiJobId: input.jobId ?? null, aiRequestKey: key,
-        aiProvenance: { provider: adapter.provider, model: adapter.model ?? null, promptVersion: 'v2', quality: adapter.quality ?? null, referenceHashes, promptSha256: key, isMock: adapter.isMock },
+        aiProvenance: { provider: adapter.provider, model: adapter.model ?? null, promptVersion: 'v4', quality: adapter.quality ?? null, referenceHashes, promptSha256: key, isMock: adapter.isMock },
       }).onConflictDoNothing().returning({ id: assets.id });
       if (saved) return { assetId: saved.id, png };
       const [existing] = await db.select({ id: assets.id }).from(assets).where(and(

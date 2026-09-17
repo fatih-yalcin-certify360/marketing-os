@@ -42,6 +42,20 @@ import type { ApprovalService } from '../reviews-approvals/service.js';
 const datesSchema = z.array(courseDate);
 
 export class CourseService {
+  /**
+   * Set at wiring time (`server.ts`), after the content service exists.
+   *
+   * Approving a card archives the previous one; everything resting on that
+   * previous version has to be told. The dependency runs the other way round
+   * — content knows about courses — so it arrives as a callback rather than
+   * as a constructor argument.
+   */
+  private flagStaleContent?: (db: DbOrTx, labelId: string) => Promise<number>;
+
+  useStaleContentFlagger(flag: (db: DbOrTx, labelId: string) => Promise<number>): void {
+    this.flagStaleContent = flag;
+  }
+
   constructor(
     private readonly approvals: ApprovalService,
     /**
@@ -570,6 +584,11 @@ export class CourseService {
         noteNl,
       });
 
+      // Everything that quoted the version just archived now rests on a card
+      // nobody approved. Flagged in the same commit, so the two can never
+      // disagree.
+      await this.flagStaleContent?.(tx, labelId);
+
       return this.requireVersion(tx, labelId, versionId);
     });
   }
@@ -583,6 +602,38 @@ export class CourseService {
       .select()
       .from(courseVersions)
       .where(and(eq(courseVersions.labelId, labelId), eq(courseVersions.courseKey, courseKey)))
+      .orderBy(desc(courseVersions.version))
+      .limit(1);
+    const row = rows[0];
+    return row === undefined ? undefined : toCourse(row);
+  }
+
+  /**
+   * The currently approved version of the same course, whatever version the
+   * caller happens to hold.
+   *
+   * A campaign is pinned to the course version it was created with. When a
+   * corrected card is approved, the old one is archived and the campaign is
+   * left pointing at an archived version — which fails the export gate with a
+   * message about approval that reads as nonsense to someone who just
+   * approved. This is what lets a campaign catch up.
+   */
+  async approvedForSameCourse(
+    db: DbOrTx,
+    labelId: string,
+    versionId: string,
+  ): Promise<CourseVersion | undefined> {
+    const courseKey = await this.keyFor(db, labelId, versionId);
+    const rows = await db
+      .select()
+      .from(courseVersions)
+      .where(
+        and(
+          eq(courseVersions.labelId, labelId),
+          eq(courseVersions.courseKey, courseKey),
+          eq(courseVersions.reviewState, 'approved'),
+        ),
+      )
       .orderBy(desc(courseVersions.version))
       .limit(1);
     const row = rows[0];
@@ -660,6 +711,7 @@ interface CourseRow {
   id: string;
   labelId: string;
   version: number;
+  courseKey: string;
   name: string;
   externalCode: string | null;
   sourceKind: string;
@@ -690,6 +742,7 @@ function toCourse(row: CourseRow): CourseVersion {
     id: row.id,
     labelId: row.labelId,
     version: row.version,
+    courseKey: row.courseKey,
     name: row.name,
     externalCode: row.externalCode,
     sourceKind: row.sourceKind as CourseVersion['sourceKind'],

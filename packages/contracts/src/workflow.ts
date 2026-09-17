@@ -52,6 +52,12 @@ export const workflowGate = z.enum([
   'all_assets_have_current_approval',
   'no_stale_dependencies',
   'required_cta_links_present',
+  // Added 2026-09-15. The first named the refusal that already existed but
+  // carried no gate id, so it never appeared in the checklist. The second is
+  // new: the registry's hard constraints — accepted format, pixel cap, byte
+  // cap, alt-text limit — were declared and read nowhere.
+  'channel_specs_verified',
+  'assets_within_channel_limits',
 ]);
 export type WorkflowGate = z.infer<typeof workflowGate>;
 
@@ -84,6 +90,8 @@ export const PUBLISH_READY_GATES: readonly WorkflowGate[] = Object.freeze([
   'all_assets_have_current_approval',
   'no_stale_dependencies',
   'required_cta_links_present',
+  'channel_specs_verified',
+  'assets_within_channel_limits',
 ]);
 
 /** Dutch labels for gates, so failures can be explained in the UI. */
@@ -94,10 +102,14 @@ export const GATE_LABEL_NL: Readonly<Record<WorkflowGate, string>> = Object.free
   opportunity_selected: 'Kans is gekozen',
   brief_version_approved: 'Briefing is goedgekeurd',
   concept_version_selected: 'Concept is gekozen',
-  content_plan_approved: 'Contentpakket is goedgekeurd',
+  // "Kanaalplan", not "contentpakket": the latter also names the campaign
+  // package and the export ZIP, and one word for three things confused readers.
+  content_plan_approved: 'Kanaalplan is goedgekeurd',
   all_assets_have_current_approval: 'Alle content heeft een geldige goedkeuring',
   no_stale_dependencies: 'Er zijn geen gewijzigde onderliggende bronnen',
   required_cta_links_present: 'Alle verplichte CTA-links zijn ingevuld',
+  channel_specs_verified: 'Alle kanaalspecificaties zijn tegen een officiële bron gecontroleerd',
+  assets_within_channel_limits: 'Alle beelden en alt-teksten passen binnen de kanaalgrenzen',
 });
 
 /**

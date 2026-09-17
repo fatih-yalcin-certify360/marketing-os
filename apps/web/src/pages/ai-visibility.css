@@ -1,14 +1,201 @@
-.visibility-page {display:grid;gap:1.25rem;max-width:1200px;margin:auto}
-.visibility-page section:not([hidden]) {display:grid;gap:1rem}
-.visibility-page form {display:grid;gap:.85rem;max-width:760px;margin-block:1rem}
-.visibility-page label {display:grid;gap:.3rem;margin-block:.4rem}
-.visibility-page label:has(input[type=checkbox]) {display:flex;align-items:flex-start;gap:.65rem}
-.visibility-page input:not([type=checkbox]),.visibility-page select,.visibility-page textarea {font:inherit;padding:.6rem;border:1px solid #9ba6ac;border-radius:6px;max-width:100%;width:100%;box-sizing:border-box;background:white;color:#17333f}
-.visibility-page input[type=checkbox] {width:1.1rem;height:1.1rem;flex-shrink:0}
-.visibility-page pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#f5f7f7;padding:1rem;max-height:32rem;overflow:auto}
-.visibility-page details,.visibility-prompts article {border-top:1px solid #dce3e3;padding-block:1rem}
-.visibility-page summary {cursor:pointer;font-weight:600}
-.visibility-page small {display:block;overflow-wrap:anywhere;color:#465b65}
-.visibility-metrics {display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem}
-.visibility-metrics dd {font-size:1.8rem;margin:.3rem 0;font-weight:700}
-.visibility-page a {overflow-wrap:anywhere}
+/*
+ * AI Visibility & GEO. The page is assembled from cards the same way as the
+ * rest of the product; these rules give its plain elements (forms, articles,
+ * metrics, transcripts) the Certify360 baseline. Tokens only.
+ */
+
+.visibility-page {
+  display: grid;
+  gap: var(--c360-space-5);
+}
+
+.visibility-page section[role='tabpanel']:not([hidden]) {
+  display: grid;
+  gap: var(--c360-space-4);
+}
+
+.visibility-page .c360-card > .c360-button {
+  margin-top: var(--c360-space-2);
+}
+
+.visibility-page form {
+  display: grid;
+  gap: var(--c360-space-3);
+  max-width: 760px;
+  margin: var(--c360-space-3) 0 0;
+}
+
+.visibility-page label {
+  display: grid;
+  gap: var(--c360-space-1);
+}
+
+.visibility-page label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--c360-space-2);
+  font-weight: 500;
+}
+
+.visibility-page fieldset {
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-3) var(--c360-space-4);
+}
+
+.visibility-page legend {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 var(--c360-space-1);
+}
+
+.visibility-page .c360-card > h2:first-child {
+  margin-top: 0;
+}
+
+.visibility-page .c360-card > p {
+  color: var(--c360-text-muted);
+  font-size: 13px;
+}
+
+.visibility-page .c360-card > p > strong {
+  color: var(--c360-text);
+}
+
+.visibility-page article {
+  padding: var(--c360-space-3) 0;
+}
+
+.visibility-page article h3,
+.visibility-page article h4 {
+  margin-top: 0;
+}
+
+.visibility-page article + article {
+  border-top: 1px solid var(--c360-border);
+  margin-top: 0;
+  padding-top: var(--c360-space-3);
+}
+
+.visibility-page details {
+  padding: var(--c360-space-2) 0;
+}
+
+.visibility-page details + details {
+  border-top: 1px solid var(--c360-border);
+}
+
+.visibility-page small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--c360-text-muted);
+  font-size: 12px;
+}
+
+/* The three measurement figures, read as stat tiles. */
+.visibility-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--c360-space-4);
+  margin: var(--c360-space-4) 0;
+}
+
+.visibility-metrics > div {
+  padding: var(--c360-space-4);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  background: var(--c360-canvas);
+}
+
+.visibility-metrics dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c360-text-muted);
+}
+
+.visibility-metrics dd {
+  font-size: 28px;
+  font-weight: 800;
+  margin: var(--c360-space-1) 0;
+  color: var(--c360-purple-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.visibility-page a {
+  overflow-wrap: anywhere;
+}
+
+.visibility-prompts article label {
+  align-items: flex-start;
+}
+
+.geo-question {
+  display: grid;
+  gap: var(--c360-space-1);
+  padding: var(--c360-space-3);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  background: var(--c360-canvas);
+}
+
+/* Two secondary downloads side by side, not stacked full-width. */
+.visibility-page .c360-card > .c360-button + .c360-button {
+  margin-left: var(--c360-space-2);
+}
+
+/* ------------------------------------------------- engine answers (2026) ---
+ * One answer per block: the question and whether the label was named on the
+ * first line, the verbatim text in a box of its own, the sources one level
+ * down and merged per URL.
+ */
+.geo-answer {
+  border-top: 1px solid var(--c360-border);
+  padding-top: var(--c360-space-4);
+  margin-top: var(--c360-space-4);
+}
+
+.geo-answer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--c360-space-3);
+  flex-wrap: wrap;
+}
+
+.geo-answer__question {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.geo-answer__text {
+  max-height: 22rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--c360-canvas);
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-3) var(--c360-space-4);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: var(--c360-space-3) 0;
+}
+
+.geo-answer__sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--c360-space-2);
+}
+
+.geo-answer__sources a {
+  overflow-wrap: anywhere;
+}
+
+/* The "add as competitor" action under a cited source (2026-09-15). */
+.geo-answer__source-action {
+  margin-top: 2px;
+}

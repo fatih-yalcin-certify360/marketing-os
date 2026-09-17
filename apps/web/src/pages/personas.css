@@ -1,0 +1,92 @@
+.persona-questionnaire__count { margin-inline-start: .5rem; color: var(--c360-text-muted); font-size: .875rem; }
+
+.persona-questionnaire__question { padding: 1rem 0; border-bottom: 1px solid var(--c360-border); }
+
+.persona-questionnaire__question:last-child { border-bottom: 0; }
+
+.persona-questionnaire__question p { margin-block: .4rem; }
+
+.persona-questionnaire details { border-top: 1px solid var(--c360-border); padding-block: 1rem; }
+
+.persona-questionnaire summary { cursor: pointer; font-weight: 600; }
+
+.persona-questionnaire a, .persona-questionnaire small { overflow-wrap: anywhere; }
+
+.persona-questionnaire__status { max-width: 26rem; }
+
+.persona-questionnaire__quote { margin-top: .5rem; }
+
+.persona-questionnaire blockquote { border-left: 3px solid var(--c360-purple-400); margin: .5rem 0; padding: .5rem 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.persona-ai-preview { margin-top: 1rem; padding: 1rem; border: 1px solid var(--c360-border); border-radius: var(--c360-radius); background: var(--c360-canvas); }
+
+.persona-ai-preview dl { display: grid; gap: .4rem; }
+
+.persona-ai-preview dt { font-weight: 600; }
+
+.persona-ai-preview dd { margin: 0 0 .6rem; }
+
+.persona-preserve-lines { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* The course-link dropdown in the persona editor: a disclosure with checkboxes. */
+.persona-courses {
+  border: 1px solid var(--c360-border);
+  border-radius: var(--c360-radius);
+  padding: var(--c360-space-3) var(--c360-space-4);
+  background: var(--c360-surface);
+}
+
+.persona-courses > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.persona-courses > summary::-webkit-details-marker {
+  display: none;
+}
+
+.persona-courses > summary::after {
+  content: ' ▾';
+  color: var(--c360-text-muted);
+}
+
+.persona-courses[open] > summary::after {
+  content: ' ▴';
+}
+
+.persona-courses__list {
+  list-style: none;
+  margin: var(--c360-space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--c360-space-2);
+}
+
+.persona-courses__list label {
+  display: flex;
+  align-items: center;
+  gap: var(--c360-space-2);
+  cursor: pointer;
+}
+
+.persona-questionnaire__legend { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: center; }
+
+.persona-questionnaire__reasoning { color: var(--c360-text-muted); font-size: .875rem; margin-block: .25rem; overflow-wrap: anywhere; }
+
+.persona-fill { display: flex; flex-direction: column; gap: var(--c360-space-2); margin-top: var(--c360-space-2); }
+
+.persona-fill .c360-notice { margin: 0; }
+
+/*
+ * Why a core question earns its place, said where it is asked.
+ *
+ * Thirteen of the thirty-six decide the persona; without the reason beside it,
+ * "wat is de functie?" reads as a form field rather than as the thing the whole
+ * briefing is written from.
+ */
+.persona-questionnaire__why {
+  margin: 0 0 4px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--lp-deep);
+}

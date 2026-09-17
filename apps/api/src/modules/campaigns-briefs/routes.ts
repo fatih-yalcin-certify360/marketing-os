@@ -1,3 +1,7 @@
+import {createHash} from 'node:crypto';
+import {personaTextInput} from '@c360/contracts';
+import { pageQuery, personaListScope } from '@c360/contracts';
+import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import { assets, campaigns } from '../../core/db/schema.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
@@ -91,13 +95,44 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
 
   // ------------------------------------------------------------ personas ---
 
+  app.post('/labels/:labelId/courses/:courseVersionId/personas/extract-from-text', {preHandler:authenticate}, async(request,reply)=>{
+    const user=currentUser(request);const params=labelParams.extend({courseVersionId:z.uuid()}).parse(request.params);
+    requireLabelPermission(user,params.labelId,'persona:write');
+    await services.courses.requireVersion(db,params.labelId,params.courseVersionId);
+    const input=personaTextInput.parse(request.body);
+    const queued=await services.generationJobs.enqueue(db,user,{labelId:params.labelId,type:'persona.extract_from_text',
+      intent:['persona-text',user.userId,params.courseVersionId,input.requestKey,createHash('sha256').update(input.text).digest('hex')],
+      payload:{...input,courseVersionId:params.courseVersionId},requestId:request.id});
+    return reply.code(202).send(queued.summary);
+  });
+
+  app.post('/labels/:labelId/courses/:courseVersionId/personas', { preHandler: authenticate }, async (request, reply) => {
+    const user=currentUser(request);
+    const params=labelParams.extend({courseVersionId:z.uuid()}).parse(request.params);
+    requireLabelPermission(user,params.labelId,'persona:write');
+    await services.courses.requireVersion(db,params.labelId,params.courseVersionId);
+    const { linkedCourseVersionIds, ...proposal } = personaInput.parse(request.body);
+    const result = await services.personas.createVersion(db, user, {
+      ...params,
+      proposal,
+      personaKey: randomUUID(),
+      origin: 'user',
+      linkedCourseVersionIds,
+    });
+    return reply.code(201).send(result);
+  });
+
   app.get(
     '/labels/:labelId/courses/:courseVersionId/personas',
     { preHandler: authenticate },
     async (request) => {
       const user = currentUser(request);
       const params = labelParams.extend({ courseVersionId: z.uuid() }).parse(request.params);
-      const { campaignId } = z.object({ campaignId: z.uuid().optional() }).parse(request.query);
+      // `scope` defaults to what the call meant before scopes existed: the
+      // campaign's personas when a campaign is named, else the library.
+      const { campaignId, scope } = z
+        .object({ campaignId: z.uuid().optional(), scope: personaListScope.optional() })
+        .parse(request.query);
       if (campaignId) await services.campaigns.requireById(db, params.labelId, campaignId);
       const items = await services.personas.listForCourse(
         db,
@@ -105,6 +140,7 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
         params.labelId,
         params.courseVersionId,
         campaignId,
+        scope ?? (campaignId === undefined ? 'library' : 'campaign'),
       );
       return { items, nextCursor: null };
     },
@@ -141,6 +177,90 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
       const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
       const patch = personaInput.partial().parse(request.body);
       return services.personas.edit(db, user, params.labelId, params.personaVersionId, patch);
+    },
+  );
+
+  /**
+   * Lets the system answer the open questions of a stored persona's
+   * questionnaire from its own material (2026-09-14). One job, one call; the
+   * result is the next version of the same persona, answered questions kept.
+   */
+  app.post(
+    '/labels/:labelId/personas/:personaVersionId/questionnaire/fill',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
+      requireLabelPermission(user, params.labelId, 'persona:write');
+      const persona = await services.personas.requireVersion(db, params.labelId, params.personaVersionId);
+      const { summary, created } = await services.generationJobs.enqueue(db, user, {
+        labelId: params.labelId,
+        type: 'persona.fill_questionnaire',
+        intent: ['persona-questionnaire', persona.id],
+        payload: { personaVersionId: persona.id },
+        requestId: request.id,
+        clientAddress: request.socket.remoteAddress,
+      });
+      return reply.status(created ? 202 : 200).send(summary);
+    },
+  );
+
+  /**
+   * Researches where a stored audience orients (2026-09-16).
+   *
+   * The field the channel plan leans on, for a persona that has none: one job,
+   * one call over the persona's own course, campaign input and research. It
+   * adds and never overwrites, so a statement somebody typed stays as typed.
+   */
+  app.post(
+    '/labels/:labelId/personas/:personaVersionId/orientation/fill',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
+      requireLabelPermission(user, params.labelId, 'persona:write');
+      const persona = await services.personas.requireVersion(db, params.labelId, params.personaVersionId);
+      const { summary, created } = await services.generationJobs.enqueue(db, user, {
+        labelId: params.labelId,
+        type: 'persona.fill_orientation',
+        intent: ['persona-orientation', persona.id],
+        payload: { personaVersionId: persona.id },
+        requestId: request.id,
+        clientAddress: request.socket.remoteAddress,
+      });
+      return reply.status(created ? 202 : 200).send(summary);
+    },
+  );
+
+  /**
+   * Moves a campaign to the currently approved version of its own course
+   * (audit 2026-09-15). Flags the briefing and the content for re-review,
+   * because both quote facts from the card that may have changed.
+   */
+  app.post(
+    '/labels/:labelId/campaigns/:campaignId/course-version',
+    { preHandler: authenticate },
+    async (request) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ campaignId: z.uuid() }).parse(request.params);
+      return services.campaigns.repointToCurrentCourse(db, user, params.labelId, params.campaignId);
+    },
+  );
+
+  /** Copies a campaign persona into the library; the original stays in its campaign. */
+  app.post(
+    '/labels/:labelId/personas/:personaVersionId/library',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
+      const promoted = await services.personas.promoteToLibrary(
+        db,
+        user,
+        params.labelId,
+        params.personaVersionId,
+      );
+      return reply.code(201).send(promoted);
     },
   );
 
@@ -193,8 +313,10 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
   app.get('/labels/:labelId/campaigns', { preHandler: authenticate }, async (request) => {
     const user = currentUser(request);
     const { labelId } = labelParams.parse(request.params);
-    const items = await services.campaigns.list(db, user, labelId, 50);
-    return { items, nextCursor: null };
+    // Fifty by default: the list screen shows a label's campaigns in one go
+    // and asks for the next page only when there is one.
+    const query = pageQuery.extend({ limit: pageQuery.shape.limit.removeDefault().default(50) }).parse(request.query);
+    return services.campaigns.list(db, user, labelId, query);
   });
 
   app.post('/labels/:labelId/campaigns', { preHandler: authenticate }, async (request, reply) => {
@@ -219,7 +341,7 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
       const { labelId, campaignId } = campaignParams.parse(request.params);
 
       const campaign = await services.campaigns.requireById(db, labelId, campaignId);
-      const [brief, approvedBrief, concepts, plan, assets, exportRecords, gates] =
+      const [brief, approvedBrief, concepts, plan, assets, exportRecords, gates, outcomes] =
         await Promise.all([
           services.campaigns.latestBrief(db, campaignId),
           services.campaigns.approvedBrief(db, campaignId),
@@ -228,6 +350,11 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
           services.content.list(db, user, labelId, campaignId),
           services.exports.list(db, user, labelId, campaignId),
           services.exports.evaluateGates(db, user, labelId, campaignId),
+          // The list route already knows whether results were recorded; this one
+          // hardcoded `false` in the browser, so step 8 never ticked on the
+          // detail screen while the same campaign showed as finished in the
+          // list (audit 2026-09-15). One source, both screens.
+          services.outcomes.listOutcomes(db, user, labelId, campaignId),
         ]);
 
       const personas = await services.personas.findManyByIds(
@@ -278,6 +405,7 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
           blockedReasonsNl: gates.reasonsNl,
           labels: GATE_LABEL_NL,
         },
+        hasOutcomes: outcomes.length > 0,
         // Surfaced so the UI can label every generated artefact as mock output.
         aiIsMock: services.generation.isMock,
         aiProvider: services.generation.providerName,

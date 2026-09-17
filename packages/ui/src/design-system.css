@@ -1,0 +1,91 @@
+/*
+ * The Certify360 design system, as the product consumes it.
+ *
+ * These are the house tokens: type roles, the spacing and radius scale, the
+ * shadow family and the motion curves. They carry no label colour — a label's
+ * palette arrives at runtime in `tokens-2026.css` and `LabelTheme` — and they
+ * never change per screen.
+ *
+ * Three brand faces, declared in `apps/web/src/fonts.css` and served from our
+ * own origin:
+ *   At Gambit .......... display serif, EXTERNAL communication only. It is
+ *                        named here for completeness and is not shipped to the
+ *                        browser, because no screen in the product may use it.
+ *   TT Firs Neue ....... the lead face inside the product: every heading,
+ *                        label, eyebrow, button and table head.
+ *   Plus Jakarta Sans .. all running text and list content.
+ *   JetBrains Mono ..... figures, versions, times, amounts, domains.
+ */
+
+:root {
+  /* --- Families -------------------------------------------------------- */
+  --font-display: 'At Gambit', Georgia, 'Times New Roman', serif;
+  --font-title: 'TT Firs Neue', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* --- Weights --------------------------------------------------------- */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* --- Letter spacing. Eyebrows and table heads are the only places
+         uppercase is allowed, and they need the width to stay readable. --- */
+  --ls-tight: -0.02em;
+  --ls-snug: -0.01em;
+  --ls-normal: 0;
+  --ls-caps: 0.08em;
+  --ls-eyebrow: 0.12em;
+
+  /* --- Spacing, 4px base ----------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+
+  /* --- Radii: the generously rounded echo of the "360" pill in the logo. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* --- Shadows: soft and cool, tinted with the teal ink ---------------- */
+  --shadow-xs: 0 1px 2px rgb(24 48 55 / 6%);
+  --shadow-sm: 0 1px 3px rgb(24 48 55 / 8%), 0 1px 2px rgb(24 48 55 / 5%);
+  --shadow-md: 0 4px 12px rgb(24 48 55 / 8%), 0 2px 4px rgb(24 48 55 / 5%);
+  --shadow-lg: 0 12px 28px rgb(24 48 55 / 12%), 0 4px 10px rgb(24 48 55 / 6%);
+
+  /* --- Motion ---------------------------------------------------------- */
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* --- Focus ring: a soft violet halo that reads on white and on tint --- */
+  --ring: 0 0 0 3px rgb(151 132 250 / 45%);
+}
+
+/*
+ * `hidden` means hidden.
+ *
+ * The browser hides a `hidden` element with `display: none` at user-agent
+ * weight, which any author rule that sets `display` beats. So a panel written
+ * as `<div className="c360-stack" hidden>` stayed on screen, because
+ * `.c360-stack` sets `display: flex` — the content step's funnel tabs filtered
+ * nothing for that reason, and two places in the app had already patched it
+ * locally (2026-09-16).
+ *
+ * This is the one rule in the house layer that uses `!important`, and it earns
+ * it: there is no design in which an element marked hidden should be visible,
+ * and the alternative is finding this bug once per component.
+ */
+[hidden] {
+  display: none !important;
+}

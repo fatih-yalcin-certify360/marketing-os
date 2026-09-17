@@ -1,291 +1,1872 @@
 /*
- * Application shell: fixed deep-teal navigation rail, white top bar, off-white
- * content canvas. Layout follows the approved Certify360 Marketing OS design.
+ * The 2026 shell and the three layout patterns every screen uses.
+ *
+ * Shell: a 56px icon rail painted from the label's ink, a click-to-open 232px
+ * flyout, a 48px top bar, and a neutral canvas. The label's colours carry the
+ * chrome and every accent; the working surfaces stay neutral, because a long
+ * document has to keep reading well whatever colour the brand brings.
+ *
+ * Patterns: A overview, B list + detail, C rail + workspace + context. A screen
+ * picks one. There is no fourth — a screen that needs one is a screen that has
+ * not decided what it is for.
  */
 
-.c360-app {
-  display: grid;
-  grid-template-columns: var(--c360-sidebar-width) 1fr;
+/* ===================================================================== */
+/* Shell                                                                 */
+/* ===================================================================== */
+
+.os-app {
+  display: flex;
   min-height: 100vh;
+  background: var(--n-1);
 }
 
-/* ------------------------------------------------------------- Sidebar --- */
-.c360-sidebar {
-  background: var(--c360-teal-900);
-  color: var(--c360-sidebar-text);
-  display: flex;
-  flex-direction: column;
-  padding: var(--c360-space-5) var(--c360-space-4) var(--c360-space-4);
-  gap: var(--c360-space-5);
+/* ------------------------------------------------------------- rail --- */
+.os-rail {
   position: sticky;
   top: 0;
+  align-self: flex-start;
   height: 100vh;
-  overflow-y: auto;
+  width: var(--rail-w);
+  flex: none;
+  background: var(--lp-shell);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0 12px;
+  z-index: 30;
 }
 
-.c360-sidebar__brand {
-  color: var(--c360-text-inverse);
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+.os-rail__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.03em;
   text-decoration: none;
-  display: block;
+  margin-bottom: 8px;
+  flex: none;
 }
 
-.c360-sidebar__brand-sub {
-  display: block;
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--c360-teal-400);
-}
-
-.c360-label-switch {
-  background: var(--c360-teal-700);
-  border-radius: var(--c360-radius);
-  padding: var(--c360-space-3);
-}
-
-.c360-label-switch__caption {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--c360-teal-200);
-  margin-bottom: var(--c360-space-1);
-}
-
-.c360-label-switch__select {
-  width: 100%;
-  min-height: 32px;
-  background: transparent;
-  border: none;
-  color: var(--c360-text-inverse);
-  font: inherit;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 0;
+.os-rail__item {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--lp-shell-tx);
+  display: grid;
+  place-items: center;
   cursor: pointer;
+  flex: none;
+  transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
 }
 
-/* The native dropdown list renders in the OS palette, so give options a
-   readable colour rather than white-on-white. */
-.c360-label-switch__select option {
-  color: var(--c360-text);
-  background: var(--c360-surface);
+.os-rail__item:hover {
+  background: var(--lp-shell-2);
+  color: #fff;
 }
 
-.c360-nav {
+/*
+ * The active mark is a white overlay plate with a ring in `--lp-active`.
+ *
+ * It may not be painted from `--lp`: the rail is `--lp-shell`, which is derived
+ * from the brand's ink, and a brand that uses one dark colour for both primary
+ * and ink would leave no visible mark at all. `--lp-active` falls back to the
+ * accent in exactly that case (see label-theme.ts).
+ */
+.os-rail__item[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 12%);
+  box-shadow: inset 0 0 0 1.5px var(--lp-active);
+}
+
+/* Unfinished areas stay visible and reachable, at reduced weight. Hiding one
+   would answer the user's question — "where is the calendar?" — by pretending
+   it was never planned. */
+.os-rail__item--unavailable {
+  opacity: 0.55;
+}
+
+.os-rail__rule {
+  width: 22px;
+  height: 1px;
+  background: rgb(255 255 255 / 14%);
+  margin: 6px 0;
+  flex: none;
+}
+
+.os-rail__foot {
+  margin-top: auto;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.os-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 11px;
+  flex: none;
+}
+
+/* ----------------------------------------------------------- flyout --- */
+.os-flyout {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: var(--flyout-w);
+  flex: none;
+  background: var(--lp-shell-2);
+  color: #fff;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
+  animation: os-fly 160ms var(--ease-standard);
+  z-index: 20;
 }
 
-.c360-nav__heading {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--c360-teal-400);
-  margin: var(--c360-space-4) 0 var(--c360-space-2) var(--c360-space-2);
+@keyframes os-fly {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.c360-nav__item {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: var(--c360-space-2);
-  padding: var(--c360-space-3);
-  border-radius: var(--c360-radius);
-  color: var(--c360-sidebar-text);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  background: none;
-  border: none;
-  font-family: inherit;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-}
-
-.c360-nav__item:hover {
-  background: var(--c360-teal-700);
-  color: var(--c360-text-inverse);
-}
-
-.c360-nav__item--active {
-  background: var(--c360-teal-600);
-  color: var(--c360-text-inverse);
-}
-
-/* Unavailable areas stay reachable so the user can read *why*, but they are
-   visibly not ready — never presented as working. */
-.c360-nav__item--unavailable {
-  color: var(--c360-teal-400);
-  font-weight: 500;
-}
-
-.c360-nav__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--c360-teal-600);
-  flex: none;
-}
-
-.c360-nav__item--active .c360-nav__dot {
-  background: var(--c360-purple-400);
-}
-
-.c360-nav__item--unavailable .c360-nav__dot {
-  background: transparent;
-  border: 1px solid var(--c360-teal-600);
-}
-
-.c360-nav__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-/* Fixed-size marker; the label truncates before the status does, so an
-   unavailable area never loses its marker to a long name. */
-.c360-nav__soon {
-  margin-left: auto;
-  flex: none;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--c360-teal-400);
-  white-space: nowrap;
-}
-
-.c360-sidebar__footer {
-  margin-top: auto;
-  border-top: 1px solid var(--c360-teal-700);
-  padding-top: var(--c360-space-4);
-  display: flex;
-  align-items: center;
-  gap: var(--c360-space-3);
-}
-
-.c360-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--c360-purple-600);
-  color: var(--c360-text-inverse);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 13px;
-  flex: none;
-}
-
-.c360-sidebar__user-name {
-  color: var(--c360-text-inverse);
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.c360-sidebar__user-role {
-  color: var(--c360-teal-400);
-  font-size: 12px;
-}
-
-/* -------------------------------------------------------------- Topbar --- */
-.c360-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.c360-topbar {
-  min-height: var(--c360-topbar-height);
-  background: var(--c360-surface);
-  border-bottom: 1px solid var(--c360-border);
+.os-flyout__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--c360-space-4);
-  padding: var(--c360-space-4) var(--c360-space-6);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  gap: 8px;
 }
 
-.c360-breadcrumb {
-  font-size: 15px;
+.os-flyout__close {
+  border: 0;
+  background: none;
+  color: var(--lp-shell-tx);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+}
+
+.os-flyout__close:hover {
+  color: #fff;
+}
+
+.os-flyout__heading {
+  margin: 10px 0 4px;
+  font-family: var(--font-title);
+  font-size: 10px;
   font-weight: 700;
-  color: var(--c360-text);
-  margin: 0;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--lp-shell-tx);
 }
 
-.c360-topbar__flags {
+.os-flyout__item {
   display: flex;
   align-items: center;
-  gap: var(--c360-space-3);
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--lp-shell-tx);
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.c360-content {
-  padding: var(--c360-space-6);
+.os-flyout__item:hover {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+}
+
+.os-flyout__item--active {
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+}
+
+.os-flyout__item--sub {
+  padding-left: 34px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.os-flyout__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-flyout__soon {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lp-shell-tx);
+}
+
+/* ----------------------------------------------------------- topbar --- */
+.os-main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--c360-space-5);
-  max-width: 1440px;
+}
+
+.os-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  height: var(--topbar-h);
+  flex: none;
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--n-br);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Every control in the bar is a fixed-height pill that may not wrap: the bar
+   does not collapse, the label name truncates instead. */
+.os-topbar > * {
+  flex: none;
+  white-space: nowrap;
+}
+
+.os-topbar__spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.os-crumb-wrap {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.os-crumb {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tx-2);
+  min-width: 0;
+}
+
+.os-crumb li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.os-crumb a {
+  color: var(--tx-2);
+  text-decoration: none;
+}
+
+.os-crumb a:hover {
+  color: var(--lp-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.os-crumb__sep {
+  color: var(--n-br2);
+}
+
+/*
+ * Every crumb truncates, not only the last one.
+ *
+ * A campaign name is a sentence — "Opleiding Casemanager Regie op Verzuim
+ * (CROV) — Welke stappen moeten werkgever en werknemer zetten…" — and an
+ * untruncated middle crumb pushed the current step out from under the search
+ * field and printed one label on top of another.
+ */
+.os-crumb a,
+.os-crumb__leaf {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 34ch;
+}
+
+.os-crumb__leaf {
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--tx);
+  flex: none;
+  max-width: 28ch;
+}
+
+.os-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--n-br);
+  background: var(--n-0);
+  border-radius: var(--radius-pill);
+  color: var(--tx-3);
+  font-family: var(--font-title);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-search:hover {
+  border-color: var(--n-br2);
+  color: var(--tx-2);
+}
+
+.os-search__key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border: 1px solid var(--n-br);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.os-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  background: var(--n-2);
+  color: var(--tx-2);
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.os-flag--warn {
+  background: var(--wa-t);
+  color: var(--wa);
+}
+
+.os-flag__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentcolor;
+  flex: none;
+}
+
+/* ----------------------------------------------------- label switch --- */
+.os-labelwrap {
+  position: relative;
+  flex: none;
+}
+
+.os-labelchip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--lp-t3);
+  background: var(--lp-t1);
+  border-radius: var(--radius-pill);
+  color: var(--lp-ink);
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-labelchip__mark {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  flex: none;
+}
+
+.os-labelchip__name {
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.os-labelmenu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  width: 296px;
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  z-index: 40;
+}
+
+.os-labelmenu__caption {
+  margin: 6px 8px;
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--tx-3);
+}
+
+.os-labelmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 8px;
+  cursor: pointer;
+  color: var(--lp-deep);
+}
+
+.os-labelmenu__item:hover {
+  background: var(--n-1);
+}
+
+.os-labelmenu__item--current {
+  background: var(--lp-t1);
+}
+
+.os-labelmenu__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.os-labelmenu__name {
+  display: block;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-labelmenu__note {
+  display: block;
+  font-size: 11px;
+  color: var(--tx-3);
+  white-space: normal;
+  line-height: 1.4;
+}
+
+/* Three colours in the order the interface uses them: primary, accent, ink. */
+.os-swatch {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.os-swatch > span {
+  width: 6px;
+  height: 20px;
+  border: 1px solid rgb(24 36 48 / 10%);
+  border-left: 0;
+  border-right: 0;
+}
+
+.os-swatch > span:first-child {
+  width: 10px;
+  border-left: 1px solid rgb(24 36 48 / 10%);
+  border-radius: var(--radius-xs) 0 0 var(--radius-xs);
+}
+
+.os-swatch > span:last-child {
+  border-right: 1px solid rgb(24 36 48 / 10%);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+/* -------------------------------------------------- screen finder ----- */
+.os-palette__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(24 36 48 / 32%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  z-index: 60;
+}
+
+.os-palette {
+  width: min(520px, 100%);
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.os-palette__field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--n-br);
+  color: var(--tx-3);
+}
+
+.os-palette__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--tx);
+}
+
+.os-palette__input:focus {
+  outline: none;
+}
+
+.os-palette__key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border: 1px solid var(--n-br);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--tx-3);
+}
+
+.os-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 52vh;
+  overflow: auto;
+}
+
+.os-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 7px 9px;
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tx);
+  cursor: pointer;
+}
+
+.os-palette__item--cursor {
+  background: var(--lp-t1);
+}
+
+.os-palette__item[aria-disabled='true'] {
+  color: var(--tx-3);
+  cursor: not-allowed;
+}
+
+.os-palette__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.os-palette__parent {
+  color: var(--tx-3);
+  font-weight: 500;
+}
+
+.os-palette__soon {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tx-3);
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.os-palette__empty {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--tx-3);
+}
+
+/* ===================================================================== */
+/* Content area                                                          */
+/* ===================================================================== */
+
+.os-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The old content wrapper, still used by the top-level error state. */
+.c360-content {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+/* ===================================================================== */
+/* Pattern A — overview                                                  */
+/* A page header, a KPI strip, then content. Werkruimte, Resultaten,     */
+/* Merk & bronnen, Labels & toegang, Campagnes, Kalender.                */
+/* ===================================================================== */
+
+.os-page {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
   width: 100%;
 }
 
+.os-page--narrow {
+  max-width: 1060px;
+}
+
+.os-page--reading {
+  max-width: 1180px;
+}
+
+.os-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.os-page__head-text {
+  min-width: 0;
+}
+
+.os-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: none;
+}
+
 .c360-page-title {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: var(--font-title);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: var(--ls-tight);
+  line-height: 1.2;
   margin: 0;
-  color: var(--c360-text);
+  color: var(--tx);
 }
 
 .c360-page-lead {
-  margin: var(--c360-space-2) 0 0;
-  color: var(--c360-text-muted);
-  font-size: 14px;
+  margin: 4px 0 0;
+  color: var(--tx-2);
+  font-size: 12px;
+  line-height: 1.55;
+  max-width: 80ch;
 }
 
 .c360-section-title {
-  font-size: 19px;
-  font-weight: 800;
-  margin: var(--c360-space-2) 0 0;
-  color: var(--c360-text);
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--tx);
 }
 
-/* --------------------------------------------------------------- Grids --- */
+/* --- KPI strip: one figure, one caption saying where it came from ----- */
+.os-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(186px, 1fr));
+  gap: 10px;
+}
+
+.os-kpi {
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* The 3px status bar on the left edge. Colour is the tile's own tone. */
+.os-kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--os-kpi-bar, var(--lp));
+}
+
+.os-kpi--ok {
+  --os-kpi-bar: var(--ok);
+}
+
+.os-kpi--warn {
+  --os-kpi-bar: var(--wa);
+}
+
+/* A neutral tile still has to be readable: the bar goes pale, the figure
+   does not. `--tx-3` is the smallest grey that clears 4.5:1 on white. */
+.os-kpi--neutral {
+  --os-kpi-bar: var(--n-br2);
+  --os-kpi-value: var(--tx-3);
+}
+
+.os-kpi__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.os-kpi__label {
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx-2);
+}
+
+.os-kpi__value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--os-kpi-value, var(--os-kpi-bar, var(--lp-solid)));
+}
+
+.os-kpi__caption {
+  font-size: 11px;
+  color: var(--tx-3);
+  line-height: 1.4;
+}
+
+/* ===================================================================== */
+/* Pattern B — list + detail                                             */
+/* Content Studio, Opleidingen, Doelgroepen.                             */
+/* ===================================================================== */
+
+.os-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 364px) minmax(0, 1fr);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.os-split--narrow {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.os-split__list {
+  border-right: 1px solid var(--n-br);
+  background: var(--n-0);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: var(--topbar-h);
+  align-self: start;
+  height: calc(100vh - var(--topbar-h));
+  min-width: 0;
+}
+
+.os-split__head {
+  padding: 12px;
+  border-bottom: 1px solid var(--n-br);
+  display: grid;
+  gap: 9px;
+}
+
+.os-split__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.os-split__title h1 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* "8 stuks", or "5 van 8" once a filter is on. The count always says how
+   many of how many, so a filtered list can never read as the whole set. */
+.os-split__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--tx-3);
+  flex: none;
+}
+
+.os-split__scroll {
+  overflow: auto;
+  flex: 1;
+}
+
+.os-split__foot {
+  padding: 10px 12px;
+  border-top: 1px solid var(--n-br);
+  font-size: 11px;
+  color: var(--tx-3);
+  line-height: 1.5;
+}
+
+/* A row with a 3px marker that only carries colour when the row is chosen. */
+.os-split__row {
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--n-2);
+  background: var(--n-0);
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.os-split__row:hover {
+  background: var(--lp-t1);
+}
+
+.os-split__row[aria-current='true'] {
+  background: var(--lp-t1);
+}
+
+.os-split__marker {
+  background: transparent;
+}
+
+.os-split__row[aria-current='true'] .os-split__marker {
+  background: var(--lp);
+}
+
+.os-split__body {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px 10px 0;
+  min-width: 0;
+}
+
+.os-split__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.os-split__eyebrow {
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--tx-3);
+  text-transform: uppercase;
+}
+
+.os-split__name {
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--tx);
+}
+
+.os-split__sub {
+  font-size: 11px;
+  color: var(--tx-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-split__meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--tx-3);
+}
+
+/* The detail column of a split screen, and the workspace of a flow. */
+.os-detail {
+  min-width: 0;
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.os-detail--reading {
+  max-width: 1000px;
+}
+
+/* ===================================================================== */
+/* Pattern C — rail + workspace + context                                */
+/* Campagne, Marktradar, AI Visibility (that one without a third column). */
+/* ===================================================================== */
+
+.os-flow {
+  display: grid;
+  grid-template-columns: var(--steprail-w) minmax(0, 1fr) var(--context-w);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.os-flow--two {
+  grid-template-columns: var(--steprail-w) minmax(0, 1fr);
+}
+
+.os-siderail,
+.os-context {
+  background: var(--n-0);
+  padding: 14px 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+  position: sticky;
+  top: var(--topbar-h);
+  align-self: start;
+  max-height: calc(100vh - var(--topbar-h));
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.os-siderail {
+  border-right: 1px solid var(--n-br);
+}
+
+.os-context {
+  border-left: 1px solid var(--n-br);
+}
+
+.os-siderail__intro {
+  min-width: 0;
+}
+
+.os-siderail__course {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tx);
+}
+
+.os-siderail__note {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--tx-3);
+  line-height: 1.45;
+}
+
+.os-siderail__group {
+  display: grid;
+  gap: 2px;
+}
+
+.os-siderail__divider {
+  border-top: 1px solid var(--n-2);
+  padding-top: 10px;
+}
+
+/* A step in the campaign chain, or a sub-view in a radar rail. */
+.os-step {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 7px 8px;
+  font: inherit;
+  font-family: var(--font-body);
+  cursor: pointer;
+  color: var(--tx);
+}
+
+.os-step:hover {
+  background: var(--lp-t1);
+}
+
+.os-step[aria-current='step'],
+.os-step[aria-selected='true'] {
+  background: var(--lp-t2);
+  color: var(--lp-ink);
+}
+
+.os-step--plain {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.os-step__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--n-0);
+  color: var(--tx-3);
+  border: 1px solid var(--n-br2);
+  flex: none;
+}
+
+.os-step--done .os-step__num {
+  background: var(--ok-t);
+  color: var(--ok);
+  border-color: var(--ok-t);
+}
+
+.os-step[aria-current='step'] .os-step__num {
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  border-color: var(--lp-solid);
+}
+
+.os-step__text {
+  min-width: 0;
+}
+
+.os-step__label {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-step[aria-current='step'] .os-step__label,
+.os-step[aria-selected='true'] .os-step__label {
+  font-weight: 700;
+}
+
+.os-step__state {
+  display: block;
+  font-size: 10.5px;
+  color: var(--tx-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-step__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  color: var(--ok);
+}
+
+.os-step__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lp-accent);
+}
+
+/* The count beside a sub-view: always the length of what the view will
+   show, never a number typed into the markup. */
+.os-step__count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--tx-2);
+  background: var(--n-1);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+}
+
+/* A branch that deliberately sits outside the numbered chain. */
+.os-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px dashed var(--n-br2);
+  background: none;
+  border-radius: var(--radius-md);
+  padding: 7px 9px;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx-2);
+  cursor: pointer;
+}
+
+.os-branch:hover {
+  border-color: var(--lp);
+  color: var(--lp-deep);
+}
+
+/* Below 1180px the workspace would fall under 460px, so the context panel
+   stops holding a column and becomes a button in the step header. */
+@media (max-width: 1180px) {
+  .os-flow {
+    grid-template-columns: var(--steprail-w) minmax(0, 1fr);
+  }
+
+  .os-context {
+    display: none;
+  }
+
+  .os-context--forced {
+    display: grid;
+    grid-column: 1 / -1;
+    position: static;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--n-br);
+  }
+}
+
+@media (max-width: 900px) {
+  .os-flow,
+  .os-flow--two,
+  .os-split,
+  .os-split--narrow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .os-siderail,
+  .os-split__list {
+    position: static;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--n-br);
+  }
+
+  .os-detail,
+  .os-page {
+    padding: 14px;
+  }
+}
+
+/* ===================================================================== */
+/* Shared vocabulary                                                     */
+/* The pieces every screen builds from, so a row on one screen and a row */
+/* on another are the same object rather than two near-misses.           */
+/* ===================================================================== */
+
+/* A panel: white, hairline, 16px corners. The workhorse container. */
+.os-panel {
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.os-panel--pad {
+  padding: 14px;
+}
+
+.os-panel--accent {
+  border-color: var(--lp-t3);
+}
+
+.os-panel--tint {
+  background: var(--lp-t1);
+  border-color: var(--lp-t3);
+}
+
+.os-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--n-br);
+}
+
+.os-panel__title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.os-panel__sub {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: var(--tx-3);
+}
+
+.os-panel__body {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.os-panel__foot {
+  padding: 11px 14px;
+  border-top: 1px solid var(--n-br);
+  background: var(--n-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The one row shape the list views share: eyebrow, title, badge, body,
+   mono meta. Seven radar views and four AI Visibility views use it. */
+.os-rowcard {
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: grid;
+  gap: 7px;
+  text-align: left;
+  width: 100%;
+}
+
+.os-rowcard__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.os-rowcard__title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--tx);
+}
+
+.os-rowcard__body {
+  margin: 0;
+  font-size: 12px;
+  color: var(--tx-2);
+  line-height: 1.6;
+}
+
+.os-rowcard__meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--tx-3);
+  overflow-wrap: anywhere;
+}
+
+.os-rowcard--selectable {
+  cursor: pointer;
+}
+
+.os-rowcard--selectable:hover {
+  border-color: var(--lp-t3);
+}
+
+.os-rowcard--selected {
+  border-color: var(--lp);
+  box-shadow: 0 0 0 3px var(--lp-t2);
+}
+
+/* The eyebrow above a title: 10px, wide, in the label's deep colour. */
+.os-eyebrow {
+  margin: 0 0 3px;
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--lp-deep);
+}
+
+.os-eyebrow--muted {
+  color: var(--tx-3);
+}
+
+/* Pills. A pill states a status; it never carries an action. */
+.os-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 21px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  background: var(--n-2);
+  color: var(--tx-2);
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: none;
+}
+
+.os-pill--brand {
+  background: var(--lp-t2);
+  color: var(--lp-ink);
+}
+
+.os-pill--solid {
+  background: var(--lp-solid);
+  color: var(--lp-on);
+}
+
+.os-pill--ok {
+  background: var(--ok-t);
+  color: var(--ok);
+}
+
+.os-pill--warn {
+  background: var(--wa-t);
+  color: var(--wa);
+}
+
+.os-pill--err {
+  background: var(--er-t);
+  color: var(--er);
+}
+
+.os-pill--outline {
+  background: var(--n-1);
+  border: 1px solid var(--n-br);
+  color: var(--tx-2);
+}
+
+.os-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* A segmented filter bar; each segment carries its own count. */
+.os-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.os-filter {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-pill);
+  background: var(--n-0);
+  color: var(--tx-2);
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.os-filter:hover {
+  border-color: var(--n-br2);
+}
+
+.os-filter[aria-pressed='true'] {
+  background: var(--lp-t2);
+  border-color: var(--lp-t3);
+  color: var(--lp-ink);
+}
+
+.os-filter__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+/* A one-line progress statement: "7 VAN 8 velden gecontroleerd", with the
+   bar on the right. Never a bar alone — a bar without its sentence is a
+   number nobody can check. */
+.os-progressline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+}
+
+.os-progressline__count {
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--lp-deep);
+  flex: none;
+}
+
+.os-progressline__text {
+  font-size: 12px;
+  color: var(--tx-2);
+  min-width: 0;
+}
+
+.os-progressline__bar {
+  display: block;
+  height: 5px;
+  width: 120px;
+  border-radius: var(--radius-pill);
+  background: var(--n-2);
+  overflow: hidden;
+  flex: none;
+  margin-left: auto;
+}
+
+.os-progressline__fill {
+  display: block;
+  height: 100%;
+  background: var(--lp);
+}
+
+/* Inline blocks that carry a caveat. Tone is never colour alone: each one
+   opens with the word that says what it is. */
+.os-note {
+  margin: 0;
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.os-note--warn {
+  background: var(--wa-t);
+  color: var(--wa);
+}
+
+.os-note--err {
+  background: var(--er-t);
+  color: var(--er);
+}
+
+.os-note--brand {
+  background: var(--lp-t1);
+  color: var(--lp-ink);
+}
+
+.os-note--quiet {
+  background: var(--n-1);
+  color: var(--tx-2);
+}
+
+/* The closing line of a view: what this view does *not* prove. */
+.os-limit {
+  margin: 0;
+  font-size: 11px;
+  color: var(--tx-3);
+  line-height: 1.55;
+  max-width: 96ch;
+}
+
+/* A stack of meta tiles: term above, value below. */
+.os-metagrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px;
+}
+
+.os-metatile {
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  padding: 9px 11px;
+  min-width: 0;
+}
+
+.os-metatile__term {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.os-metatile__value {
+  margin: 3px 0 0;
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* A definition row inside a panel: term, value, hairline above. */
+.os-deflist > * + * {
+  border-top: 1px solid var(--n-2);
+}
+
+.os-defrow {
+  padding: 11px 14px;
+}
+
+.os-defrow__term {
+  margin: 0 0 3px;
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.os-defrow__value {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--tx);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* Three colour swatches with their hex, as the brand screens show them. */
+.os-swatchrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--n-2);
+}
+
+.os-swatchrow__chip {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(24 36 48 / 10%);
+  flex: none;
+}
+
+.os-swatchrow__hex {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--tx-2);
+  flex: none;
+}
+
+/* The brand gradient, used for a generated-image placeholder and the brand
+   example block. Primary to ink, the same ramp the render layer uses. */
+.os-gradient {
+  background: linear-gradient(150deg, var(--lp-solid) 0%, var(--lp-ink) 100%);
+  color: #fff;
+}
+
+/* ===================================================================== */
+/* Element defaults inside the content area                              */
+/* ===================================================================== */
+
+.os-content a {
+  color: var(--lp-deep);
+  text-decoration: underline;
+  text-decoration-color: var(--lp-t3);
+  text-underline-offset: 2px;
+}
+
+.os-content a:hover {
+  text-decoration-color: var(--lp-deep);
+}
+
+.os-content a.c360-button,
+.os-content a.os-rowcard {
+  text-decoration: none;
+}
+
+.os-content a.c360-button--primary {
+  color: var(--lp-on);
+}
+
+.os-content a.c360-button--secondary {
+  color: var(--tx);
+}
+
+.os-content a.c360-button--ghost {
+  color: var(--lp-deep);
+}
+
+.os-content h1,
+.os-content h2,
+.os-content h3,
+.os-content h4 {
+  font-family: var(--font-title);
+  color: var(--tx);
+  letter-spacing: var(--ls-snug);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.os-content h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.os-content h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 var(--space-2);
+}
+
+.os-content h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+/* Sentence case everywhere; ALL-CAPS only for eyebrows and table heads. */
+.os-content h4 {
+  font-size: 10px;
+  font-weight: 700;
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--tx-3);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-caps);
+}
+
+.os-content p {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+}
+
+.os-content p:last-child {
+  margin-bottom: 0;
+}
+
+.os-content ul,
+.os-content ol {
+  line-height: 1.6;
+}
+
+.os-content blockquote {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lp-t3);
+  background: var(--lp-t1);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--tx);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.os-content pre {
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  background: var(--n-1);
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 32rem;
+  overflow: auto;
+}
+
+/* Native disclosures: a chevron that turns, and a summary that reads as a
+   control rather than as a paragraph. */
+.os-content details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx);
+  padding: var(--space-1) 0;
+}
+
+.os-content details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.os-content details > summary::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-right: 1.75px solid var(--tx-3);
+  border-bottom: 1.75px solid var(--tx-3);
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast) var(--ease-standard);
+  margin-right: 2px;
+}
+
+.os-content details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.os-content .c360-disclosure__summary::before,
+.os-content .persona-courses > summary::before {
+  display: none;
+}
+
+.os-content details > summary + * {
+  margin-top: var(--space-2);
+}
+
+/* Plain form controls that pages render without the c360 classes. */
+.os-content input:not([type='checkbox']):not([type='radio']):not([type='file']):not(.c360-input):not(.os-palette__input),
+.os-content select:not(.c360-select),
+.os-content textarea:not(.c360-textarea) {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--n-br2);
+  border-radius: var(--radius-md);
+  background: var(--n-0);
+  color: var(--tx);
+  font-family: var(--font-body);
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.os-content textarea:not(.c360-textarea) {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.os-content input[type='checkbox'],
+.os-content input[type='radio'] {
+  accent-color: var(--lp-solid);
+  width: 15px;
+  height: 15px;
+}
+
+.os-content label:not(.c360-label):not(.objective-card) {
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tx);
+}
+
+.os-content label > input:not([type='checkbox']):not([type='radio']),
+.os-content label > select,
+.os-content label > textarea {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+  font-weight: 400;
+}
+
+.os-content article + article {
+  border-top: 1px solid var(--n-2);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+/* ===================================================================== */
+/* Layout helpers kept from the previous shell                           */
+/* ===================================================================== */
+
 .c360-grid-3 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--c360-space-4);
+  gap: 12px;
 }
 
 .c360-grid-main {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-  gap: var(--c360-space-4);
+  grid-template-columns: minmax(0, 1.9fr) minmax(260px, 1fr);
+  gap: 16px;
   align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .c360-grid-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .c360-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--c360-space-4);
+  gap: 12px;
 }
 
 .c360-row {
   display: flex;
   align-items: center;
-  gap: var(--c360-space-3);
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -298,12 +1879,12 @@
 }
 
 .c360-list__item {
-  padding: var(--c360-space-4) 0;
-  border-bottom: 1px solid var(--c360-border);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--n-2);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--c360-space-4);
+  gap: 12px;
 }
 
 .c360-list__item:last-child {
@@ -311,60 +1892,503 @@
 }
 
 .c360-list__title {
+  font-family: var(--font-title);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 12.5px;
   margin: 0;
 }
 
 .c360-list__subtitle {
-  color: var(--c360-text-muted);
-  font-size: 13px;
-  margin: var(--c360-space-1) 0 0;
+  color: var(--tx-3);
+  font-size: 11.5px;
+  margin: 2px 0 0;
 }
 
 .c360-definition {
   display: grid;
-  gap: var(--c360-space-3);
+  gap: 10px;
   margin: 0;
 }
 
 .c360-definition__term {
+  font-family: var(--font-title);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--c360-text-muted);
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--tx-3);
   text-transform: uppercase;
 }
 
 .c360-definition__value {
+  font-family: var(--font-title);
   font-weight: 700;
-  margin: 2px 0 0;
+  font-size: 12.5px;
+  margin: 3px 0 0;
 }
 
 .c360-definition__note {
-  color: var(--c360-text-muted);
-  font-size: 13px;
+  color: var(--tx-3);
+  font-size: 11px;
   margin: 0;
   font-weight: 400;
+  line-height: 1.5;
 }
 
-@media (max-width: 1080px) {
-  .c360-grid-main {
+/* ------------------------------------------------- card decks (2026-09-15) ---
+ * One shape for every deck of cards: equal width, filling the canvas, each
+ * with its actions on the same baseline.
+ */
+.c360-deck {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.c360-deck--wide {
+  grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr));
+}
+
+.c360-deck > * {
+  min-width: 0;
+}
+
+.c360-deck > .c360-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.c360-deck__foot {
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.c360-deck-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.c360-deck-group + .c360-deck-group {
+  margin-top: 20px;
+}
+
+/* --------------------------------------------- background tasks (2026-09-15) ---
+ * Fixed shares, and the failure sentence on a row of its own underneath.
+ */
+.jobs-table {
+  table-layout: fixed;
+}
+
+.jobs-table th:nth-child(1) { width: 24%; }
+.jobs-table th:nth-child(2) { width: 14%; }
+.jobs-table th:nth-child(3) { width: 32%; }
+.jobs-table th:nth-child(4) { width: 12%; }
+.jobs-table th:nth-child(5) { width: 18%; }
+
+.jobs-table__note td {
+  padding-top: 0;
+  border-top: none;
+  color: var(--tx-3);
+  font-size: 11.5px;
+}
+
+/* ===================================================================== */
+/* Werkruimte: the queue and the foundation list                         */
+/* ===================================================================== */
+
+.os-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.os-queue__row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--n-2);
+}
+
+.os-queue__row:hover {
+  background: var(--lp-t1);
+}
+
+.os-queue__row:last-child {
+  border-bottom: 0;
+}
+
+.os-queue__mark {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  flex: none;
+}
+
+.os-queue__mark--check {
+  background: var(--lp-t2);
+  color: var(--lp-ink);
+}
+
+.os-queue__mark--info {
+  background: var(--n-2);
+  color: var(--tx-2);
+}
+
+.os-queue__mark--alert {
+  background: var(--wa-t);
+  color: var(--wa);
+}
+
+.os-queue__text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.os-queue__title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.os-queue__sub {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--tx-2);
+  line-height: 1.45;
+}
+
+.os-queue__row .os-note {
+  margin-top: 3px;
+}
+
+.os-queue__side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.os-queue__age {
+  font-size: 10.5px;
+  color: var(--tx-3);
+}
+
+.os-foundation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--n-2);
+}
+
+.os-foundation__text {
+  min-width: 0;
+}
+
+.os-foundation__term {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.os-foundation__note {
+  display: block;
+  font-size: 11px;
+  color: var(--tx-3);
+}
+
+.os-foundation__value {
+  flex: none;
+}
+
+/* A quoted provider in a context column: who said it, then what they said. */
+.os-quote {
+  border: 1px solid var(--n-br);
+  border-radius: var(--radius-md);
+  padding: 8px 9px;
+}
+
+.os-quote__who {
+  margin: 0 0 3px;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tx-2);
+}
+
+.os-quote__text {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--tx);
+  line-height: 1.5;
+}
+
+/* The "which scan am I looking at" picker, right of a workspace header. */
+.os-runpicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tx-3);
+}
+
+.os-runpicker .c360-select {
+  width: auto;
+  min-width: 14rem;
+}
+
+/*
+ * The context column is reference material, not a headline. Its definition
+ * values read as body text: a paragraph set in the 700 weight the overview
+ * screens use would shout the quietest column on the page.
+ */
+.os-context .c360-definition__value {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--tx-2);
+}
+
+.os-context .c360-definition {
+  gap: 8px;
+}
+
+/* A verified fact on a course card: name, value, status, on one line. */
+.os-factrow {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) 124px;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--n-2);
+  align-items: start;
+}
+
+.os-factrow__field {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tx);
+  padding-top: 1px;
+}
+
+.os-factrow__value {
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.os-factrow__status {
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  .os-factrow {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .os-factrow__status {
+    justify-self: start;
+  }
 }
 
-@media (max-width: 860px) {
-  .c360-app {
-    grid-template-columns: 1fr;
+/* The step number beside a workspace title, echoing the rail's circle. */
+.os-stepbadge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lp-solid);
+  color: var(--lp-on);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+
+/*
+ * The context button only exists where the context column does not.
+ * Above 1180px the column is on screen, so a button that opens it would open
+ * something already open.
+ */
+.os-contextbutton {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .os-contextbutton {
+    display: inline-flex;
+  }
+}
+
+/* Merk & bronnen: where the brand comes from, beside what it paints with. */
+.os-brandgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.os-brandgrid > * {
+  min-width: 0;
+}
+
+/* ===================================================================== */
+/* Background work: the confirmation, and the notice that it landed      */
+/* ===================================================================== */
+
+/*
+ * Top right, above everything.
+ *
+ * It does not disappear on its own: a notice that fades is a notice somebody
+ * missed, and the whole point is that the person had walked away.
+ */
+.os-toasts {
+  position: fixed;
+  top: calc(var(--topbar-h) + 10px);
+  right: 16px;
+  z-index: 70;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.os-toast {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+  background: var(--n-0);
+  border: 1px solid var(--n-br);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 11px 12px;
+  animation: os-toast-in 200ms var(--ease-standard);
+}
+
+.os-toast--warn {
+  border-left-color: var(--wa);
+}
+
+@keyframes os-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
 
-  .c360-sidebar {
-    position: static;
-    height: auto;
+  to {
+    opacity: 1;
+    transform: none;
   }
+}
 
-  .c360-content {
-    padding: var(--c360-space-4);
-  }
+.os-toast__mark {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--ok-t);
+  color: var(--ok);
+}
+
+.os-toast--warn .os-toast__mark {
+  background: var(--wa-t);
+  color: var(--wa);
+}
+
+.os-toast__text {
+  min-width: 0;
+}
+
+.os-toast__title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--tx);
+}
+
+.os-toast__body {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--tx-2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.os-toast__link {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.os-toast__close {
+  border: 0;
+  background: none;
+  color: var(--tx-3);
+  cursor: pointer;
+  padding: 2px;
+  display: grid;
+  place-items: center;
+}
+
+.os-toast__close:hover {
+  color: var(--tx);
+}
+
+/* The confirmation inside the dialog, before it closes itself. */
+.os-queued {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 14px 8px 6px;
+}
+
+.os-queued__mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ok-t);
+  color: var(--ok);
+  display: grid;
+  place-items: center;
+}
+
+.os-queued__body {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 12px;
+  color: var(--tx-2);
+  line-height: 1.6;
 }
