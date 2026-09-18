@@ -30,6 +30,22 @@ COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 RUN npm run build -w @c360/worker
 
+# ------------------------------------------------------- native modules -----
+# The two packages the bundler cannot inline, at the versions the lockfile
+# pins, with their own dependencies. The worker renders images through the same
+# code the API does, so it needs them too.
+#
+# Installed on their own rather than by pruning the full tree, which would drag
+# in Playwright and other tooling nothing in production uses.
+FROM node:24-alpine AS native
+WORKDIR /native
+COPY package-lock.json ./
+RUN node -e "const lock=require('./package-lock.json');\
+const at=(name)=>name+'@'+lock.packages['node_modules/'+name].version;\
+console.log([at('@resvg/resvg-js'), at('sharp')].join(' '))" > spec \
+ && npm install --omit=dev --no-audit --fund=false $(cat spec) \
+ && rm -f spec package-lock.json package.json
+
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
@@ -41,6 +57,8 @@ RUN addgroup -g 10001 -S c360 \
  && mkdir -p /app/var/storage \
  && chown -R 10001:10001 /app/var
 
+# The packages the bundle could not inline: compiled `.node` binaries.
+COPY --from=native --chown=10001:10001 /native/node_modules ./node_modules
 COPY --from=build --chown=10001:10001 /app/apps/worker/dist ./dist
 
 USER 10001:10001

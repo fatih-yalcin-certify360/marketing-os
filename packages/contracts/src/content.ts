@@ -310,6 +310,19 @@ export const contentAssetVersion = z.object({
   ownerScope: contentOwnerScope.default('campaign'),
   originKind: contentOriginKind.nullable().default(null),
   originRefId: uuid.nullable().default(null),
+  /**
+   * The instruction this piece was written from, in the requester's own words.
+   *
+   * Only a standalone piece has one — a campaign piece is written from an
+   * approved briefing and a chosen concept, which are versioned rows of their
+   * own. Null for a campaign piece, and null for a loose piece made before the
+   * sentence was kept (migration 0030 recovers it where the job row survives).
+   *
+   * Every later version of the same piece carries the original instruction
+   * forward: a hand edit and an AI revision both write a new row, and neither
+   * changes what the piece was asked to be.
+   */
+  instructionNl: z.string().max(4_000).nullable().default(null),
   /** Stable across versions: the identity of "this piece of content". */
   assetKey: z.string().min(1).max(120),
   version: versionNumber,
@@ -350,6 +363,13 @@ export const contentAssetVersion = z.object({
   promptVersion: z.string().max(40).nullable(),
   /** Set when a person edited the text by hand, so regeneration can warn. */
   editedByUserId: uuid.nullable(),
+  /**
+   * Who asked for this version. Null on rows written before it was recorded.
+   *
+   * An id, never a name: the interface resolves it when it has a reason to
+   * show a person, and everything else works without knowing who anybody is.
+   */
+  createdByUserId: uuid.nullable().default(null),
   createdAt: isoTimestamp,
   /**
    * The channel-specification version this asset was judged against.
@@ -406,6 +426,16 @@ export const standaloneContentInput = z.object({
   originRefId: uuid.nullable().default(null),
   /** The link the piece should point at; the course URL when left out. */
   ctaUrl: z.url().max(2_000).nullable().default(null),
+  /**
+   * Who the piece is for.
+   *
+   * A campaign writes for the audiences its briefing chose; a loose piece had
+   * nobody, so the model was told to write for the course in general and the
+   * result read that way. One persona is enough here — the point of a single
+   * piece is usually one reader — and null keeps the old behaviour for anyone
+   * who has no persona yet (2026-09-17).
+   */
+  personaVersionId: uuid.nullable().default(null),
 });
 export type StandaloneContentInput = z.infer<typeof standaloneContentInput>;
 

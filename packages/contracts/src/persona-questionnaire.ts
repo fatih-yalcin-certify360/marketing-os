@@ -180,4 +180,44 @@ export type PersonaQuestionnaireProposal=z.infer<typeof personaQuestionnaireProp
 export const personaQuestionnaire=z.partialRecord(personaQuestionId,personaAnswer);
 export type PersonaQuestionnaire=z.infer<typeof personaQuestionnaire>;
 export const personaTextInput=z.object({text:z.string().trim().min(30).max(20000),requestKey:z.uuid()});
-export const personaTextExtraction=z.object({answers:z.array(z.object({questionId:personaQuestionId,answer:z.string().max(1000),status:z.enum(['provided','assumption','unknown']),quote:z.string().max(1200).nullable()})).max(36)});
+const personaTextAnswer = z.object({
+  questionId: personaQuestionId,
+  answer: z.string().max(1000),
+  status: z.enum(['provided', 'assumption', 'unknown']),
+  quote: z.string().max(1200).nullable(),
+});
+
+/**
+ * What one text yields: every audience it describes, kept apart.
+ *
+ * A research note rarely describes one person. The CROV material, for instance,
+ * names an HR adviser, a case manager at an occupational health service, a
+ * career changer, a team lead and a labour expert — and ends by saying as much.
+ *
+ * The rule used to be "take the first clearly described audience and note the
+ * limitation", which was the wrong half of a good instinct: blending different
+ * people into one fictional composite is genuinely bad, but the answer to
+ * several audiences is several personas, not one and an apology. Each entry
+ * below carries its own answers and its own quotes, so nothing is merged and
+ * every persona can be checked against the text on its own (2026-09-17).
+ */
+export const personaTextExtraction = z.object({
+  personas: z
+    .array(
+      z.object({
+        /** What this audience is called, in the words the text uses for it. */
+        labelNl: z.string().min(3).max(120),
+        /** What separates this one from the others in the same text. */
+        distinctionNl: z.string().min(10).max(400),
+        /**
+         * How this audience relates to the course, from the confirmed course
+         * card only. The campaign card used to carry a fixed placeholder here,
+         * so every persona said the same thing about the training.
+         */
+        relationToCourseNl: z.string().max(1000).nullable(),
+        answers: z.array(personaTextAnswer).max(36),
+      }),
+    )
+    .min(1)
+    .max(6),
+});

@@ -1,4 +1,4 @@
-import {buildPersonaTextDraft} from './text-draft.js';
+import {buildPersonaTextDrafts} from './text-draft.js';
 import {PERSONA_QUESTIONS,PRODUCIBLE_CHANNELS,personaOrientationProposal,personaQuestionnaireProposal,personaTextExtraction,personaTextInput} from '@c360/contracts';
 import type { LearningWithEvidence } from '@c360/contracts';
 import { randomUUID } from 'node:crypto';
@@ -13,13 +13,16 @@ import {
   type PersonaInput,
   type PersonaListScope,
   type PersonaProposal,
+  type PersonaHistory,
+  type PersonaHistoryEntry,
   type PersonaVersion,
   type ReviewState,
+  type ActorRef,
 } from '@c360/contracts';
 import { learningsForPrompt } from '../learnings/service.js';
 import { fillOpenQuestions, materialForPrompt, openQuestionIds, questionnaireMaterial, verifyQuestionnaire } from './questionnaire.js';
 import type { Db, DbOrTx } from '../../core/db/types.js';
-import { briefVersions, campaigns, personaVersions, courseVersions } from '../../core/db/schema.js';
+import { briefVersions, campaigns, personaVersions, courseVersions, users } from '../../core/db/schema.js';
 import { AppError } from '../../core/errors/app-error.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
 import type { GenerationService } from '../../core/ai/generation.js';
@@ -95,9 +98,11 @@ export class PersonaService {
     const generated=await this.generation.generate(db,{
       organizationId:user.organizationId,labelId:input.labelId,jobId:input.jobId,attempt:input.attempt,
       template:'persona.extract_from_text',schema:personaTextExtraction,
-      context:{language:'nl',course:null,brand:null,pageText:JSON.stringify({questions:PERSONA_QUESTIONS,rawText:text})},
+      // The course card travels now, so the model can say how each audience
+      // relates to this training instead of the card carrying a placeholder.
+      context:{language:'nl',course,brand:null,pageText:JSON.stringify({questions:PERSONA_QUESTIONS,rawText:text})},
     });
-    return {...buildPersonaTextDraft(text,generated.value,course.name),isMock:generated.isMock};
+    return {...buildPersonaTextDrafts(text,generated.value,course.name),isMock:generated.isMock};
   }
 
   /**
@@ -948,6 +953,97 @@ export class PersonaService {
     });
   }
 
+  /**
+   * Every version of one persona, with who wrote it and what changed.
+   *
+   * ## Why this had to be built rather than found
+   *
+   * Nothing was missing from the database: an edit, a filled questionnaire, a
+   * promotion to the library and an approval all wrote rows, each with an
+   * author and a timestamp. What was missing was a way to read them. The list
+   * returns the newest version per identity, so the versions behind it were
+   * recorded and unreadable — which is the same as untraceable for everyone
+   * who does not write SQL.
+   *
+   * ## Three reads, not one per version
+   *
+   * The versions, then the people, then the approvals — each one query with an
+   * `IN`. A persona with nine versions would otherwise be nineteen queries for
+   * a panel nobody opens twice.
+   *
+   * ## What it will not claim
+   *
+   * `changedFieldsNl` is computed by comparing this version with the one
+   * before it, so it states what differs and nothing about why. A person whose
+   * user record is gone reads as "Onbekende gebruiker" rather than being
+   * dropped: that a change was made by someone we can no longer name is itself
+   * part of the trail.
+   */
+  async history(
+    db: DbOrTx,
+    user: CurrentUser,
+    labelId: string,
+    versionId: string,
+  ): Promise<PersonaHistory> {
+    requireLabelPermission(user, labelId, 'persona:read');
+    const anchor = await this.requireVersion(db, labelId, versionId);
+
+    const rows = await db
+      .select()
+      .from(personaVersions)
+      .where(
+        and(
+          eq(personaVersions.labelId, labelId),
+          eq(personaVersions.personaKey, anchor.personaKey),
+        ),
+      )
+      .orderBy(personaVersions.version);
+    const versions = rows.map(toPersona);
+
+    const actorIds = [...new Set(rows.map((row) => row.createdByUserId).filter((id): id is string => id !== null))];
+    const approvalRows = await this.approvals.findManyFor(db, 'persona', versions.map((item) => item.id));
+    for (const approval of approvalRows.values()) actorIds.push(approval.approvedByUserId);
+
+    const people = new Map<string, ActorRef>();
+    const unique = [...new Set(actorIds)];
+    if (unique.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, displayName: users.displayName, email: users.email })
+        .from(users)
+        .where(and(inArray(users.id, unique), eq(users.organizationId, user.organizationId)));
+      for (const row of userRows) {
+        people.set(row.id, { userId: row.id, displayName: row.displayName, email: row.email });
+      }
+    }
+    const actor = (id: string | null): ActorRef | null => {
+      if (id === null) return null;
+      return people.get(id) ?? { userId: id, displayName: 'Onbekende gebruiker', email: null };
+    };
+
+    const items: PersonaHistoryEntry[] = versions.map((version, index) => {
+      const row = rows[index];
+      const previous = index === 0 ? null : versions[index - 1] ?? null;
+      const approval = approvalRows.get(version.id);
+      return {
+        versionId: version.id,
+        version: version.version,
+        createdAt: version.createdAt,
+        by: actor(row?.createdByUserId ?? null),
+        origin: version.origin,
+        reviewState: version.reviewState,
+        promptVersion: version.promptVersion,
+        changedFieldsNl: previous === null ? [] : changedFields(previous, version),
+        actionNl: actionFor(version, previous),
+        approvedBy: approval === undefined ? null : actor(approval.approvedByUserId),
+        approvedAt: approval?.approvedAt.toISOString() ?? null,
+        approvalNoteNl: approval?.noteNl ?? null,
+      };
+    });
+
+    // Newest first: the last thing that happened is the thing being asked about.
+    return { personaKey: anchor.personaKey, items: items.reverse() };
+  }
+
   async findVersion(
     db: DbOrTx,
     labelId: string,
@@ -1088,4 +1184,103 @@ function toPersona(row: PersonaRow): PersonaVersion {
     createdAt: row.createdAt.toISOString(),
     createdByUserId: row.createdByUserId,
   };
+}
+
+/**
+ * Which fields of a persona differ between two versions.
+ *
+ * Compared rather than recorded. Storing "what changed" at write time would
+ * mean every path that writes a version has to remember to say so, and the one
+ * that forgets produces a version that looks like it changed nothing. Comparing
+ * cannot forget.
+ *
+ * Lists are compared as a whole: reordering the barriers *is* a change to the
+ * barriers, and a reader who wants to know which one moved has both versions
+ * in front of them. The questionnaire is compared per answered question,
+ * because a filled interview otherwise reads as one undifferentiated change to
+ * "de vragenlijst" no matter how much of it moved.
+ */
+function changedFields(before: PersonaVersion, after: PersonaVersion): string[] {
+  const changed: string[] = [];
+  const text: [string, keyof PersonaVersion][] = [
+    ['Naam', 'name'],
+    ['Samenvatting', 'summary'],
+    ['Behoefte', 'need'],
+    ['Drijfveer', 'motivation'],
+    ['Relatie met de opleiding', 'relationToCourse'],
+  ];
+  for (const [labelNl, key] of text) {
+    if (before[key] !== after[key]) changed.push(labelNl);
+  }
+
+  const lists: [string, keyof PersonaVersion][] = [
+    ['Drempels', 'barriers'],
+    ['Keuzecriteria', 'decisionCriteria'],
+    ['Aannames', 'assumptions'],
+    ['Onderbouwing', 'grounding'],
+    ['Oriëntatie', 'orientationSources'],
+    ['Gekoppelde opleidingen', 'linkedCourseVersionIds'],
+  ];
+  for (const [labelNl, key] of lists) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(labelNl);
+  }
+
+  const answeredBefore = answeredQuestions(before);
+  const answeredAfter = answeredQuestions(after);
+  const added = [...answeredAfter].filter((id) => !answeredBefore.has(id)).length;
+  const rewritten = [...answeredAfter].filter(
+    (id) => answeredBefore.has(id) && before.questionnaire?.[id]?.answer !== after.questionnaire?.[id]?.answer,
+  ).length;
+  const removed = [...answeredBefore].filter((id) => !answeredAfter.has(id)).length;
+  if (added > 0) changed.push(`${String(added)} vraag/vragen beantwoord`);
+  if (rewritten > 0) changed.push(`${String(rewritten)} antwoord(en) herschreven`);
+  if (removed > 0) changed.push(`${String(removed)} antwoord(en) leeggemaakt`);
+
+  return changed;
+}
+
+type QuestionId = (typeof PERSONA_QUESTIONS)[number]['id'];
+
+function answeredQuestions(persona: PersonaVersion): Set<QuestionId> {
+  const filled = new Set<QuestionId>();
+  for (const question of PERSONA_QUESTIONS) {
+    const answer = persona.questionnaire?.[question.id];
+    if (answer !== undefined && answer.status !== 'unknown' && answer.answer.trim().length > 0) {
+      filled.add(question.id);
+    }
+  }
+  return filled;
+}
+
+/**
+ * What a version *was*, in one phrase.
+ *
+ * Read off what is recorded — the origin, the prompt that produced it and the
+ * version number — and never guessed. A prompt name is the one thing that
+ * distinguishes an AI proposal from a text import from a filled questionnaire,
+ * which is why it is matched on rather than described in general terms.
+ */
+function actionFor(version: PersonaVersion, previous: PersonaVersion | null): string {
+  const prompt = version.promptVersion ?? '';
+  if (prompt.startsWith('persona.extract_from_text')) {
+    return previous === null ? 'Uit een aangeleverde tekst gehaald' : 'Opnieuw uit een tekst gehaald';
+  }
+  if (prompt.startsWith('persona.fill_questionnaire')) return 'Vragenlijst door AI aangevuld';
+  if (prompt.startsWith('persona.orientation')) return 'Oriëntatie door AI aangevuld';
+  if (prompt.startsWith('persona.propose')) {
+    return previous === null ? 'Door AI voorgesteld' : 'Opnieuw door AI voorgesteld';
+  }
+  if (previous === null) {
+    return version.origin === 'ai_generated'
+      ? 'Door AI aangemaakt'
+      : version.origin === 'demo'
+        ? 'Demo-gegevens'
+        : 'Met de hand aangemaakt';
+  }
+  // A version whose grounding gained a "came from campaign" entry and that has
+  // no campaign of its own is the library copy of a campaign persona.
+  if (previous.campaignId !== null && version.campaignId === null) {
+    return 'Overgenomen in de bibliotheek';
+  }
+  return version.origin === 'user' ? 'Met de hand aangepast' : 'Aangepast';
 }

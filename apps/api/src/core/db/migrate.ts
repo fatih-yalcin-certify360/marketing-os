@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -44,12 +45,34 @@ export interface MigrateResult {
   alreadyApplied: string[];
 }
 
-/** Resolves the migrations directory relative to this source file. */
+/**
+ * Where the `.sql` files are, in both layouts this code runs in.
+ *
+ * From source the module sits at `apps/api/src/core/db`, three levels under the
+ * app root. In the production image it is one file in `/app/dist`, with the
+ * migrations beside it at `/app/db`. Computing only the first gave
+ * `/db/migrations` in a container and the migration step exited 1 — which
+ * nobody saw, because an earlier fault stopped the image before it got here
+ * (2026-09-17).
+ *
+ * Both candidates are tried and the first that exists wins, so neither layout
+ * is privileged and a wrong answer is impossible to mistake for a working one.
+ */
 export function migrationsDirectory(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  // src/core/db -> apps/api
-  const appRoot = path.resolve(here, '../../..');
-  return path.join(appRoot, MIGRATIONS_DIRNAME);
+  const candidates = [
+    // From source: src/core/db -> apps/api
+    path.join(path.resolve(here, '../../..'), MIGRATIONS_DIRNAME),
+    // From the bundle: /app/dist -> /app
+    path.join(path.resolve(here, '..'), MIGRATIONS_DIRNAME),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (found === undefined) {
+    throw new Error(
+      `Cannot find the migrations directory. Looked in: ${candidates.join(', ')}.`,
+    );
+  }
+  return found;
 }
 
 export async function loadMigrations(directory = migrationsDirectory()): Promise<MigrationFile[]> {

@@ -247,6 +247,47 @@ export const campaignRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  /**
+   * Approves one persona version.
+   *
+   * The service has done this since the beginning — it sets the review state
+   * and writes an approval row bound to this exact version — but nothing ever
+   * called it, so no persona in the product could be approved and the
+   * `persona:approve` permission granted nothing. Found while building the
+   * trail below, which had a "goedgekeurd door" that could never be filled
+   * (2026-09-17).
+   *
+   * Bound to the version and not to the persona: approving v2 says nothing
+   * about v3, which is the whole reason approvals carry a version number.
+   */
+  app.post(
+    '/labels/:labelId/personas/:personaVersionId/approve',
+    { preHandler: authenticate },
+    async (request) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
+      return services.personas.approve(db, user, params.labelId, params.personaVersionId);
+    },
+  );
+
+  /**
+   * The whole trail of one persona: every version, who wrote it, what changed.
+   *
+   * Its own endpoint rather than a field on the persona, because it is one
+   * query per persona and the list view shows dozens. The panel that reads it
+   * is opened when somebody wants to know, which is exactly when the cost is
+   * worth paying.
+   */
+  app.get(
+    '/labels/:labelId/personas/:personaVersionId/history',
+    { preHandler: authenticate },
+    async (request) => {
+      const user = currentUser(request);
+      const params = labelParams.extend({ personaVersionId: z.uuid() }).parse(request.params);
+      return services.personas.history(db, user, params.labelId, params.personaVersionId);
+    },
+  );
+
   /** Copies a campaign persona into the library; the original stays in its campaign. */
   app.post(
     '/labels/:labelId/personas/:personaVersionId/library',

@@ -57,6 +57,8 @@ const standalonePayload = basePayload.extend({
   originKind: z.string().min(1).max(40),
   originRefId: z.uuid().nullable(),
   ctaUrl: z.string().max(2_000).nullable(),
+  // Optional so a job queued before personas could be chosen still parses.
+  personaVersionId: z.uuid().nullable().default(null),
 });
 
 const revisePayload = basePayload.extend({
@@ -536,6 +538,7 @@ export function createGenerationHandlers(deps: GenerationDeps): RegisteredHandle
           channel: payload.channel as Parameters<typeof deps.content.generateStandalone>[2]['channel'],
           funnelStage: payload.stage as Parameters<typeof deps.content.generateStandalone>[2]['funnelStage'],
           angleNl: payload.angleNl,
+          personaVersionId: payload.personaVersionId,
           origin: {
             kind: payload.originKind as Parameters<typeof deps.content.generateStandalone>[2]['origin']['kind'],
             refId: payload.originRefId,

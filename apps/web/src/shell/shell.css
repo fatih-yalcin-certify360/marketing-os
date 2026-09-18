@@ -1571,6 +1571,15 @@
   overflow-wrap: anywhere;
 }
 
+/* The second line of a tile: when and how, under who. */
+.os-metatile__note {
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--tx-3);
+  overflow-wrap: anywhere;
+}
+
 /* A definition row inside a panel: term, value, hairline above. */
 .os-deflist > * + * {
   border-top: 1px solid var(--n-2);

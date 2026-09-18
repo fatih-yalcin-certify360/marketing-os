@@ -4,7 +4,7 @@ import { loadRenderResources } from '../../core/render/brand-resources.js';
 import { creativeTextZone, creativeSourceZones, resolveCreativePalette, CreativeContrastError, CreativeTextOverflowError } from '../../core/render/creative-layouts.js';
 import { creativeImagePrompt, creativeProblems, repeatedCreativeScenes, SOCIAL_IMAGE_CHANNELS } from './creative.js';
 import { prepareCreativeResearch } from './creative-research.js';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { googleAdsFrameText,
   CHANNEL_CONFIG,
   CHANNEL_LABEL_NL,
@@ -21,6 +21,7 @@ import { googleAdsFrameText,
   FUNNEL_STAGES,
   FUNNEL_STAGE_LABEL_NL,
   imageIsClickable,
+  type ActorRef,
   type ArtDirection,
   type BriefKeyword,
   type ChannelWarning,
@@ -53,7 +54,8 @@ import {
   type CopyContext,
 } from './quality.js';
 import type { Db, DbOrTx } from '../../core/db/types.js';
-import { assets, contentAssetVersions } from '../../core/db/schema.js';
+import { assets, campaigns, contentAssetVersions, courseVersions, labels, users } from '../../core/db/schema.js';
+import { buildDossier, type Dossier } from './dossier.js';
 import { AppError } from '../../core/errors/app-error.js';
 import { requireLabelPermission } from '../../core/authz/policy.js';
 import type { GenerationService } from '../../core/ai/generation.js';
@@ -538,6 +540,14 @@ export class ContentAssetService {
       campaignId: string | null;
       /** Where a standalone piece came from; ignored for a campaign piece. */
       standaloneOrigin?: { kind: ContentOriginKind; refId: string | null } | undefined;
+      /**
+       * The sentence a loose piece was written from, kept with the piece.
+       *
+       * Passed on by every path that writes a new version of an existing
+       * piece, so an edit or a revision does not lose what the piece was asked
+       * to be (migration 0030).
+       */
+      instructionNl?: string | null | undefined;
       assetKey: string;
       channel: MarketingChannel;
       funnelStage: FunnelStage | null;
@@ -814,6 +824,7 @@ export class ContentAssetService {
           ownerScope: input.campaignId === null ? 'standalone' : 'campaign',
           originKind: input.campaignId === null ? input.standaloneOrigin?.kind ?? 'manual' : null,
           originRefId: input.campaignId === null ? input.standaloneOrigin?.refId ?? null : null,
+          instructionNl: input.instructionNl ?? null,
           personaVersionIds: [...input.personaVersionIds],
           warnings,
           channelConfigVersion: CHANNEL_CONFIG.version,
@@ -872,6 +883,8 @@ export class ContentAssetService {
       funnelStage: FunnelStage | null;
       /** What the piece should be about, in the requester's own words. */
       angleNl: string;
+      /** The audience to write for, or null to write for the course in general. */
+      personaVersionId?: string | null | undefined;
       origin: { kind: ContentOriginKind; refId: string | null };
       ctaUrl?: string | null | undefined;
       signal?: AbortSignal | undefined;
@@ -888,6 +901,22 @@ export class ContentAssetService {
     const brandProfile = await this.brand.requireApproved(db, input.labelId);
     const coursePage = (await this.coursePage?.(course.courseUrl ?? null)) ?? null;
     const learnings = learningsForPrompt((await this.learnings?.approvedForPrompt(db, input.labelId)) ?? []);
+    /*
+     * The audience, when one was chosen.
+     *
+     * Loaded through the same lookup the campaign path uses, so a persona of
+     * another label cannot be written for: `findManyByIds` is scoped to the
+     * label. An unknown or foreign id yields an empty list, and the piece is
+     * then written for the course in general rather than silently for somebody
+     * else's audience.
+     */
+    const personas =
+      input.personaVersionId === null || input.personaVersionId === undefined
+        ? []
+        : await this.personas.findManyByIds(db, input.labelId, [input.personaVersionId]);
+    if ((input.personaVersionId ?? null) !== null && personas.length === 0) {
+      throw AppError.notFoundOrForbidden('persona_version', input.personaVersionId ?? '');
+    }
 
     // Existing standalone pieces of this label, so the next one differs from
     // them the way campaign pieces differ from each other.
@@ -905,7 +934,7 @@ export class ContentAssetService {
           language: 'nl',
           course,
           brand: brandProfile,
-          personas: [],
+          personas,
           channels: [input.channel],
           channelNotes: channelNotes([input.channel]),
           funnelStage: input.funnelStage,
@@ -969,6 +998,7 @@ export class ContentAssetService {
         // Unique within the label, which is what the standalone partial index
         // enforces; the channel is in the key so a list reads at a glance.
         assetKey: `los-${input.channel}-${randomUUID().slice(0, 8)}`,
+        instructionNl: input.angleNl,
         channel: input.channel,
         funnelStage: input.funnelStage,
         copy: { ...proposal.copy, ctaUrl: input.ctaUrl ?? proposal.copy.ctaUrl ?? course.courseUrl },
@@ -988,7 +1018,7 @@ export class ContentAssetService {
         ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
         ...(input.beforeVisual === undefined ? {} : { beforeVisual: input.beforeVisual }),
         course,
-        personaVersionIds: [],
+        personaVersionIds: personas.map((persona) => persona.id),
         origin: 'ai_generated',
         promptVersion: result.promptVersion,
         contextWarnings: contextual,
@@ -1183,6 +1213,107 @@ export class ContentAssetService {
     return found;
   }
 
+  /**
+   * Everything about one piece, assembled as a document.
+   *
+   * Gathered here rather than in the route because it is five reads that have
+   * to agree with each other, and because every one of them is scoped to the
+   * label: the piece, its course, its audiences, its campaign and the person
+   * who asked for it. An id that belongs to another label reads as absent, the
+   * same as anywhere else.
+   *
+   * The reads that can come back empty do not fail the document. A user who
+   * has since been removed, a campaign that was renamed away — the dossier
+   * says "niet vastgelegd" and stays useful, because a missing name is not a
+   * reason to refuse somebody the text they wrote.
+   */
+  async dossierFor(
+    db: DbOrTx,
+    user: CurrentUser,
+    labelId: string,
+    assetId: string,
+    generatedAt: string,
+  ): Promise<Dossier> {
+    requireLabelPermission(user, labelId, 'content:read');
+    const asset = await this.requireById(db, labelId, assetId);
+
+    const [labelRow] = await db
+      .select({ name: labels.name })
+      .from(labels)
+      .where(eq(labels.id, labelId))
+      .limit(1);
+    const [courseRow] = await db
+      .select({
+        name: courseVersions.name,
+        externalCode: courseVersions.externalCode,
+        courseUrl: courseVersions.courseUrl,
+      })
+      .from(courseVersions)
+      .where(and(eq(courseVersions.id, asset.courseVersionId), eq(courseVersions.labelId, labelId)))
+      .limit(1);
+
+    const personas = await this.personas.findManyByIds(db, labelId, asset.personaVersionIds);
+
+    /*
+     * Every author in one query.
+     *
+     * The person who asked for the piece and the people who wrote its
+     * audiences are all rows of the same table, and looking them up one at a
+     * time would be a query per persona for a document nobody builds twice.
+     */
+    const authorIds = [
+      ...new Set(
+        [asset.createdByUserId, ...personas.map((persona) => persona.createdByUserId)].filter(
+          (id): id is string => id !== null,
+        ),
+      ),
+    ];
+    const byUserId = new Map<string, { displayName: string; email: string }>();
+    if (authorIds.length > 0) {
+      const rows = await db
+        .select({ id: users.id, displayName: users.displayName, email: users.email })
+        .from(users)
+        .where(and(inArray(users.id, authorIds), eq(users.organizationId, user.organizationId)));
+      for (const row of rows) byUserId.set(row.id, { displayName: row.displayName, email: row.email });
+    }
+    /** A recorded author we can no longer name is still a recorded author. */
+    const actorFor = (id: string | null): ActorRef | null => {
+      if (id === null) return null;
+      const found = byUserId.get(id);
+      return found === undefined
+        ? { userId: id, displayName: 'Onbekende gebruiker', email: null }
+        : { userId: id, ...found };
+    };
+    const createdBy = asset.createdByUserId === null ? null : byUserId.get(asset.createdByUserId) ?? null;
+
+    let campaignName: string | null = null;
+    if (asset.campaignId !== null) {
+      const [row] = await db
+        .select({ name: campaigns.name })
+        .from(campaigns)
+        .where(and(eq(campaigns.id, asset.campaignId), eq(campaigns.labelId, labelId)))
+        .limit(1);
+      campaignName = row?.name ?? null;
+    }
+
+    return buildDossier({
+      asset,
+      label: { name: labelRow?.name ?? 'Onbekend label' },
+      course: {
+        name: courseRow?.name ?? 'Onbekende opleiding',
+        externalCode: courseRow?.externalCode ?? null,
+        courseUrl: courseRow?.courseUrl ?? null,
+      },
+      personas: personas.map((persona) => ({
+        version: persona,
+        createdBy: actorFor(persona.createdByUserId),
+      })),
+      createdBy,
+      campaignName,
+      generatedAt,
+    });
+  }
+
 
   /**
    * Optimistic-concurrency guard.
@@ -1246,6 +1377,7 @@ export class ContentAssetService {
       labelId,
       campaignId: current.campaignId,
       assetKey: current.assetKey,
+      instructionNl: current.instructionNl,
       channel: current.channel,
       funnelStage: current.funnelStage,
       copy: merged,
@@ -1348,6 +1480,7 @@ export class ContentAssetService {
     if (input.scope === 'images') {
       return this.storeVersion(db, user, {
         labelId, campaignId: current.campaignId, assetKey: current.assetKey, channel: current.channel,
+        instructionNl: current.instructionNl,
         funnelStage: current.funnelStage, copy: current.copy, imageHeadline: current.variants[0]?.spec.headline ?? current.copy.hook,
         imageSubline: current.variants[0]?.spec.subline ?? null, withImage: current.variants.length > 0,
         creativeBrief: current.variants[0]?.spec.creativeBrief,
@@ -1424,6 +1557,7 @@ export class ContentAssetService {
       labelId,
       campaignId: current.campaignId,
       assetKey: current.assetKey,
+      instructionNl: current.instructionNl,
       channel: current.channel,
       funnelStage: current.funnelStage,
       copy: revised.copy,
@@ -1743,6 +1877,7 @@ interface AssetRow {
   ownerScope?: string | null;
   originKind?: string | null;
   originRefId?: string | null;
+  instructionNl?: string | null;
   assetKey: string;
   version: number;
   channel: string;
@@ -1762,6 +1897,7 @@ interface AssetRow {
   origin: string;
   promptVersion: string | null;
   editedByUserId: string | null;
+  createdByUserId?: string | null;
   createdAt: Date;
 }
 
@@ -1789,6 +1925,7 @@ function toAsset(row: AssetRow): ContentAssetVersion {
     ownerScope: (row.ownerScope ?? 'campaign') as ContentAssetVersion['ownerScope'],
     originKind: (row.originKind ?? null) as ContentAssetVersion['originKind'],
     originRefId: row.originRefId ?? null,
+    instructionNl: row.instructionNl ?? null,
     assetKey: row.assetKey,
     version: row.version,
     channel: row.channel as MarketingChannel,
@@ -1824,6 +1961,7 @@ function toAsset(row: AssetRow): ContentAssetVersion {
     origin: row.origin as ContentAssetVersion['origin'],
     promptVersion: row.promptVersion,
     editedByUserId: row.editedByUserId,
+    createdByUserId: row.createdByUserId ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }

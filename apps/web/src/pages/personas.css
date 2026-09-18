@@ -90,3 +90,112 @@
   line-height: 1.45;
   color: var(--lp-deep);
 }
+
+/*
+ * One proposed persona in the import preview.
+ *
+ * A text that describes five audiences now yields five of these, so each one
+ * has to read as its own thing rather than as another paragraph: the name and
+ * its tick box sit together at the top, and what separates it from the others
+ * is the first line under it, because that is the question somebody is actually
+ * asking while they scan the list.
+ */
+.persona-ai-proposal {
+  margin-top: var(--c360-space-4, 16px);
+  padding: 14px 16px;
+  border: 1px solid var(--c360-color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--n-0, #fff);
+}
+
+.persona-ai-proposal__pick {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.persona-ai-proposal__pick h4 {
+  margin: 0;
+}
+
+.persona-ai-proposal__distinction {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: var(--tx-3);
+}
+
+.persona-ai-proposal__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: var(--c360-space-4, 16px);
+  padding-top: var(--c360-space-3, 12px);
+  border-top: 1px solid var(--c360-color-border);
+}
+
+/* ------------------------------------------------------------- herkomst ---
+ * The version trail of one persona: what happened, when and by whom.
+ *
+ * A numbered list read newest first, with a rule down the left so the entries
+ * read as one sequence rather than as separate cards — the point of a trail is
+ * that it is continuous.
+ */
+.persona-trail {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--n-2);
+  display: grid;
+  gap: 14px;
+}
+
+.persona-trail__item {
+  position: relative;
+}
+
+.persona-trail__item::before {
+  content: '';
+  position: absolute;
+  left: -19px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lp-solid);
+}
+
+.persona-trail__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.persona-trail__version {
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tx-3);
+}
+
+.persona-trail__action {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.persona-trail__by,
+.persona-trail__changed,
+.persona-trail__prompt {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--tx-2);
+  overflow-wrap: anywhere;
+}
+
+.persona-trail__prompt {
+  font-size: 11px;
+  color: var(--tx-3);
+}

@@ -21,6 +21,7 @@ import type {
   Opportunity,
   OutcomeInputData,
   OutcomeReport,
+  PersonaHistory,
   PersonaListScope,
   PersonaVersion,
   PublicationInput,
@@ -365,6 +366,52 @@ export function usePersonas(
         signal,
       ),
     enabled: labelId !== undefined && courseVersionId !== undefined,
+    retry: retryPolicy,
+  });
+}
+
+/**
+ * Approves one persona version.
+ *
+ * Both the persona lists and the trail are refetched: approving changes the
+ * review state on the card and adds the approver to the trail, and a screen
+ * that shows one of the two updated is a screen that looks broken.
+ */
+export function useApprovePersona(
+  labelId: string,
+): UseMutationResult<PersonaVersion, ApiClientError, { personaVersionId: string }> {
+  const client = useQueryClient();
+  return useMutation<PersonaVersion, ApiClientError, { personaVersionId: string }>({
+    mutationFn: ({ personaVersionId }) =>
+      api.post<PersonaVersion>(`/labels/${labelId}/personas/${personaVersionId}/approve`, {}),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['personas', labelId] }),
+        client.invalidateQueries({ queryKey: ['persona-history', labelId] }),
+      ]);
+    },
+  });
+}
+
+/**
+ * The trail of one persona: every version, who wrote it and what changed.
+ *
+ * Fetched per persona rather than with the list, because it is one query per
+ * identity and a list shows dozens. It is loaded when the panel that shows it
+ * is on screen, which is when somebody actually wants to know.
+ */
+export function usePersonaHistory(
+  labelId: string,
+  personaVersionId: string | undefined,
+): UseQueryResult<PersonaHistory, ApiClientError> {
+  return useQuery<PersonaHistory, ApiClientError>({
+    queryKey: ['persona-history', labelId, personaVersionId ?? 'none'],
+    queryFn: ({ signal }) =>
+      api.get<PersonaHistory>(
+        `/labels/${labelId}/personas/${String(personaVersionId)}/history`,
+        signal,
+      ),
+    enabled: personaVersionId !== undefined,
     retry: retryPolicy,
   });
 }

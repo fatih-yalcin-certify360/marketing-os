@@ -217,7 +217,7 @@ export function PersonaEditor(props: {
         </ul>
       </details>
 
-      {existing === null && <PersonaTextImport labelId={labelId} courseId={courseId} onApply={applyDraft} />}
+      {existing === null && <PersonaTextImport labelId={labelId} courseId={courseId} onApply={applyDraft} onSaved={props.onSaved} />}
 
       <details>
         <summary>Persona importeren uit JSON</summary>

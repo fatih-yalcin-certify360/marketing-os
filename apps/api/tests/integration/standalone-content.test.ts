@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createCampaignInput, isImplementedJobType } from '@c360/contracts';
 import { courseVersions } from '../../src/core/db/schema.js';
@@ -33,6 +34,59 @@ describe('a piece of content without a campaign', () => {
 
   afterAll(async () => {
     await h.close();
+  });
+
+  it('writes for the chosen audience, and records which one', async () => {
+    const s = h.appContext.services;
+    /*
+     * A loose piece had no audience at all: the prompt received an empty list
+     * and every piece was written for the course in general. The persona now
+     * travels to the model and is recorded on the asset, so what it was written
+     * for is still knowable months later (2026-09-17).
+     */
+    const proposed = await s.personas.propose(h.db, h.currentUser, { labelId, courseVersionId });
+    const persona = proposed.personas[0];
+    expect(persona).toBeDefined();
+    await s.personas.approve(h.db, h.currentUser, labelId, persona!.id);
+
+    const generate = vi.spyOn(s.generation, 'generate');
+    const asset = await s.content.generateStandalone(h.db, h.currentUser, {
+      labelId,
+      courseVersionId,
+      // Not a blog article: the mock writes the same text per channel, and a
+      // second one would be refused as a repeat of the piece above rather than
+      // for anything to do with the audience.
+      channel: 'email',
+      funnelStage: 'discover',
+      angleNl: 'Schrijf een mail voor deze doelgroep over regie op een verzuimdossier.',
+      personaVersionId: persona!.id,
+      origin: { kind: 'manual', refId: null },
+    });
+
+    expect(asset.personaVersionIds).toEqual([persona!.id]);
+    // The context carries the persona's content, not its id — so the check is
+    // that this audience's own words reached the model, not that a field was set.
+    const context = generate.mock.calls[0]![1].context;
+    expect(context.personas?.map((entry) => entry.name)).toEqual([persona!.name]);
+    expect(context.personas?.[0]?.need).toBe(persona!.need);
+    generate.mockRestore();
+  });
+
+  it('refuses an audience that does not belong to this label', async () => {
+    const s = h.appContext.services;
+    // Scoped lookup, so a persona of another label cannot be written for — and
+    // the refusal is explicit rather than a piece quietly written for nobody.
+    await expect(
+      s.content.generateStandalone(h.db, h.currentUser, {
+        labelId,
+        courseVersionId,
+        channel: 'course_page_update',
+        funnelStage: null,
+        angleNl: 'Schrijf iets over regie op verzuim voor een onbekende doelgroep.',
+        personaVersionId: randomUUID(),
+        origin: { kind: 'manual', refId: null },
+      }),
+    ).rejects.toMatchObject({ code: 'not_found' });
   });
 
   it('is produced, versioned and listed, with its origin kept', async () => {

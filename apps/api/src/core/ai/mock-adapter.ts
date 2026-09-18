@@ -155,7 +155,7 @@ export class MockTextAdapter implements TextGenerationAdapter {
       case 'research.findings':
         return this.researchFindings(context);
       case 'persona.extract_from_text':
-        return {answers:[]};
+        return this.textPersonas(context);
       case 'persona.questionnaire':
         return this.questionnaire(context);
       case 'persona.orientation':
@@ -1000,6 +1000,49 @@ export class MockTextAdapter implements TextGenerationAdapter {
       },
       rationaleNl:
         'Gefabriceerd voorbeeld uit de demomodus. Er is geen briefing of doelgroep gelezen; deze tekst zegt niets over deze campagne.',
+    };
+  }
+
+  /**
+   * Two personas out of one text, clearly fabricated.
+   *
+   * Two rather than one on purpose: the whole point of the change is that a
+   * text describing several audiences yields several personas, and a mock that
+   * returns one would let that break without a test noticing. The quotes are
+   * taken from the start of the supplied text so the literal-fragment check —
+   * which is what keeps the personas apart — is genuinely exercised.
+   */
+  private textPersonas(context: MockContext): unknown {
+    const raw = ((): string => {
+      try {
+        return String((JSON.parse(context.pageText ?? '{}') as { rawText?: string }).rawText ?? '');
+      } catch {
+        return '';
+      }
+    })();
+    const fragment = raw.replace(/\s+/gu, ' ').trim().slice(0, 60);
+    const answers = (role: string): unknown[] =>
+      fragment.length >= 8
+        ? [
+            { questionId: 'q01', answer: `Demo: ${role}`, status: 'provided', quote: fragment },
+            { questionId: 'q11', answer: 'Demo: wil meer zekerheid in het vak.', status: 'assumption', quote: fragment },
+          ]
+        : [];
+    return {
+      personas: [
+        {
+          labelNl: 'Demo: eerste doelgroep uit de tekst',
+          distinctionNl: 'Gefabriceerd voorbeeld uit de demomodus; onderscheid is niet uit de tekst afgeleid.',
+          relationToCourseNl: null,
+          answers: answers('eerste rol'),
+        },
+        {
+          labelNl: 'Demo: tweede doelgroep uit de tekst',
+          distinctionNl: 'Gefabriceerd voorbeeld uit de demomodus; onderscheid is niet uit de tekst afgeleid.',
+          relationToCourseNl: null,
+          answers: answers('tweede rol'),
+        },
+      ],
     };
   }
 

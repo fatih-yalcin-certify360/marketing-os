@@ -9,7 +9,7 @@ import { radarRoutes } from './modules/market-radar/routes.js';
 import { VisualGenerationService } from './core/ai/visuals.js';
 import { PortalSyncService } from './integrations/brand-portal/service.js';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { ServerEnv } from '@c360/config';
+import { prettyTransport, type ServerEnv } from '@c360/config';
 import { registerErrorHandler } from './core/errors/handler.js';
 import { registerSecurity } from './core/http/security.js';
 import { authenticate } from './core/http/authenticate.js';
@@ -217,9 +217,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
         ],
         censor: '[redacted]',
       },
-      ...(env.NODE_ENV === 'development'
-        ? { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } }
-        : {}),
+      ...prettyTransport(env.NODE_ENV),
     },
     // Never honour X-Forwarded-For for identity or trust decisions. The trusted
     // proxy check reads `socket.remoteAddress` directly, so leaving this off

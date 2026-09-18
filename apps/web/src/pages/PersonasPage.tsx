@@ -11,6 +11,7 @@ import {
 } from '@c360/contracts';
 import { Badge, Button, Card, Disclosure, Notice, Skeleton } from '@c360/ui';
 import {
+  useApprovePersona,
   useCampaigns,
   useCourses,
   useFillPersonaOrientation,
@@ -26,6 +27,7 @@ import {
   questionnaireStats,
 } from '../components/PersonaQuestionnaire.js';
 import { PersonaQuestionnaireFill } from '../components/PersonaQuestionnaireFill.js';
+import { PersonaTrail } from '../components/PersonaTrail.js';
 import { JobWatcher } from '../components/JobWatcher.js';
 import { Modal } from '../components/Modal.js';
 import './personas.css';
@@ -63,6 +65,8 @@ function download(proposal: PersonaProposal): void {
 }
 
 const WRITABLE_ROLES: readonly LabelSummary['role'][] = ['label_manager', 'label_editor'];
+/** Mirrors `persona:approve`, which the manager and the approver hold. */
+const APPROVING_ROLES: readonly LabelSummary['role'][] = ['label_manager', 'label_approver'];
 
 type Shelf = 'library' | 'campaigns';
 
@@ -76,12 +80,14 @@ function Library(props: { label: LabelSummary }): ReactNode {
   const everything = usePersonas(label.id, course || undefined, undefined, 'all');
   const campaigns = useCampaigns(label.id);
   const promote = usePromotePersona(label.id);
+  const approve = useApprovePersona(label.id);
   const [search, setSearch] = useState('');
   const [shelf, setShelf] = useState<Shelf>('library');
   const [editing, setEditing] = useState<PersonaVersion | null>(null);
   const [makingNew, setMakingNew] = useState(false);
   const [saved, setSaved] = useState('');
   const writable = WRITABLE_ROLES.includes(label.role);
+  const canApprove = APPROVING_ROLES.includes(label.role);
   const ids = { course: useId(), search: useId(), editor: useId() };
 
   const matches = (persona: PersonaVersion): boolean =>
@@ -329,6 +335,21 @@ function Library(props: { label: LabelSummary }): ReactNode {
             labelId={label.id}
             persona={selected}
             writable={writable}
+            onApprove={
+              canApprove && selected.reviewState !== 'approved'
+                ? () => {
+                    approve.mutate(
+                      { personaVersionId: selected.id },
+                      {
+                        onSuccess: () => {
+                          setSaved(`"${selected.name}" is goedgekeurd.`);
+                        },
+                      },
+                    );
+                  }
+                : undefined
+            }
+            approving={approve.isPending}
             linkedNoteNl={linkedNote(selected)}
             campaignNameNl={selected.campaignId === null ? null : campaignName(selected.campaignId)}
             editing={editing?.id === selected.id}
@@ -469,6 +490,9 @@ function PersonaDetail(props: {
   campaignNameNl: string | null;
   linkedNoteNl: string | null;
   onEdit: () => void;
+  /** Absent when this person may not approve, or when it is already approved. */
+  onApprove?: (() => void) | undefined;
+  approving?: boolean;
   onPromote?: (() => void) | undefined;
   promoting?: boolean;
   editorNode: ReactNode;
@@ -496,6 +520,11 @@ function PersonaDetail(props: {
               onClick={props.onEdit}
             >
               {props.editing ? 'Bewerken sluiten' : 'Bewerken'}
+            </Button>
+          )}
+          {props.onApprove !== undefined && (
+            <Button variant="secondary" icon="check" onClick={props.onApprove} disabled={props.approving === true}>
+              Goedkeuren
             </Button>
           )}
           {props.onPromote !== undefined && (
@@ -551,6 +580,15 @@ function PersonaDetail(props: {
           </span>
         </div>
       </div>
+
+      {/*
+        Who made this, who changed it and who approved it.
+
+        Placed above the fields rather than at the bottom: a persona says what
+        every campaign aims at, and "on whose say-so" is a question people have
+        while they read it, not after.
+      */}
+      <PersonaTrail labelId={props.labelId} personaVersionId={persona.id} />
 
       {props.writable && <PersonaQuestionnaireFill labelId={props.labelId} persona={persona} />}
 

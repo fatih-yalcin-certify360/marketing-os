@@ -32,6 +32,23 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 RUN npm run build -w @c360/api
 
+# ------------------------------------------------------- native modules -----
+# The two packages the bundler cannot inline, at the versions the lockfile
+# pins, with their own dependencies.
+#
+# Installed on their own rather than by pruning the full tree: `apps/api`
+# depends on Playwright, which is large and pulls browser tooling nothing in
+# production uses. Reading the versions out of the lockfile keeps this honest —
+# the image gets the same build that was tested, not whatever is newest.
+FROM node:24-alpine AS native
+WORKDIR /native
+COPY package-lock.json ./
+RUN node -e "const lock=require('./package-lock.json');\
+const at=(name)=>name+'@'+lock.packages['node_modules/'+name].version;\
+console.log([at('@resvg/resvg-js'), at('sharp')].join(' '))" > spec \
+ && npm install --omit=dev --no-audit --fund=false $(cat spec) \
+ && rm -f spec package-lock.json package.json
+
 # ------------------------------------------------------------- runtime ------
 FROM node:24-alpine AS runtime
 WORKDIR /app
@@ -46,8 +63,8 @@ RUN addgroup -g 10001 -S c360 \
  && mkdir -p /app/var/storage \
  && chown -R 10001:10001 /app/var
 
-# Bundled application. `pg` is inlined by esbuild; nothing else is needed at
-# runtime, so no node_modules directory is shipped at all.
+# The packages the bundle could not inline: compiled `.node` binaries.
+COPY --from=native --chown=10001:10001 /native/node_modules ./node_modules
 COPY --from=build --chown=10001:10001 /app/apps/api/dist ./dist
 # Migrations stay plain reviewable .sql files and are read at runtime.
 COPY --chown=10001:10001 apps/api/db ./db

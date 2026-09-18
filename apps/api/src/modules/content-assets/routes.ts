@@ -9,6 +9,8 @@ import { authenticate, currentUser } from '../../core/http/authenticate.js';
 import { assets } from '../../core/db/schema.js';
 import { AppError } from '../../core/errors/app-error.js';
 import { buildEmailHtml } from '../../core/render/email-html.js';
+import { renderDossierDocx } from '../../core/render/dossier-docx.js';
+import { renderDossierPdf } from '../../core/render/dossier-pdf.js';
 
 const labelParams = z.object({ labelId: z.uuid() });
 const campaignParams = labelParams.extend({ campaignId: z.uuid() });
@@ -108,6 +110,7 @@ export const contentRoutes: FastifyPluginAsync = async (app) => {
         originKind: body.originKind,
         originRefId: body.originRefId,
         ctaUrl: body.ctaUrl,
+        personaVersionId: body.personaVersionId,
       },
       requestId: request.id,
       clientAddress: request.socket.remoteAddress,
@@ -281,6 +284,72 @@ export const contentRoutes: FastifyPluginAsync = async (app) => {
         .header('x-content-type-options', 'nosniff')
         .header('cache-control', 'private, no-store')
         .send(html);
+    },
+  );
+
+  /**
+   * One piece of content as a document, to keep or to hand over.
+   *
+   * ## What is in it
+   *
+   * The label and the course it was made for, who asked for it and when, the
+   * audience it was written for with everything the system knows about that
+   * audience, the instruction it was written from, and then the text itself.
+   * The parts are assembled once (`dossier.ts`) and only the file format
+   * differs between these two routes.
+   *
+   * ## Built on request, not stored
+   *
+   * There is no dossier row and no file in storage. The document is a view of
+   * the piece and everything around it, and all of that changes — a persona is
+   * revised, a piece is approved. A stored file would start disagreeing with
+   * the product the day after it was written, and nobody would know which of
+   * the two was right. Building it per request costs a few hundred
+   * milliseconds and cannot go stale.
+   *
+   * A read, so `content:read` is enough: a viewer may take away what they are
+   * already allowed to look at.
+   */
+  app.get(
+    '/labels/:labelId/content/:assetId/dossier.docx',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const user = currentUser(request);
+      const { labelId, assetId } = assetParams.parse(request.params);
+      const dossier = await services.content.dossierFor(
+        db, user, labelId, assetId, new Date().toISOString(),
+      );
+      const file = await renderDossierDocx(dossier);
+      return reply
+        .header('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        .header('content-length', String(file.byteLength))
+        // The name is folded to letters, digits and hyphens when the dossier is
+        // built, so it cannot carry a quote, a slash or a newline into this header.
+        .header('content-disposition', `attachment; filename="${dossier.fileName}.docx"`)
+        // A draft of one label, often unapproved: never in a shared cache.
+        .header('cache-control', 'private, no-store')
+        .header('x-content-type-options', 'nosniff')
+        .send(file);
+    },
+  );
+
+  app.get(
+    '/labels/:labelId/content/:assetId/dossier.pdf',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const user = currentUser(request);
+      const { labelId, assetId } = assetParams.parse(request.params);
+      const dossier = await services.content.dossierFor(
+        db, user, labelId, assetId, new Date().toISOString(),
+      );
+      const file = Buffer.from(await renderDossierPdf(dossier));
+      return reply
+        .header('content-type', 'application/pdf')
+        .header('content-length', String(file.byteLength))
+        .header('content-disposition', `attachment; filename="${dossier.fileName}.pdf"`)
+        .header('cache-control', 'private, no-store')
+        .header('x-content-type-options', 'nosniff')
+        .send(file);
     },
   );
 

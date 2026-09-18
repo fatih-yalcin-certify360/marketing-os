@@ -569,6 +569,46 @@ function Studio(props: { label: LabelSummary }): ReactNode {
               asset={selected.asset}
             />
 
+            {/*
+              The whole piece as one file, to keep or to hand over.
+
+              A plain link and not a fetch: the document is a GET with an id in
+              its path, the browser can do the download itself, and it then
+              also works when the tab is restored. The server builds it per
+              request, so there is nothing to wait for and nothing to refresh.
+            */}
+            <section className="os-panel">
+              <div className="os-panel__head">
+                <div>
+                  <h2 className="os-panel__title">Dit stuk meenemen</h2>
+                  <p className="os-panel__sub">Als één document, met alles eromheen</p>
+                </div>
+              </div>
+              <div className="os-panel__body">
+                <p className="c360-text-muted">
+                  De doelgroep waarvoor het geschreven is, de opdracht die je gaf en de tekst zelf —
+                  plus voor welk label en welke opleiding, door wie en wanneer. Word om in door te
+                  werken, PDF om te versturen.
+                </p>
+                <div className="c360-row">
+                  <a
+                    className="c360-button c360-button--secondary"
+                    href={`/api/v1/labels/${label.id}/content/${selected.asset.id}/dossier.docx`}
+                    download
+                  >
+                    Download als Word
+                  </a>
+                  <a
+                    className="c360-button c360-button--ghost"
+                    href={`/api/v1/labels/${label.id}/content/${selected.asset.id}/dossier.pdf`}
+                    download
+                  >
+                    Download als PDF
+                  </a>
+                </div>
+              </div>
+            </section>
+
             {selected.kind === 'loose' && canEdit && (
               <AttachToCampaign
                 labelId={label.id}

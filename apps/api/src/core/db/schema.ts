@@ -476,6 +476,8 @@ export const contentAssetVersions = pgTable(
     /** Where a standalone piece came from: a finding, a card, or a person. */
     originKind: text('origin_kind'),
     originRefId: uuid('origin_ref_id'),
+    /** The requester's own sentence this piece was written from; see migration 0030. */
+    instructionNl: text('instruction_nl'),
     personaVersionIds: jsonb('persona_version_ids').notNull().default([]),
     warnings: jsonb('warnings').notNull().default([]),
     /**

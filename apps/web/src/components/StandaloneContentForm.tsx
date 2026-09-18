@@ -9,7 +9,7 @@ import {
 } from '@c360/contracts';
 import { Button, Card, Field, Icon, Notice } from '@c360/ui';
 import { IMAGE_CHANNELS } from '@c360/contracts';
-import { useCourses, useCreateStandaloneContent } from '../api/campaign-queries.js';
+import { useCourses, useCreateStandaloneContent, usePersonas } from '../api/campaign-queries.js';
 
 /**
  * One piece of content, outside any campaign.
@@ -48,7 +48,7 @@ export function StandaloneContentForm(props: {
 }): ReactNode {
   const courses = useCourses(props.labelId);
   const create = useCreateStandaloneContent(props.labelId);
-  const ids = { course: useId(), channel: useId(), stage: useId(), angle: useId(), cta: useId() };
+  const ids = { course: useId(), channel: useId(), stage: useId(), angle: useId(), cta: useId(), persona: useId() };
 
   const options = courses.data?.items ?? [];
   const [courseVersionId, setCourseVersionId] = useState(props.seed?.courseVersionId ?? '');
@@ -56,9 +56,11 @@ export function StandaloneContentForm(props: {
   const [stage, setStage] = useState<FunnelStage | ''>(props.seed?.stage ?? '');
   const [angleNl, setAngleNl] = useState(props.seed?.angleNl ?? '');
   const [ctaUrl, setCtaUrl] = useState('');
+  const [personaVersionId, setPersonaVersionId] = useState('');
   const [queued, setQueued] = useState<JobSummary | null>(null);
 
   const chosenCourse = courseVersionId === '' ? (options[0]?.course.id ?? '') : courseVersionId;
+  const personas = usePersonas(props.labelId, chosenCourse === '' ? undefined : chosenCourse);
   const tooShort = angleNl.trim().length < 10;
   const withImage = IMAGE_CHANNELS.includes(channel);
 
@@ -162,6 +164,43 @@ export function StandaloneContentForm(props: {
         )}
       </Field>
 
+      {/*
+        Who it is for.
+        
+        A campaign writes for the audiences its briefing chose; a loose piece
+        had nobody, so every one of them was written for the course in general.
+        Optional, because a label that has no persona yet should still be able
+        to make something (2026-09-17).
+      */}
+      <Field
+        label="Voor welke doelgroep?"
+        id={ids.persona}
+        hint={
+          personas.data?.items.length === 0
+            ? 'Er zijn nog geen doelgroepen voor deze opleiding. Het stuk wordt dan voor de opleiding in het algemeen geschreven.'
+            : 'Het stuk wordt geschreven vanuit de behoefte, de drempels en de keuzecriteria van deze doelgroep.'
+        }
+      >
+        {(fieldProps) => (
+          <select
+            {...fieldProps}
+            className="c360-select"
+            value={personaVersionId}
+            disabled={personas.isPending || personas.data?.items.length === 0}
+            onChange={(event) => {
+              setPersonaVersionId(event.target.value);
+            }}
+          >
+            <option value="">Geen specifieke doelgroep</option>
+            {(personas.data?.items ?? []).map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
       <Field
         label="Fase"
         id={ids.stage}
@@ -236,6 +275,7 @@ export function StandaloneContentForm(props: {
             create.mutate(
               {
                 courseVersionId: chosenCourse,
+                personaVersionId: personaVersionId === '' ? null : personaVersionId,
                 channel,
                 stage: stage === '' ? null : stage,
                 angleNl: angleNl.trim(),

@@ -3565,3 +3565,254 @@ mening niet.
 
 Zichtbaar effect: de volledige-funnelketen maakt nu acht stukken in plaats van
 tien.
+
+## Eén tekst, alle doelgroepen die erin staan — 17 september 2026
+
+Persona-onderzoek beschrijft zelden één persoon. Het CROV-materiaal noemt een
+HR-adviseur, een casemanager bij een arbodienst, een zij-instromer, een
+leidinggevende en een arbeidsdeskundige — en eindigt met de opmerking dat
+daar drie tot vijf subpersona's uit te halen zijn.
+
+De extractie deed dat niet. De prompt zei letterlijk: *"Bij meerdere doelgroepen
+neem alleen de eerste duidelijk beschreven doelgroep en benoem die beperking bij
+q36."*
+
+Dat was de verkeerde helft van een goed instinct. Verschillende mensen
+samenvoegen tot één fictieve persoon is werkelijk slecht — maar het antwoord op
+meerdere doelgroepen is meerdere persona's, niet één en een excuus.
+
+### Wat er nu gebeurt
+
+`personaTextExtraction` draagt een lijst. Elke persona heeft een eigen naam in
+de woorden die de tekst zelf gebruikt, een zin die zegt waarin deze zich van de
+andere onderscheidt, een eigen set antwoorden en eigen citaten. Die laatste
+regel is wat ze uit elkaar houdt: de letterlijke-fragmentcontrole draait per
+persona, dus een citaat dat bij de zij-instromer hoort kan niet stilletjes onder
+de leidinggevende belanden.
+
+Het samenvoegverbod staat er nog, scherper dan eerst: twijfel je of twee
+beschrijvingen dezelfde persoon zijn, houd ze dan samen.
+
+Twee voorstellen die inhoudelijk vrijwel gelijk zijn, zijn één persona die het
+model in tweeën heeft geknipt. De bouwer vergelijkt ze en zegt het — goedkoper
+dan iemand beide laten opslaan en later ontdekken dat hun campagnes identiek
+zijn.
+
+### De kaart vulde zichzelf niet helemaal
+
+Twee velden op de campagnekaart konden niet uit de vragenlijst komen en werden
+daarom nooit ingevuld.
+
+De **naam** was het antwoord op q01, de rol. Bij één persona valt dat niet op;
+bij vijf uit dezelfde tekst heten ze dan allemaal naar hun functie en lezen ze
+hetzelfde. De naam komt nu van het model, uit de woorden van de tekst.
+
+De **relatie met de opleiding** was een vaste zin: "moet nog worden
+gecontroleerd". Dat is geen uitspraak over deze doelgroep, en hij stond er bij
+elke persona. Het model schrijft hem nu, en de opleidingskaart reist mee zodat
+hij ergens op rust. Staat er in die kaart niets over, dan blijft de eerlijke
+zin staan in plaats van dat er iets wordt verzonnen.
+
+De kaart wordt verder nog steeds zonder modelaanroep uit de vragenlijst gebouwd,
+en dat blijft zo: dan kan hij niets beweren wat de antwoorden niet zeggen. Wat
+de tekst niet zegt, blijft "Nog onbekend — aanvullen bij controle".
+
+### In het scherm
+
+Alle voorstellen staan onder elkaar, elk met een vinkje. *In formulier
+overnemen* opent er één om aan te sleutelen, zoals eerst. *Aangevinkte persona's
+opslaan* bewaart de aangevinkte concepten ongewijzigd — een tekst met vijf
+doelgroepen is anders vijf keer een formulier invullen.
+
+Opslaan gebeurt één voor één en stopt bij de eerste weigering; wat al bewaard
+is, is bewaard, en het scherm zegt hoeveel.
+
+Gemeten op het echte CROV-materiaal: vijf persona's, elk met een eigen
+onderscheid en 9 tot 14 van de 36 vragen ingevuld uit de tekst.
+
+## Een losse uiting schrijf je voor iemand — 17 september 2026
+
+Een losse uiting is de snelle weg: geen campagne, geen flow, één blog, mail of
+advertentietekst. Die weg liep alleen langs de doelgroep heen. In
+`generateStandalone` stond letterlijk `personas: []` in de promptcontext, dus
+elke losse uiting werd geschreven voor de opleiding in het algemeen — terwijl er
+persona's klaarstonden die voor campagnes wél worden meegegeven. Hetzelfde
+model, dezelfde opleiding, maar de ene tekst wist voor wie hij was en de andere
+niet.
+
+### Wat er nu gebeurt
+
+In het formulier staat een veld **Voor welke doelgroep?**, met de persona's van
+het gekozen label erin en "Geen specifieke doelgroep" als standaard. Kies je er
+een, dan reist de persona mee tot in de prompt: naam, behoefte, bezwaren,
+motivatie — dezelfde kaart die een campagne gebruikt.
+
+De keuze blijft optioneel. Een losse uiting is soms juist algemeen, en een veld
+dat je moet invullen om iets kleins te maken haalt de snelheid eruit die het
+hele scherm bestaat om te leveren.
+
+### Waarom het een id is en geen tekst
+
+Het formulier stuurt een `personaVersionId`, geen naam en geen omschrijving. De
+server zoekt die op binnen het label van de aanvraag; hoort hij daar niet,
+dan volgt een weigering (`persona_version niet gevonden`) en geen stille val
+terug op "dan maar zonder doelgroep". Een id van een ander label mag geen tekst
+opleveren die eruitziet alsof hij klopt, en wat de client meestuurt over wie
+iets is, is nooit het bewijs dat hij het mag gebruiken.
+
+De gekozen persona wordt ook vastgelegd op de bewaarde uiting
+(`personaVersionIds`), zodat later te zien is waarvoor een tekst geschreven is.
+Zonder dat is een losse uiting een tekst zonder herkomst, en dan is de enige
+manier om erachter te komen: opnieuw lezen en raden.
+
+De taak zelf accepteert het veld als optioneel met `null` als standaard, dus
+opdrachten die al in de wachtrij stonden voordat dit bestond blijven gewoon
+draaien.
+
+### Gecontroleerd
+
+Twee integratietests: een uiting die met een gekozen doelgroep wordt gemaakt —
+waarbij wordt nagegaan dat naam en behoefte van die persona daadwerkelijk in de
+modelcontext terechtkomen en dat de bewaarde uiting de persona noemt — en een
+uiting met een persona van een ander label, die wordt geweigerd.
+
+## Eén uiting als één document — 17 september 2026
+
+Content leefde alleen in het product. Wilde je een collega laten zien wat er
+gemaakt is, dan stuurde je een link — en dan had die collega een account, een
+label en een scherm nodig — of je plakte de tekst in een mail, en onderweg viel
+alles eraf wat er omheen stond: voor wie het geschreven was, wat je gevraagd
+had, welke versie het is en dat een model het schreef.
+
+Elke uiting is nu te downloaden als **Word** of **PDF**: één document met de
+hele vastlegging.
+
+### Wat erin staat, in deze volgorde
+
+1. **Waar dit over gaat** — label, opleiding met code, kanaal, funnelfase,
+   doelgroep, campagne of "losse uiting", wie het maakte met naam en e-mail,
+   wanneer, versie, status en of het door AI of door een mens geschreven is.
+   Daaronder in kleine letters wat de status betekent, en hoeveel
+   aandachtspunten er zijn.
+2. **Voor wie dit geschreven is** — de persona, volledig: samenvatting,
+   behoefte, drijfveren, drempels, keuzecriteria, relatie met de opleiding,
+   oriëntatie per kanaal met bron of de melding dat het een aanname is,
+   aannames, onderbouwing, en de beantwoorde vragen uit het doelgroeponderzoek
+   met het bronfragment erbij. Was er geen doelgroep gekozen, dan staat dat er,
+   in plaats van een lege sectie.
+3. **Wat er gevraagd is** — de opdracht, letterlijk zoals hij is ingevoerd.
+4. **De uiting** — de tekst in de vorm die het kanaal echt heeft: een blog in
+   leesvolgorde met titel, direct antwoord, intro, secties, de bruggenzin op de
+   plek waar hij hoort, voorbeeldsituatie, FAQ en afsluiting; een
+   paginawijziging als "schrijf dit / in plaats van dit / waarom"; een
+   advertentie als koppen, beschrijvingen en zoektermen; een post of mail als
+   openingsregel, tekst, hashtags en call to action.
+5. **Aandachtspunten en herkomst** — de kanaalcontrole, en de versies waaruit
+   dit stuk is voortgekomen: opleidingskaart, merkprofiel, briefing, concept,
+   persona's, promptversie en de interne id.
+
+### De opdracht werd niet bewaard
+
+De zin die je typt bij een losse uiting ging het model in en werd daarna
+weggegooid: hij stond alleen in de wachtrijregel van de taak die de uiting
+schreef, en dat is werkgeheugen, geen vastlegging.
+
+Migratie `0030_content_instruction.sql` voegt de kolom toe en haalt hem terug
+waar dat kan — niet door te reconstrueren, maar omdat de taakregel de
+letterlijke zin bevat en het resultaat de id van de uiting die eruit kwam.
+Daarna wordt hij doorgegeven aan elke volgende versie: een handmatige aanpassing
+en een AI-herziening schrijven allebei een nieuwe rij, en geen van beide
+verandert wat er gevraagd was. Op de ontwikkelomgeving kwamen zo 2 van de 4
+bestaande losse uitingen weer aan hun opdracht; bij de rest is de taakregel
+opgeruimd en zegt het dossier dat de opdracht niet is vastgelegd.
+
+### Waarom het twee bestanden zijn en één model
+
+`modules/content-assets/dossier.ts` bepaalt de inhoud — één pure functie,
+zonder bestandsformaat in zicht. `core/render/dossier-docx.ts` en
+`core/render/dossier-pdf.ts` bepalen alleen hoe een kop eruitziet, nooit of er
+een kop is. Anders zit een correctie in de ene vorm wel en in de andere niet.
+
+Word omdat mensen er iets mee dóen: een alinea overnemen, de persona
+doorsturen, in de tekst strepen. PDF omdat je die verstuurt en hij er bij
+iedereen hetzelfde uitziet.
+
+### Twee dingen die eerlijk moesten blijven
+
+Het lettertype van een standaard-PDF kent Nederlands volledig, maar geen pijl,
+vinkje of emoji. In plaats van een Unicode-lettertype in de bundel te leggen
+(een megabyte, plus een licentievraag) worden die tekens omgezet naar hun
+gewone equivalent — een pijl wordt `->` — en wat overblijft wordt weggelaten
+**met een melding op de eerste pagina**: hoeveel tekens, en dat de Word-versie
+de tekst ongewijzigd bevat. Een stille vervanging in een document waaruit
+geciteerd wordt, is precies wat je niet wilt.
+
+En het dossier wordt per aanvraag gebouwd, niet opgeslagen. Een persona wordt
+herzien, een uiting wordt goedgekeurd; een bewaard bestand zou de dag erna al
+iets anders beweren dan het product, en niemand zou weten welke van de twee
+klopt.
+
+### Grenzen
+
+Het document is een weergave, geen goedkeuring — dat staat er ook in. Beelden
+bij een uiting zitten er niet in; die staan bij de uiting in het systeem. En de
+tekst is niet extern geverifieerd: cijfers, voorwaarden en erkenningen horen
+tegen de bron gecontroleerd te worden voordat er iets mee naar buiten gaat.
+
+## Wie deze doelgroep heeft gemaakt — 17 september 2026
+
+Een persona bepaalt waar elke campagne, elk stuk content en elke kanaalkeuze op
+mikt. Zegt er een iets verrassends, dan is de vraag altijd dezelfde: wie heeft
+dit geschreven, en waarop?
+
+Het antwoord stond er al. Elke bewerking, elke door AI ingevulde vragenlijst,
+elke overname in de bibliotheek en elke goedkeuring schreef een rij weg mét
+auteur en tijdstip — vanaf de eerste versie van het product. Alleen kon je het
+niet lezen: de lijst toont de nieuwste versie per doelgroep, en alles daarachter
+was vastgelegd en onzichtbaar. Dat is voor iedereen die geen SQL schrijft
+hetzelfde als niet vastgelegd.
+
+### Wat het scherm nu toont
+
+Boven aan een doelgroep staat **Herkomst**: aangemaakt door wie en wanneer,
+laatst gewijzigd door wie en wanneer, goedgekeurd door wie en wanneer. Daaronder
+is de volledige lijst uit te klappen: elke versie met wat het wás (uit een tekst
+gehaald, door AI voorgesteld, vragenlijst aangevuld, met de hand aangepast,
+overgenomen in de bibliotheek), wie het opsloeg, welke prompt eraan te pas kwam,
+en **welke velden verschillen van de versie ervoor**.
+
+Dat laatste wordt vergeleken, niet opgeslagen. Zou elke schrijfweg zelf moeten
+noteren wat er veranderde, dan levert de weg die het vergeet een versie op die
+eruitziet alsof er niets gebeurd is. Vergelijken kan dat niet vergeten. Het zegt
+ook precies wat het kan zien: *dat* de behoefte veranderde, niet of het een
+verbetering was.
+
+Een auteur wiens account is verwijderd leest als "Onbekende gebruiker" en een
+rij van voor deze vastlegging als "Niet vastgelegd" — dat een wijziging is
+gedaan door iemand die we niet meer kunnen noemen, hoort in het spoor thuis.
+
+### Wat onderweg aan het licht kwam
+
+De service kon een persona goedkeuren sinds de eerste versie: hij zet de
+reviewstatus en schrijft een goedkeuringsrij die aan precies die versie hangt.
+Alleen riep niets die aan. Er was geen route en geen knop, dus **geen enkele
+doelgroep in het product kon worden goedgekeurd** en het recht `persona:approve`
+gaf niets. Dat viel op doordat de tegel "Goedgekeurd door" nooit gevuld kon
+raken.
+
+Nu bestaat de route en staat de knop in het scherm, voor de rollen die het recht
+al hadden. De goedkeuring hangt aan de versie en niet aan de doelgroep: v2
+goedkeuren zegt niets over v3 — daar is het versienummer op een goedkeuring voor.
+
+### Ook in het dossier
+
+Het downloadbare dossier van een uiting noemt bij de doelgroep nu ook wie die
+heeft vastgelegd. Een dossier wordt buiten het product gelezen, waar "wie heeft
+dit bedacht" niet aan te klikken is.
+
+### Kosten
+
+Eén verzoek per doelgroep, opgehaald wanneer het paneel in beeld is en niet bij
+de lijst — een overzicht toont er tientallen. Binnen dat verzoek drie queries:
+de versies, de mensen, de goedkeuringen. Een doelgroep met negen versies zou
+anders negentien queries zijn voor een paneel dat niemand twee keer opent.

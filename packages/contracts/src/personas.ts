@@ -203,3 +203,62 @@ export const personaAdaptation = z.object({
   campaignAngleNl: z.string().max(1_000),
 });
 export type PersonaAdaptation = z.infer<typeof personaAdaptation>;
+
+/**
+ * Who did something, as our own user record has them.
+ *
+ * A name and a work address of a colleague, which is what a trail is for — you
+ * cannot ask a uuid why it changed the wording. Null where the record is gone
+ * or the row predates the field: a missing person is stated, not guessed.
+ */
+export const actorRef = z.object({
+  userId: uuid.nullable(),
+  displayName: z.string().min(1).max(200),
+  email: z.string().max(320).nullable(),
+});
+export type ActorRef = z.infer<typeof actorRef>;
+
+/**
+ * One version of a persona, with who made it and what changed.
+ *
+ * ## Why this is a separate shape
+ *
+ * Every change to a persona already wrote a new row — editing, filling the
+ * questionnaire, promoting to the library and approving all go through the
+ * same versioned path. What was missing was any way to *read* that: the list
+ * returns the newest version per identity, so the nine versions behind it, and
+ * the people who wrote them, existed and were invisible.
+ *
+ * ## What `changedFieldsNl` is, and is not
+ *
+ * The fields whose value differs from the previous version, compared here and
+ * not stored. Comparing is honest about what it can see: it says *that* the
+ * need changed, not that the change was an improvement, and it cannot see a
+ * change that was made and then undone in the same step.
+ */
+export const personaHistoryEntry = z.object({
+  versionId: uuid,
+  version: versionNumber,
+  createdAt: isoTimestamp,
+  /** Who saved this version. Null for a row written before this was recorded. */
+  by: actorRef.nullable(),
+  origin: dataOrigin,
+  reviewState,
+  /** Which prompt produced it, when a model was involved. */
+  promptVersion: z.string().max(40).nullable(),
+  /** Dutch names of the fields that differ from the previous version. */
+  changedFieldsNl: z.array(z.string().min(2).max(80)).max(24),
+  /** What this version was, in one phrase, derived from what is recorded. */
+  actionNl: z.string().min(3).max(200),
+  approvedBy: actorRef.nullable(),
+  approvedAt: isoTimestamp.nullable(),
+  approvalNoteNl: z.string().max(1_000).nullable(),
+});
+export type PersonaHistoryEntry = z.infer<typeof personaHistoryEntry>;
+
+/** Every version of one persona identity, newest first. */
+export const personaHistory = z.object({
+  personaKey: z.string().min(1).max(200),
+  items: z.array(personaHistoryEntry),
+});
+export type PersonaHistory = z.infer<typeof personaHistory>;

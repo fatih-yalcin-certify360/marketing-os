@@ -1,7 +1,7 @@
 import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import pino from 'pino';
-import { EnvValidationError, loadServerEnv } from '@c360/config';
+import { EnvValidationError, loadServerEnv, prettyTransport } from '@c360/config';
 import { createDatabase } from '@c360/api/db';
 import { AuditService } from '@c360/api/audit';
 import { BudgetService, JobQueue } from '@c360/api/jobs';
@@ -33,9 +33,7 @@ async function main(): Promise<void> {
   const log = pino({
     level: env.LOG_LEVEL,
     base: { component: 'worker' },
-    ...(env.NODE_ENV === 'development'
-      ? { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } }
-      : {}),
+    ...prettyTransport(env.NODE_ENV),
   });
 
   const workerId = `${hostname()}-${randomUUID().slice(0, 8)}`;

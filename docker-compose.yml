@@ -8,6 +8,14 @@
 #     is bound to 127.0.0.1 so it is never reachable from the network;
 #   - secrets come from `.env`, which is git-ignored — never from the image.
 #
+# The schema is applied automatically; demo data is not. A fresh stack answers
+# every request with "no organization row present; run db:seed" until you run:
+#
+#   docker compose run --rm --entrypoint node migrate dist/seed.js
+#
+# Deliberately a separate step: a stack that seeds itself would also reseed a
+# database somebody was using.
+#
 # This file is for development. A production deployment adds TLS termination,
 # the Entra ID authenticating proxy, and encrypted storage/backups; see
 # docs/security/production-readiness.md.
@@ -28,7 +36,17 @@ services:
       # Loopback only. Binding 0.0.0.0 would expose the database to the LAN.
       - '127.0.0.1:5432:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # One mount at /var/lib/postgresql, not at .../data.
+      #
+      # PostgreSQL 18's official image changed this: it places the cluster in a
+      # versioned subdirectory so `pg_upgrade --link` can work across a version
+      # bump without crossing a mount boundary. Mounting the old path leaves the
+      # cluster inside the container instead of on the volume — the database
+      # would look fine and lose everything on the next `docker compose down`.
+      # The image refuses to start rather than let that happen, which is how
+      # this was found: the first time anybody actually ran the stack
+      # (2026-09-17).
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U c360 -d c360_dev']
       interval: 5s
